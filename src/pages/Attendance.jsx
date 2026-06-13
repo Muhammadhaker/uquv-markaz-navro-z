@@ -1,25 +1,46 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Save, CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { CalendarDays, Save, CheckCircle2, XCircle, Loader2, AlertCircle, UserCheck } from 'lucide-react';
 
 export default function Attendance() {
-  const [groups] = useState(['Ingliz tili', 'Matematika', 'Ona tili']); // Tizimdagi guruhlar
-  const [selectedGroup, setSelectedGroup] = useState('Ingliz tili');
+  const [students, setStudents] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  
-  // Haqiqiy talabalar ro'yxati (Buni keyinchalik API dan filtrlash mumkin)
-  const [students, setStudents] = useState([
-    { _id: 'st_1', name: 'Aliyev Vali', group: 'Ingliz tili' },
-    { _id: 'st_2', name: 'Karimova Lola', group: 'Ingliz tili' },
-    { _id: 'st_3', name: 'Mamatov Jasur', group: 'Matematika' },
-  ]);
 
   const [attendanceRecords, setAttendanceRecords] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
 
-  // Guruh yoki Sana o'zgarganda bazadan eski davomatni tekshirib yuklash
+  // 1. Bazadan HAQIQIY o'quvchilarni va guruhlarni yuklab olish
   useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const res = await fetch('/api/students');
+        const data = await res.json();
+        
+        if (data.success && data.data) {
+          setStudents(data.data);
+          
+          // O'quvchilar ro'yxatidan faqat takrorlanmas guruh nomlarini ajratib olish
+          const uniqueGroups = [...new Set(data.data.map(s => s.group))];
+          setGroups(uniqueGroups);
+          
+          if (uniqueGroups.length > 0) {
+            setSelectedGroup(uniqueGroups[0]); // Avtomatik 1-guruhni tanlash
+          }
+        }
+      } catch (error) {
+        setStatusMessage({ type: 'error', text: 'O`quvchilarni yuklashda server xatosi yuz berdi.' });
+      }
+    };
+    fetchStudents();
+  }, []);
+
+  // 2. Guruh yoki Sana o'zgarganda bazadan ESKI davomatni tekshirib yuklash
+  useEffect(() => {
+    if (!selectedGroup) return;
+
     const fetchExistingAttendance = async () => {
       setLoading(true);
       setStatusMessage({ type: '', text: '' });
@@ -28,17 +49,15 @@ export default function Attendance() {
         const result = await res.json();
         
         if (result.success && result.data) {
-          // Agar davomat mavjud bo'lsa, uni holatga (state) yuklaymiz
           const mapped = {};
           result.data.records.forEach(r => { mapped[r.studentId] = r.status; });
           setAttendanceRecords(mapped);
-          setStatusMessage({ type: 'info', text: 'Ushbu kun uchun davomat aniqlandi va yuklandi.' });
+          setStatusMessage({ type: 'info', text: 'Ushbu kun uchun davomat bazadan yuklandi.' });
         } else {
-          // Agar davomat yo'q bo'lsa, tozalaymiz
           setAttendanceRecords({});
         }
       } catch (err) {
-        setStatusMessage({ type: 'error', text: 'Maʼlumotlarni yuklashda xatolik yuz berdi.' });
+        setStatusMessage({ type: 'error', text: 'Davomatni tekshirishda xatolik yuz berdi.' });
       } finally {
         setLoading(false);
       }
@@ -52,11 +71,11 @@ export default function Attendance() {
   };
 
   const handleSave = async () => {
-    // Filtrlangan guruh o'quvchilari
+    // Tanlangan guruhdagi o'quvchilarni ajratish
     const groupStudents = students.filter(s => s.group === selectedGroup);
     
     // Hammani belgilaganini tekshirish (Validation)
-   const unmarked = groupStudents.filter(s => !attendanceRecords[s._id]);
+    const unmarked = groupStudents.filter(s => !attendanceRecords[s._id]);
     if (unmarked.length > 0) {
       setStatusMessage({ type: 'error', text: `Iltimos, barcha o'quvchilarni belgilang! (${unmarked.length} ta qoldi)` });
       return;
@@ -85,10 +104,10 @@ export default function Attendance() {
       });
       const result = await res.json();
 
-      if (result.success) {
+      if (res.ok && result.success) {
         setStatusMessage({ type: 'success', text: 'Davomat maʼlumotlar bazasiga muvaffaqiyatli saqlandi! ✅' });
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || "Server xatosi");
       }
     } catch (err) {
       setStatusMessage({ type: 'error', text: 'Saqlashda xatolik: ' + err.message });
@@ -97,11 +116,12 @@ export default function Attendance() {
     }
   };
 
+  // Faqat joriy tanlangan guruh o'quvchilarini ko'rsatish
   const currentStudents = students.filter(s => s.group === selectedGroup);
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-6">
-      {/* Panel Sozlamalari */}
+      
       <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">
           <div>
@@ -109,8 +129,9 @@ export default function Attendance() {
             <select 
               value={selectedGroup} 
               onChange={(e) => setSelectedGroup(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 min-w-[150px]"
             >
+              {groups.length === 0 && <option>Guruhlar yo'q</option>}
               {groups.map((g, i) => <option key={i} value={g}>{g}</option>)}
             </select>
           </div>
@@ -128,7 +149,7 @@ export default function Attendance() {
 
         <button 
           onClick={handleSave}
-          disabled={saving || loading}
+          disabled={saving || loading || currentStudents.length === 0}
           className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200"
         >
           {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
@@ -136,7 +157,6 @@ export default function Attendance() {
         </button>
       </div>
 
-      {/* Tizim bildirishnomalari */}
       {statusMessage.text && (
         <div className={`p-4 rounded-xl flex items-center gap-3 border text-sm font-medium ${
           statusMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
@@ -147,12 +167,11 @@ export default function Attendance() {
         </div>
       )}
 
-      {/* O'quvchilar Ro'yxati */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
             <Loader2 className="animate-spin text-indigo-600" size={32} />
-            <span className="text-sm font-medium">Baza tekshirilmoqda...</span>
+            <span className="text-sm font-medium">Davomat tekshirilmoqda...</span>
           </div>
         ) : currentStudents.length > 0 ? (
           <div className="divide-y divide-slate-50">
@@ -162,7 +181,7 @@ export default function Attendance() {
                 <div key={student._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-5 hover:bg-slate-50/50 transition-colors gap-4">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center shadow-sm">
-                      {student.name.charAt(0)}
+                      {student.name.charAt(0).toUpperCase()}
                     </div>
                     <span className="font-semibold text-slate-800 text-base">{student.name}</span>
                   </div>
@@ -194,7 +213,9 @@ export default function Attendance() {
             })}
           </div>
         ) : (
-          <div className="p-12 text-center text-slate-400 font-medium">Bu guruhda hozircha o'quvchilar mavjud emas.</div>
+          <div className="p-12 text-center text-slate-400 font-medium">
+            Siz tanlagan guruhda o'quvchilar yo'q. Avval "Guruhlar" sahifasidan o'quvchi qo'shing.
+          </div>
         )}
       </div>
     </div>
