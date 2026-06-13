@@ -7,10 +7,10 @@ const connectDB = async () => {
 
 // O'quvchi sxemasi
 const studentSchema = new mongoose.Schema({
-  fullName: { type: String, required: true },
+  name: { type: String, required: true },
   phone: { type: String, required: true },
-  groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true },
-  joinDate: { type: Date, default: Date.now }
+  group: { type: String, required: true },
+  addedAt: { type: Date, default: Date.now }
 });
 
 const Student = mongoose.models.Student || mongoose.model('Student', studentSchema);
@@ -18,28 +18,36 @@ const Student = mongoose.models.Student || mongoose.model('Student', studentSche
 export default async function handler(req, res) {
   await connectDB();
 
-  // O'quvchilarni guruh bo'yicha yoki umumiy olish
+  // O'quvchilarni bazadan olib kelish (GET)
   if (req.method === 'GET') {
-    const { groupId } = req.query; // Havolada ?groupId=... bo'lsa
     try {
-      const filter = groupId ? { groupId } : {};
-      const students = await Student.find(filter);
+      const students = await Student.find({}).sort({ addedAt: -1 });
       return res.status(200).json({ success: true, data: students });
     } catch (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  // Yangi o'quvchi qo'shish
+  // Yangi o'quvchi qo'shish (POST)
   if (req.method === 'POST') {
     try {
-      const newStudent = new Student(req.body);
-      await newStudent.save();
+      const newStudent = await Student.create(req.body);
       return res.status(201).json({ success: true, data: newStudent });
     } catch (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  res.status(405).json({ message: "Metod ruxsat etilmagan" });
+  // O'quvchini o'chirish (DELETE)
+  if (req.method === 'DELETE') {
+    try {
+      const { id } = req.body;
+      await Student.findByIdAndDelete(id);
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  res.status(405).json({ message: "Faqat GET, POST va DELETE qabul qilinadi" });
 }
