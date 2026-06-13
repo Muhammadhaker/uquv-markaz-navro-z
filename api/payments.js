@@ -5,13 +5,15 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// To'lov sxemasi
+// Yangilangan To'lov sxemasi
 const paymentSchema = new mongoose.Schema({
-  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
+  studentId: { type: String, required: true }, // ObjectId o'rniga String qildik
+  studentName: { type: String, required: true }, // Dashboardda ismini ko'rsatish uchun
+  groupName: { type: String, required: true }, // Qaysi fan uchun to'layotgani
   amount: { type: Number, required: true },
   paymentType: { type: String, enum: ['Naqd', 'Plastik'], required: true },
-  month: { type: String, required: true }, // Masalan: "Noyabr"
-  adminName: { type: String, required: true }, // Pulni qabul qilgan admin
+  month: { type: String, required: true }, // Kalendardan keladigan sana (Masalan: "2024-05")
+  adminName: { type: String, required: true },
   date: { type: Date, default: Date.now }
 });
 
@@ -20,10 +22,8 @@ const Payment = mongoose.models.Payment || mongoose.model('Payment', paymentSche
 export default async function handler(req, res) {
   await connectDB();
 
-  // Barcha to'lovlarni olish (Bosh admin statistikasi uchun)
   if (req.method === 'GET') {
     try {
-      // Eng oxirgi to'lovlar birinchi chiqishi uchun sort(-1)
       const payments = await Payment.find({}).sort({ date: -1 });
       return res.status(200).json({ success: true, data: payments });
     } catch (error) {
@@ -31,7 +31,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // Yangi to'lovni bazaga yozish (Admin to'lov qabul qilganda)
   if (req.method === 'POST') {
     try {
       const newPayment = new Payment(req.body);
