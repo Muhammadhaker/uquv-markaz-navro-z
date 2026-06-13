@@ -3,15 +3,44 @@ import { X, Loader2, UserPlus } from 'lucide-react';
 
 export default function AddStudentModal({ isOpen, onClose, refreshData }) {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('+998');
+  const [phone, setPhone] = useState('+998 ');
   const [group, setGroup] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
+  // Telefon raqamni avtomatik formatlash (Maska) funksiyasi
+  const handlePhoneChange = (e) => {
+    let input = e.target.value;
+    
+    // 1. Faqat raqamlarni ajratib olamiz
+    let numbers = input.replace(/\D/g, '');
+
+    // 2. Agar 998 bilan boshlansa, uni olib tashlaymiz (biz o'zimiz oldiga qo'yamiz)
+    if (numbers.startsWith('998')) {
+      numbers = numbers.substring(3);
+    }
+
+    // 3. Qismlarga bo'lib, probellar qo'shib chiqamiz
+    let formatted = '+998';
+    if (numbers.length > 0) formatted += ' ' + numbers.substring(0, 2);
+    if (numbers.length > 2) formatted += ' ' + numbers.substring(2, 5);
+    if (numbers.length > 5) formatted += ' ' + numbers.substring(5, 7);
+    if (numbers.length > 7) formatted += ' ' + numbers.substring(7, 9);
+
+    setPhone(formatted);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Raqam to'liq kiritilganini tekshirish (uzunligi 17 ta belgidan iborat bo'lishi kerak: +998 XX XXX XX XX)
+    if (phone.length < 17) {
+      setError("Telefon raqamni to'liq kiritishingiz kerak!");
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -25,10 +54,10 @@ export default function AddStudentModal({ isOpen, onClose, refreshData }) {
       const data = await res.json();
       if (data.success) {
         setName('');
-        setPhone('+998');
+        setPhone('+998 '); // Dastlabki holatga qaytarish
         setGroup('');
-        refreshData(); // Ro'yxatni yangilash
-        onClose(); // Oynani yopish
+        refreshData(); 
+        onClose(); 
       } else {
         setError(data.error || "Xatolik yuz berdi");
       }
@@ -62,8 +91,14 @@ export default function AddStudentModal({ isOpen, onClose, refreshData }) {
 
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Telefon raqam</label>
-            <input type="text" required value={phone} onChange={(e) => setPhone(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="+998901234567" />
+            <input 
+              type="text" 
+              required 
+              value={phone} 
+              onChange={handlePhoneChange} // Yangi funksiyani shu yerga ulaymiz
+              className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium tracking-wide" 
+              placeholder="+998 __ ___ __ __" 
+            />
           </div>
 
           <div>

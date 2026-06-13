@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, CreditCard, Pencil, Trash2, X, Loader2 } from 'lucide-react';
+import { Wallet, TrendingUp, CreditCard, Pencil, Trash2, X, Loader2, CalendarDays } from 'lucide-react';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ payments: [], totalAmount: 0 });
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Oylar uchun state'lar
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState('all'); // 'all' = Barcha oylar
+  
+  // Tahrirlash modali uchun
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editData, setEditData] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Bazadan to'lovlarni yuklash
   const fetchStats = async () => {
     setLoading(true);
     try {
@@ -16,9 +22,16 @@ export default function Dashboard() {
       const data = await res.json();
       
       if (data.success && data.data) {
-        // Xato summa bazaga yozilib qolgan bo'lsa, uni ignor qilamiz
-        const total = data.data.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-        setStats({ payments: data.data, totalAmount: total });
+        setPayments(data.data);
+        
+        // Bazadagi barcha takrorlanmas oylarni ajratib olish (Masalan: "2026-05", "2026-06")
+        const monthsObj = {};
+        data.data.forEach(p => {
+          if (p.month) monthsObj[p.month] = true;
+        });
+        // Oylarni yangisidan eskisiga qarab saralash
+        const uniqueMonths = Object.keys(monthsObj).sort().reverse();
+        setAvailableMonths(uniqueMonths);
       }
     } catch (error) {
       console.error("Xatolik:", error);
@@ -31,6 +44,7 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
+  // O'chirish
   const handleDelete = async (id, studentName) => {
     if (!window.confirm(`${studentName} ning to'lovini haqiqatan ham o'chirmoqchimisiz?`)) return;
     try {
@@ -45,6 +59,7 @@ export default function Dashboard() {
     }
   };
 
+  // Tahrirlash
   const openEdit = (payment) => {
     setEditData({ ...payment });
     setEditModalOpen(true);
@@ -78,19 +93,62 @@ export default function Dashboard() {
     }
   };
 
+  // --- FILTRLASH MANTIQI ---
+  // Tanlangan oy bo'yicha to'lovlarni ajratib olamiz
+  const filteredPayments = selectedMonth === 'all' 
+    ? payments 
+    : payments.filter(p => p.month === selectedMonth);
+
+  // Faqat ajratib olingan to'lovlarning umumiy summasi
+  const totalAmount = filteredPayments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+  // Oyni chiroyli o'zbekcha formatga o'tkazish funksiyasi (Masalan: "2026-06" -> "Iyun, 2026")
+  const formatMonthName = (monthStr) => {
+    if (!monthStr) return '';
+    const [year, month] = monthStr.split('-');
+    const monthNames = {
+      "01": "Yanvar", "02": "Fevral", "03": "Mart", "04": "Aprel",
+      "05": "May", "06": "Iyun", "07": "Iyul", "08": "Avgust",
+      "09": "Sentabr", "10": "Oktabr", "11": "Noyabr", "12": "Dekabr"
+    };
+    return `${monthNames[month]} ${year}`;
+  };
+
   return (
     <div className="p-2">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Umumiy Statistika</h1>
-        <p className="text-slate-500 text-sm mt-1">Markazning holati va oxirgi tranzaksiyalar</p>
+      
+      {/* Sarlavha va Oy Filtr */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Umumiy Statistika</h1>
+          <p className="text-slate-500 text-sm mt-1">Markazning holati va tranzaksiyalar</p>
+        </div>
+        
+        {/* Oy tanlash (Filtr) */}
+        <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+          <CalendarDays className="text-indigo-500" size={20} />
+          <select 
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="bg-transparent font-semibold text-slate-700 outline-none cursor-pointer"
+          >
+            <option value="all">Barcha oylar tarixi</option>
+            {availableMonths.map((m, i) => (
+              <option key={i} value={m}>{formatMonthName(m)}</option>
+            ))}
+          </select>
+        </div>
       </div>
       
+      {/* Tepa qutichalar (Faqat tanlangan oy uchun hisoblanadi) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
+        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200 transition-all">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-indigo-100 text-sm font-medium mb-1">Jami Tushum</p>
-              <h3 className="text-3xl font-bold">{loading ? '...' : stats.totalAmount.toLocaleString()} so'm</h3>
+              <p className="text-indigo-100 text-sm font-medium mb-1">
+                {selectedMonth === 'all' ? 'Jami Tushum' : `${formatMonthName(selectedMonth)}dagi tushum`}
+              </p>
+              <h3 className="text-3xl font-bold">{loading ? '...' : totalAmount.toLocaleString()} so'm</h3>
             </div>
             <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
               <Wallet size={24} className="text-white" />
@@ -98,11 +156,13 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm transition-all">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-slate-500 text-sm font-medium mb-1">Qabul qilingan to'lovlar</p>
-              <h3 className="text-3xl font-bold text-slate-800">{loading ? '...' : stats.payments.length} <span className="text-lg text-slate-400 font-normal">ta</span></h3>
+              <p className="text-slate-500 text-sm font-medium mb-1">To'lov qilganlar soni</p>
+              <h3 className="text-3xl font-bold text-slate-800">
+                {loading ? '...' : filteredPayments.length} <span className="text-lg text-slate-400 font-normal">ta</span>
+              </h3>
             </div>
             <div className="p-3 bg-emerald-50 rounded-xl">
               <TrendingUp size={24} className="text-emerald-500" />
@@ -111,11 +171,20 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Jadval (Faqat tanlangan oyga tegishli odamlar chiqadi) */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-2">
-          <CreditCard className="text-slate-400" size={20} />
-          <h2 className="text-lg font-bold text-slate-800">Oxirgi to'lovlar tarixi</h2>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard className="text-slate-400" size={20} />
+            <h2 className="text-lg font-bold text-slate-800">To'lovlar ro'yxati</h2>
+          </div>
+          {selectedMonth !== 'all' && (
+            <span className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">
+              {formatMonthName(selectedMonth)}
+            </span>
+          )}
         </div>
+        
         <div className="overflow-x-auto min-h-[200px]">
           {loading ? (
             <div className="flex justify-center items-center h-32 text-slate-400">Yuklanmoqda...</div>
@@ -131,14 +200,14 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="text-sm">
-                {stats.payments.length === 0 ? (
-                  <tr><td colSpan="5" className="text-center py-8 text-slate-400">Hozircha to'lovlar yo'q</td></tr>
+                {filteredPayments.length === 0 ? (
+                  <tr><td colSpan="5" className="text-center py-10 text-slate-400 font-medium">Bu oy uchun to'lovlar topilmadi.</td></tr>
                 ) : (
-                  stats.payments.map((p) => (
+                  filteredPayments.map((p) => (
                     <tr key={p._id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-6 py-4 border-b border-slate-50">
                         <div className="font-semibold text-slate-800">{p.studentName}</div>
-                        <div className="text-xs text-slate-400 mt-0.5">{p.month} uchun</div>
+                        <div className="text-xs text-slate-400 mt-0.5">{formatMonthName(p.month)} uchun</div>
                       </td>
                       <td className="px-6 py-4 border-b border-slate-50">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
@@ -169,6 +238,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Tahrirlash Modali */}
       {editModalOpen && editData && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative p-6">

@@ -7,19 +7,16 @@ export default function Groups() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Modallar uchun state
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  // Bazadan o'quvchilarni yuklash funksiyasi
   const fetchStudents = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/students');
       const data = await res.json();
       if (data.success) {
-        // Agar ma'lumot bo'lmasa, qulab tushmasligi uchun bo'sh massiv [] beramiz
         setStudents(data.data || []);
       }
     } catch (error) {
@@ -40,7 +37,6 @@ export default function Groups() {
 
   const deleteStudent = async (id, name) => {
     if(!window.confirm(`${name || "Bu"} o'quvchini ro'yxatdan o'chirmoqchimisiz?`)) return;
-    
     try {
       await fetch('/api/students', {
         method: 'DELETE',
@@ -51,6 +47,16 @@ export default function Groups() {
     } catch (error) {
       alert("O'chirishda xatolik yuz berdi");
     }
+  };
+
+  // Jadvalda raqamni doim chiroyli qilib ko'rsatuvchi funksiya
+  const formatDisplayPhone = (phoneStr) => {
+    if (!phoneStr) return '-';
+    const num = phoneStr.replace(/\D/g, ''); // faqat raqamlarni olamiz
+    if (num.length === 12 && num.startsWith('998')) {
+      return `+998 ${num.slice(3, 5)} ${num.slice(5, 8)} ${num.slice(8, 10)} ${num.slice(10, 12)}`;
+    }
+    return phoneStr; // agar formatga tushmasa, o'zini qaytaradi
   };
 
   return (
@@ -97,13 +103,15 @@ export default function Groups() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100">
-                            {/* Xato bermasligi uchun xavfsiz chaqiruv (?.) */}
                             {student?.name ? student.name.charAt(0).toUpperCase() : 'U'}
                           </div>
                           <span className="font-semibold text-slate-800">{student?.name || 'Ismsiz'}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-slate-600 font-medium">{student?.phone || '-'}</td>
+                      {/* FUNKSIYANI SHU YERDA ISHLATAMIZ */}
+                      <td className="px-6 py-4 text-slate-600 font-medium tracking-wide">
+                        {formatDisplayPhone(student?.phone)}
+                      </td>
                       <td className="px-6 py-4">
                         <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200">
                           {student?.group || 'Guruhsiz'}
@@ -132,7 +140,6 @@ export default function Groups() {
         )}
       </div>
 
-      {/* Modallar */}
       <PaymentModal isOpen={isPaymentOpen} onClose={() => setIsPaymentOpen(false)} student={selectedStudent} />
       <AddStudentModal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} refreshData={fetchStudents} />
     </div>
