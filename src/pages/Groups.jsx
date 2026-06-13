@@ -49,14 +49,25 @@ export default function Groups() {
     }
   };
 
-  // Jadvalda raqamni doim chiroyli qilib ko'rsatuvchi funksiya
+ // Telefon raqamni har qanday holatda chiroyli qilib ko'rsatuvchi funksiya
   const formatDisplayPhone = (phoneStr) => {
     if (!phoneStr) return '-';
-    const num = phoneStr.replace(/\D/g, ''); // faqat raqamlarni olamiz
+    
+    // Faqatgina ichidagi raqamlarni ajratib olamiz (+ yoki probellarni o'chiradi)
+    const num = phoneStr.replace(/\D/g, ''); 
+    
+    // Agar raqamlar soni 12 ta bo'lsa (ya'ni 998901234567 ko'rinishida)
     if (num.length === 12 && num.startsWith('998')) {
       return `+998 ${num.slice(3, 5)} ${num.slice(5, 8)} ${num.slice(8, 10)} ${num.slice(10, 12)}`;
     }
-    return phoneStr; // agar formatga tushmasa, o'zini qaytaradi
+    
+    // Agar tasodifan 998 siz, faqat 9 ta raqam saqlangan bo'lsa (901234567 ko'rinishida)
+    if (num.length === 9) {
+      return `+998 ${num.slice(0, 2)} ${num.slice(2, 5)} ${num.slice(5, 7)} ${num.slice(7, 9)}`;
+    }
+
+    // Agar hech biriga tushmasa, o'zini qaytaradi
+    return phoneStr; 
   };
 
   return (
