@@ -1,12 +1,12 @@
 import mongoose from 'mongoose';
 
-// Bazaga ulanish funksiyasi
+// Bazaga ulanish
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// Admin va Bosh admin sxemasi
+// User sxemasi
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
@@ -16,27 +16,38 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 export default async function handler(req, res) {
-  await connectDB();
-
-  // BAZA BO'SH BO'LSA AVTOMATIK BOSH ADMIN YARATISH QISMI
+  // Avval bazaga ulanamiz
   try {
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      await User.create({
-        username: "Navro'z",
-        password: "Real Madrid",
-        role: "super_admin"
-      });
-      console.log("Dastlabki Bosh Admin (Navro'z) yaratildi!");
-    }
-  } catch (err) {
-    console.error("Admin yaratishda xatolik:", err);
+    await connectDB();
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Bazaga ulanishda xatolik", error: error.message });
   }
 
-  // TIZIMGA KIRISH (LOGIN) SO'ROVINI QABUL QILISH
+  // DOIMIY ADMINLARNI TEKSHIRISH VA YARATISH (Baza bo'sh bo'lishidan qat'iy nazar)
+  try {
+    const defaultUsers = [
+      { username: "Navro'z", password: "Real Madrid", role: "super_admin" },
+      { username: "muhammad", password: "kaneki235", role: "admin" }
+    ];
+
+    for (const dUser of defaultUsers) {
+      // Shu ismli admin bormi yoki yo'qmi tekshiramiz
+      const exists = await User.findOne({ username: dUser.username });
+      if (!exists) {
+        // Yo'q bo'lsa, avtomat yaratamiz
+        await User.create(dUser);
+        console.log(`${dUser.username} yaratildi!`);
+      }
+    }
+  } catch (err) {
+    console.error("Doimiy adminlarni yaratishda xato:", err);
+  }
+
+  // TIZIMGA KIRISH (LOGIN) LOGIKASI
   if (req.method === 'POST') {
     const { username, password } = req.body;
     try {
+      // Kiritilgan login va parol mosligini tekshirish
       const user = await User.findOne({ username, password });
       
       if (user) {
