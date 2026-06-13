@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Loader2, Lock, User } from 'lucide-react';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -21,82 +21,60 @@ export default function Login() {
         body: JSON.stringify({ username, password })
       });
 
-      // Agar server 500 (Baza ishlamayapti) yoki 404 xato qaytarsa
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || `Server xatosi: ${res.status}`);
-      }
-
       const data = await res.json();
-
-      if (data.success) {
-        // Tizimga muvaffaqiyatli kirdi
+      if (res.ok && data.success) {
         localStorage.setItem('userRole', data.role);
         localStorage.setItem('username', data.username);
-        
-        // Roliga qarab yo'naltirish
-        if (data.role === 'super_admin') {
-          navigate('/dashboard', { replace: true });
-        } else {
-          navigate('/groups', { replace: true });
-        }
+        navigate(data.role === 'super_admin' ? '/dashboard' : '/groups', { replace: true });
       } else {
-        // Login yoki parol xato degan javob kelsa
         setError(data.message || "Login yoki parol xato!");
       }
     } catch (err) {
-      console.error("Login jarayonida xatolik:", err);
-      // Asl xatoni ekranga chiqaramiz
-      if (err.message === "Failed to fetch") {
-        setError("API topilmadi. Loyihani 'npm run dev' emas, 'vercel dev' orqali ishga tushiring yoki GitHub'ga yuklang.");
-      } else {
-        setError(err.message);
-      }
+      setError("Server bilan aloqa yo'q. Internetni tekshiring!");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm border border-slate-100">
         
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4 shadow-lg">
-            CRM
+          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
+            <Lock className="text-white" size={32} />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">Tizimga Kirish</h2>
-          <p className="text-sm text-gray-500 mt-1">O'quv markazi boshqaruv paneli</p>
+          <h2 className="text-2xl font-bold text-slate-800">Xush kelibsiz</h2>
+          <p className="text-slate-500 text-sm">CRM tizimiga kirish</p>
         </div>
         
-        {/* Xatolik aniq yoziladigan joy */}
         {error && (
-          <div className="bg-red-50 text-red-700 border border-red-200 p-3 rounded-lg mb-6 text-sm text-center font-medium">
-            ⚠️ {error}
+          <div className="bg-rose-50 text-rose-600 p-3 rounded-xl mb-5 text-sm font-bold text-center">
+            {error}
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Login</label>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="relative">
+            <User className="absolute left-3 top-3.5 text-slate-400" size={18} />
             <input 
               type="text" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              placeholder="Masalan: Navro'z"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none"
+              placeholder="Login"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Parol</label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-3.5 text-slate-400" size={18} />
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              placeholder="••••••••"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none"
+              placeholder="Parol"
               required
             />
           </div>
@@ -104,13 +82,11 @@ export default function Login() {
           <button 
             type="submit"
             disabled={loading}
-            className={`w-full text-white font-semibold py-3 rounded-lg shadow-md transition-all duration-200 
-              ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-200 flex justify-center items-center gap-2"
           >
-            {loading ? 'Tekshirilmoqda...' : 'Tizimga kirish'}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : "Tizimga kirish"}
           </button>
         </form>
-
       </div>
     </div>
   );

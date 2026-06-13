@@ -1,58 +1,47 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, CalendarCheck, UserCheck } from 'lucide-react';
+import { LayoutDashboard, Users, CalendarCheck, UserCheck, X, Menu } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Sidebar() {
+  const [isOpen, setIsOpen] = useState(false);
   const role = localStorage.getItem('userRole');
 
+  const navItems = [
+    { to: "/dashboard", label: "Umumiy statistika", icon: LayoutDashboard, show: role === 'super_admin' },
+    { to: "/groups", label: "Guruhlar va To'lov", icon: Users, show: true },
+    { to: "/attendance", label: "Davomat", icon: CalendarCheck, show: true },
+    { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === 'super_admin' },
+  ];
+
   return (
-    <div className="w-64 bg-slate-900 text-slate-300 min-h-screen flex flex-col shadow-2xl z-10 relative">
-      <div className="h-20 flex items-center justify-center border-b border-slate-800/50">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-600/30">
-            C
-          </div>
-          <span className="text-xl font-bold text-white tracking-wide">CRM TIZIMI</span>
+    <>
+      <button className="md:hidden p-4 text-slate-800 fixed top-0 left-0 z-50" onClick={() => setIsOpen(true)}>
+        <Menu size={24} />
+      </button>
+
+      {/* Overlay (mobil uchun) */}
+      {isOpen && <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setIsOpen(false)} />}
+
+      <div className={`${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed md:static inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 transition-transform duration-300 z-50 flex flex-col shadow-2xl`}>
+        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
+          <span className="text-white font-bold tracking-wider">CRM TIZIMI</span>
+          <button className="md:hidden" onClick={() => setIsOpen(false)}><X size={24} /></button>
         </div>
-      </div>
-      
-      <nav className="flex-1 px-4 py-6 space-y-2">
-        {role === 'super_admin' && (
-          <NavLink 
-            to="/dashboard" 
-            className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'hover:bg-slate-800 hover:text-white'}`}
-          >
-            <LayoutDashboard size={20} />
-            <span>Umumiy Statistika</span>
-          </NavLink>
-        )}
-
-        <NavLink 
-          to="/groups" 
-          className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'hover:bg-slate-800 hover:text-white'}`}
-        >
-          <Users size={20} />
-          <span>Guruhlar va To'lov</span>
-        </NavLink>
         
-        <NavLink 
-          to="/attendance" 
-          className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'hover:bg-slate-800 hover:text-white'}`}
-        >
-          <CalendarCheck size={20} />
-          <span>Davomat</span>
-        </NavLink>
-
-        {/* FAQAT SUPER ADMIN KO'RADIGAN YANGI BO'LIM */}
-        {role === 'super_admin' && (
-          <NavLink 
-            to="/admins" 
-            className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'hover:bg-slate-800 hover:text-white'}`}
-          >
-            <UserCheck size={20} />
-            <span>Xodimlar</span>
-          </NavLink>
-        )}
-      </nav>
-    </div>
+        <nav className="flex-1 px-4 py-6 space-y-2">
+          {navItems.map((item) => item.show && (
+            <NavLink 
+              key={item.to}
+              to={item.to}
+              onClick={() => setIsOpen(false)}
+              className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${isActive ? 'bg-indigo-600 text-white' : 'hover:bg-slate-800'}`}
+            >
+              <item.icon size={20} />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+    </>
   );
 }

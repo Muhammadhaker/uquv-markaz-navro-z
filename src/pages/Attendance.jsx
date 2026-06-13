@@ -1,222 +1,96 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, Save, CheckCircle2, XCircle, Loader2, AlertCircle, UserCheck } from 'lucide-react';
+import { CalendarDays, Save, CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
 
 export default function Attendance() {
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-
   const [attendanceRecords, setAttendanceRecords] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
+  const [status, setStatus] = useState({ type: '', text: '' });
 
-  // 1. Bazadan HAQIQIY o'quvchilarni va guruhlarni yuklab olish
   useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const res = await fetch('/api/students');
-        const data = await res.json();
-        
-        if (data.success && data.data) {
-          setStudents(data.data);
-          
-          // O'quvchilar ro'yxatidan faqat takrorlanmas guruh nomlarini ajratib olish
-          const uniqueGroups = [...new Set(data.data.map(s => s.group))];
-          setGroups(uniqueGroups);
-          
-          if (uniqueGroups.length > 0) {
-            setSelectedGroup(uniqueGroups[0]); // Avtomatik 1-guruhni tanlash
-          }
-        }
-      } catch (error) {
-        setStatusMessage({ type: 'error', text: 'O`quvchilarni yuklashda server xatosi yuz berdi.' });
+    fetch('/api/students').then(res => res.json()).then(data => {
+      if (data.success) {
+        setStudents(data.data);
+        const uniqueGroups = [...new Set(data.data.map(s => s.group))];
+        setGroups(uniqueGroups);
+        if (uniqueGroups.length > 0) setSelectedGroup(uniqueGroups[0]);
       }
-    };
-    fetchStudents();
+      setLoading(false);
+    });
   }, []);
 
-  // 2. Guruh yoki Sana o'zgarganda bazadan ESKI davomatni tekshirib yuklash
   useEffect(() => {
     if (!selectedGroup) return;
-
-    const fetchExistingAttendance = async () => {
-      setLoading(true);
-      setStatusMessage({ type: '', text: '' });
-      try {
-        const res = await fetch(`/api/attendance?groupName=${selectedGroup}&date=${selectedDate}`);
-        const result = await res.json();
-        
-        if (result.success && result.data) {
+    setLoading(true);
+    fetch(`/api/attendance?groupName=${selectedGroup}&date=${selectedDate}`)
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data) {
           const mapped = {};
-          result.data.records.forEach(r => { mapped[r.studentId] = r.status; });
+          res.data.records.forEach(r => { mapped[r.studentId] = r.status; });
           setAttendanceRecords(mapped);
-          setStatusMessage({ type: 'info', text: 'Ushbu kun uchun davomat bazadan yuklandi.' });
         } else {
           setAttendanceRecords({});
         }
-      } catch (err) {
-        setStatusMessage({ type: 'error', text: 'Davomatni tekshirishda xatolik yuz berdi.' });
-      } finally {
         setLoading(false);
-      }
-    };
-
-    fetchExistingAttendance();
+      });
   }, [selectedGroup, selectedDate]);
 
-  const markStatus = (studentId, status) => {
-    setAttendanceRecords(prev => ({ ...prev, [studentId]: status }));
-  };
-
   const handleSave = async () => {
-    // Tanlangan guruhdagi o'quvchilarni ajratish
-    const groupStudents = students.filter(s => s.group === selectedGroup);
-    
-    // Hammani belgilaganini tekshirish (Validation)
-    const unmarked = groupStudents.filter(s => !attendanceRecords[s._id]);
-    if (unmarked.length > 0) {
-      setStatusMessage({ type: 'error', text: `Iltimos, barcha o'quvchilarni belgilang! (${unmarked.length} ta qoldi)` });
+    const currentStudents = students.filter(s => s.group === selectedGroup);
+    if (currentStudents.some(s => !attendanceRecords[s._id])) {
+      setStatus({ type: 'error', text: "Barcha o'quvchilarni belgilang!" });
       return;
     }
 
     setSaving(true);
-    setStatusMessage({ type: '', text: '' });
-    const adminName = localStorage.getItem('username') || 'Admin';
-
-    const payload = {
-      groupName: selectedGroup,
-      date: selectedDate,
-      adminName,
-      records: groupStudents.map(s => ({
-        studentId: s._id,
-        studentName: s.name,
-        status: attendanceRecords[s._id]
-      }))
-    };
-
-    try {
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const result = await res.json();
-
-      if (res.ok && result.success) {
-        setStatusMessage({ type: 'success', text: 'Davomat maʼlumotlar bazasiga muvaffaqiyatli saqlandi! ✅' });
-      } else {
-        throw new Error(result.error || "Server xatosi");
-      }
-    } catch (err) {
-      setStatusMessage({ type: 'error', text: 'Saqlashda xatolik: ' + err.message });
-    } finally {
-      setSaving(false);
-    }
+    const res = await fetch('/api/attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        groupName: selectedGroup,
+        date: selectedDate,
+        adminName: localStorage.getItem('username') || 'Admin',
+        records: currentStudents.map(s => ({ studentId: s._id, studentName: s.name, status: attendanceRecords[s._id] }))
+      })
+    });
+    
+    if (res.ok) setStatus({ type: 'success', text: 'Davomat saqlandi! ✅' });
+    else setStatus({ type: 'error', text: 'Saqlashda xatolik yuz berdi.' });
+    setSaving(false);
   };
 
-  // Faqat joriy tanlangan guruh o'quvchilarini ko'rsatish
-  const currentStudents = students.filter(s => s.group === selectedGroup);
-
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-6">
-      
-      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Guruhni tanlang</label>
-            <select 
-              value={selectedGroup} 
-              onChange={(e) => setSelectedGroup(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 min-w-[150px]"
-            >
-              {groups.length === 0 && <option>Guruhlar yo'q</option>}
-              {groups.map((g, i) => <option key={i} value={g}>{g}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Sana</label>
-            <input 
-              type="date" 
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            />
-          </div>
-        </div>
-
-        <button 
-          onClick={handleSave}
-          disabled={saving || loading || currentStudents.length === 0}
-          className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200"
-        >
-          {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-          Saqlash va Tasdiqlash
+    <div className="p-4 md:p-8 max-w-4xl mx-auto">
+      {/* Filterlar paneli */}
+      <div className="bg-white p-4 rounded-2xl border mb-6 flex flex-col sm:flex-row gap-4 items-center">
+        <select value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)} className="w-full sm:w-auto p-3 border rounded-xl font-bold">
+          {groups.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full sm:w-auto p-3 border rounded-xl font-bold" />
+        <button onClick={handleSave} disabled={saving} className="w-full sm:w-auto bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 flex items-center justify-center gap-2">
+          {saving ? <Loader2 className="animate-spin" /> : <Save size={18} />} Saqlash
         </button>
       </div>
 
-      {statusMessage.text && (
-        <div className={`p-4 rounded-xl flex items-center gap-3 border text-sm font-medium ${
-          statusMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-          statusMessage.type === 'error' ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-blue-50 text-blue-800 border-blue-200'
-        }`}>
-          <AlertCircle size={18} />
-          <span>{statusMessage.text}</span>
-        </div>
-      )}
+      {status.text && <div className={`p-4 rounded-xl mb-4 text-sm font-bold ${status.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{status.text}</div>}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
-            <Loader2 className="animate-spin text-indigo-600" size={32} />
-            <span className="text-sm font-medium">Davomat tekshirilmoqda...</span>
+      {/* Ro'yxat */}
+      <div className="bg-white rounded-2xl border overflow-hidden">
+        {loading ? <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto" /></div> :
+        students.filter(s => s.group === selectedGroup).map(s => (
+          <div key={s._id} className="p-4 flex justify-between items-center border-b last:border-0 hover:bg-slate-50">
+            <span className="font-semibold text-slate-800">{s.name}</span>
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+              <button onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: 'keldi'})} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${attendanceRecords[s._id] === 'keldi' ? 'bg-emerald-500 text-white shadow' : 'text-slate-500'}`}>Keldi</button>
+              <button onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: 'kelmadi'})} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${attendanceRecords[s._id] === 'kelmadi' ? 'bg-rose-500 text-white shadow' : 'text-slate-500'}`}>Kelmadi</button>
+            </div>
           </div>
-        ) : currentStudents.length > 0 ? (
-          <div className="divide-y divide-slate-50">
-            {currentStudents.map((student) => {
-              const currentStatus = attendanceRecords[student._id];
-              return (
-                <div key={student._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-5 hover:bg-slate-50/50 transition-colors gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center shadow-sm">
-                      {student.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="font-semibold text-slate-800 text-base">{student.name}</span>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={() => markStatus(student._id, 'keldi')}
-                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
-                        currentStatus === 'keldi' 
-                          ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100 ring-2 ring-emerald-500 ring-offset-2 scale-105' 
-                          : 'bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'
-                      }`}
-                    >
-                      <CheckCircle2 size={16} /> Keldi
-                    </button>
-                    <button 
-                      onClick={() => markStatus(student._id, 'kelmadi')}
-                      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
-                        currentStatus === 'kelmadi' 
-                          ? 'bg-rose-500 text-white shadow-md shadow-rose-100 ring-2 ring-rose-500 ring-offset-2 scale-105' 
-                          : 'bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-600'
-                      }`}
-                    >
-                      <XCircle size={16} /> Kelmadi
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="p-12 text-center text-slate-400 font-medium">
-            Siz tanlagan guruhda o'quvchilar yo'q. Avval "Guruhlar" sahifasidan o'quvchi qo'shing.
-          </div>
-        )}
+        ))}
       </div>
     </div>
   );

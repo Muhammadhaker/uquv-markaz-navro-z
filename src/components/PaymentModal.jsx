@@ -26,17 +26,12 @@ export default function PaymentModal({ isOpen, onClose, student }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Professional Cheklovlar (Validation)
     if (Number(amount) <= 0) {
-      setErrorMessage("To'lov summasi noldan katta bo'lishi shart!");
+      setErrorMessage("To'lov summasi noto'g'ri!");
       return;
     }
 
     setLoading(true);
-    setErrorMessage('');
-    const adminName = localStorage.getItem('username') || 'Admin';
-
     try {
       const res = await fetch('/api/payments', {
         method: 'POST',
@@ -48,123 +43,51 @@ export default function PaymentModal({ isOpen, onClose, student }) {
           amount: Number(amount), 
           paymentType, 
           month: paymentMonth, 
-          adminName 
+          adminName: localStorage.getItem('username') || 'Admin' 
         })
       });
-      const result = await res.json();
-
-      if (res.ok && result.success) {
+      
+      if (res.ok) {
         setSuccess(true);
-        // 1.5 soniyadan keyin avtomat yopiladi
-        setTimeout(() => { onClose(); }, 1500);
+        setTimeout(() => onClose(), 1500);
       } else {
-        setErrorMessage(result.error || "To'lovni saqlashda server xatosi.");
+        setErrorMessage("To'lovni saqlashda xatolik yuz berdi.");
       }
-    } catch (error) {
-      setErrorMessage("Tarmoq xatosi. Server bilan ulanish muvaffaqiyatsiz.");
+    } catch {
+      setErrorMessage("Internet aloqasini tekshiring.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all relative">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-end sm:items-center z-50 p-4">
+      <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full"><X size={20} /></button>
         
-        {/* Yopish tugmasi */}
-        <button onClick={onClose} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition">
-          <X size={20} />
-        </button>
-
         {success ? (
-          /* Muvaffaqiyatli To'lov Holati */
-          <div className="p-8 flex flex-col items-center justify-center text-center space-y-3">
-            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 shadow-inner">
-              <CheckCircle size={36} />
+          <div className="p-8 text-center flex flex-col items-center">
+            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle size={32} />
             </div>
-            <h3 className="text-xl font-bold text-slate-800">Muvaffaqiyatli yakunlandi!</h3>
-            <p className="text-sm text-slate-500">To'lov qabul qilindi va bazaga muhrlandi.</p>
+            <h3 className="font-bold text-lg">To'lov qabul qilindi!</h3>
           </div>
         ) : (
-          /* Asosiy Forma */
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            <div className="border-b pb-3">
-              <h2 className="text-xl font-bold text-slate-800">To'lov Qabul Qilish</h2>
-              <p className="text-xs text-slate-500 mt-1">O'quvchi: <span className="font-bold text-indigo-600">{student.name}</span></p>
-            </div>
-
-            {errorMessage && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold p-3 rounded-xl text-center">
-                ⚠️ {errorMessage}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Fan / Guruh</label>
-              <input 
-                type="text" 
-                value={group}
-                onChange={(e) => setGroup(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Summa (so'm)</label>
-                <input 
-                  type="number" 
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Masalan: 300000"
-                  className="w-full border border-slate-200 rounded-xl p-3 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Turi</label>
-                <select 
-                  value={paymentType}
-                  onChange={(e) => setPaymentType(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl p-3 text-sm font-semibold text-slate-700 outline-none bg-white focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="Naqd">Naqd pul 💵</option>
-                  <option value="Plastik">Plastik 💳</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Qaysi oy uchun? (Kalendar)</label>
-              <input 
-                type="month" 
-                value={paymentMonth}
-                onChange={(e) => setPaymentMonth(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl p-3 text-sm font-semibold text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500"
-                required
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button 
-                type="button" 
-                onClick={onClose} 
-                disabled={loading}
-                className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-semibold rounded-xl text-sm transition"
-              >
-                Bekor qilish
-              </button>
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-xl text-sm transition shadow-md shadow-indigo-100"
-              >
-                {loading && <Loader2 className="animate-spin" size={16} />}
-                Tasdiqlash
-              </button>
-            </div>
+            <h2 className="text-xl font-bold">To'lov: {student.name}</h2>
+            {errorMessage && <p className="text-red-500 text-sm bg-red-50 p-2 rounded">{errorMessage}</p>}
+            
+            <input className="w-full border p-3 rounded-xl" placeholder="Guruh" value={group} onChange={(e) => setGroup(e.target.value)} />
+            <input type="number" className="w-full border p-3 rounded-xl" placeholder="Summa" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+            <select className="w-full border p-3 rounded-xl bg-white" value={paymentType} onChange={(e) => setPaymentType(e.target.value)}>
+              <option>Naqd</option>
+              <option>Plastik</option>
+            </select>
+            <input type="month" className="w-full border p-3 rounded-xl" value={paymentMonth} onChange={(e) => setPaymentMonth(e.target.value)} required />
+            
+            <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin mx-auto" /> : "To'lovni tasdiqlash"}
+            </button>
           </form>
         )}
       </div>

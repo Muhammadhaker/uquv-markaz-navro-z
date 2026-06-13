@@ -3,16 +3,11 @@ import Header from './Header';
 
 export default function Layout({ children }) {
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Chap tomonda menyu qotib turadi */}
+    <div className="flex min-h-screen bg-slate-50">
       <Sidebar />
-      
-      {/* O'ng tomonda Header va Asosiy kontent */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
         <Header />
-        
-        {/* Asosiy ma'lumotlar chiqadigan oyna */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-8">
+        <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
           {children}
         </main>
       </div>
