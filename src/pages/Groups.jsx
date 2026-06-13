@@ -19,7 +19,8 @@ export default function Groups() {
       const res = await fetch('/api/students');
       const data = await res.json();
       if (data.success) {
-        setStudents(data.data);
+        // Agar ma'lumot bo'lmasa, qulab tushmasligi uchun bo'sh massiv [] beramiz
+        setStudents(data.data || []);
       }
     } catch (error) {
       console.error("Xatolik:", error);
@@ -38,7 +39,7 @@ export default function Groups() {
   };
 
   const deleteStudent = async (id, name) => {
-    if(!window.confirm(`${name} ismli o'quvchini ro'yxatdan o'chirmoqchimisiz?`)) return;
+    if(!window.confirm(`${name || "Bu"} o'quvchini ro'yxatdan o'chirmoqchimisiz?`)) return;
     
     try {
       await fetch('/api/students', {
@@ -46,7 +47,7 @@ export default function Groups() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       });
-      fetchStudents(); // O'chgandan keyin ro'yxatni yangilash
+      fetchStudents(); 
     } catch (error) {
       alert("O'chirishda xatolik yuz berdi");
     }
@@ -86,7 +87,7 @@ export default function Groups() {
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-50">
-                {students.length === 0 ? (
+                {!students || students.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="text-center py-10 text-slate-400 font-medium">Hozircha o'quvchilar yo'q. Yangi qo'shing!</td>
                   </tr>
@@ -96,20 +97,21 @@ export default function Groups() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100">
-                            {student.name.charAt(0).toUpperCase()}
+                            {/* Xato bermasligi uchun xavfsiz chaqiruv (?.) */}
+                            {student?.name ? student.name.charAt(0).toUpperCase() : 'U'}
                           </div>
-                          <span className="font-semibold text-slate-800">{student.name}</span>
+                          <span className="font-semibold text-slate-800">{student?.name || 'Ismsiz'}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-slate-600 font-medium">{student.phone}</td>
+                      <td className="px-6 py-4 text-slate-600 font-medium">{student?.phone || '-'}</td>
                       <td className="px-6 py-4">
                         <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200">
-                          {student.group}
+                          {student?.group || 'Guruhsiz'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <button 
-                          onClick={() => deleteStudent(student._id, student.name)}
+                          onClick={() => deleteStudent(student._id, student?.name)}
                           className="inline-flex p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="O'chirish"
                         >
                           <Trash2 size={18} />

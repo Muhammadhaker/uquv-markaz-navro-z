@@ -5,7 +5,6 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ payments: [], totalAmount: 0 });
   const [loading, setLoading] = useState(true);
   
-  // Tahrirlash modali uchun statelar
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editData, setEditData] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -17,7 +16,7 @@ export default function Dashboard() {
       const data = await res.json();
       
       if (data.success && data.data) {
-        // Xato ma'lumotlar hisobni buzmasligi uchun himoya (Number orqali)
+        // Xato summa bazaga yozilib qolgan bo'lsa, uni ignor qilamiz
         const total = data.data.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
         setStats({ payments: data.data, totalAmount: total });
       }
@@ -32,29 +31,25 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
-  // O'chirish funksiyasi
   const handleDelete = async (id, studentName) => {
     if (!window.confirm(`${studentName} ning to'lovini haqiqatan ham o'chirmoqchimisiz?`)) return;
-    
     try {
       const res = await fetch('/api/payments', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       });
-      if (res.ok) fetchStats(); // Jadvalni yangilash
+      if (res.ok) fetchStats();
     } catch (error) {
       alert("O'chirishda xatolik yuz berdi");
     }
   };
 
-  // Tahrirlash oynasini ochish
   const openEdit = (payment) => {
     setEditData({ ...payment });
     setEditModalOpen(true);
   };
 
-  // Tahrirni saqlash
   const handleEditSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
@@ -72,7 +67,7 @@ export default function Dashboard() {
       
       if (res.ok) {
         setEditModalOpen(false);
-        fetchStats(); // Jadvalni yangilash
+        fetchStats();
       } else {
         alert("Saqlashda xatolik!");
       }
@@ -90,7 +85,6 @@ export default function Dashboard() {
         <p className="text-slate-500 text-sm mt-1">Markazning holati va oxirgi tranzaksiyalar</p>
       </div>
       
-      {/* Tepa qutichalar */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
           <div className="flex justify-between items-center">
@@ -117,7 +111,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Jadval */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-2">
           <CreditCard className="text-slate-400" size={20} />
@@ -160,11 +153,9 @@ export default function Dashboard() {
                         {p.adminName}
                       </td>
                       <td className="px-6 py-4 border-b border-slate-50 text-right space-x-2">
-                        {/* Edit Tugmasi */}
                         <button onClick={() => openEdit(p)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition" title="Tahrirlash">
                           <Pencil size={18} />
                         </button>
-                        {/* Delete Tugmasi */}
                         <button onClick={() => handleDelete(p._id, p.studentName)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="O'chirish">
                           <Trash2 size={18} />
                         </button>
@@ -178,7 +169,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Tahrirlash Modali */}
       {editModalOpen && editData && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative p-6">
@@ -210,7 +200,7 @@ export default function Dashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Oy (Kalendar)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Oy</label>
                   <input 
                     type="month" required value={editData.month}
                     onChange={(e) => setEditData({...editData, month: e.target.value})}

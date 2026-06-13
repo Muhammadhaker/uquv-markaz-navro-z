@@ -21,7 +21,6 @@ const Payment = mongoose.models.Payment || mongoose.model('Payment', paymentSche
 export default async function handler(req, res) {
   await connectDB();
 
-  // Barcha to'lovlarni olish (GET)
   if (req.method === 'GET') {
     try {
       const payments = await Payment.find({}).sort({ date: -1 });
@@ -31,7 +30,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // Yangi to'lov qo'shish (POST)
   if (req.method === 'POST') {
     try {
       const newPayment = await Payment.create(req.body);
@@ -41,7 +39,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // To'lovni O'chirish (DELETE)
   if (req.method === 'DELETE') {
     try {
       const { id } = req.body;
@@ -52,7 +49,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // To'lovni Tahrirlash (PUT)
   if (req.method === 'PUT') {
     try {
       const { id, amount, paymentType, month } = req.body;
