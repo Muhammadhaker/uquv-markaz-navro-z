@@ -1,36 +1,38 @@
 import mongoose from 'mongoose';
 
-// Modelni qayta-qayta yaratmaslik uchun
-const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({
-  name: String,
-  phone: String,
-  group: String,
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI topilmadi!");
+  return mongoose.connect(process.env.MONGODB_URI);
+};
+
+const studentSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  phone: { type: String, required: true },
+  group: { type: String, required: true },
   addedAt: { type: Date, default: Date.now }
-}));
+});
+
+// DIQQAT: Uchinchi parametr 'students' aniq ko'rsatildi
+const Student = mongoose.models.Student || mongoose.model('Student', studentSchema, 'students');
 
 export default async function handler(req, res) {
-  console.log("API chaqirildi, metod:", req.method);
-  
   try {
-    if (!process.env.MONGODB_URI) {
-      throw new Error("MONGODB_URI topilmadi!");
-    }
-
-    if (mongoose.connection.readyState !== 1) {
-      console.log("Bazaga ulanish boshlanmoqda...");
-      await mongoose.connect(process.env.MONGODB_URI);
-      console.log("Baza ulanishi muvaffaqiyatli!");
-    }
-
+    await connectDB();
     if (req.method === 'GET') {
       const students = await Student.find({}).sort({ addedAt: -1 });
-      console.log("Topilgan o'quvchilar soni:", students.length);
       return res.status(200).json({ success: true, data: students });
     }
-
-    res.status(405).json({ message: "Metod noto'g'ri" });
+    if (req.method === 'POST') {
+      const newStudent = await Student.create(req.body);
+      return res.status(201).json({ success: true, data: newStudent });
+    }
+    if (req.method === 'DELETE') {
+      await Student.findByIdAndDelete(req.body.id);
+      return res.status(200).json({ success: true });
+    }
+    res.status(405).json({ message: "Metod ruxsat etilmagan" });
   } catch (error) {
-    console.error("KRITIK XATOLIK:", error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 }
