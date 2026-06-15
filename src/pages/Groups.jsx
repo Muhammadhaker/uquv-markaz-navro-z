@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, AlertCircle, CheckCircle2, Loader2, UserPlus, CreditCard } from 'lucide-react';
-import StudentModal from '../components/StudentModal'; // O'zingizdagi yo'lga qarab o'zgartiring
-import PaymentModal from '../components/PaymentModal'; // O'zingizdagi yo'lga qarab o'zgartiring
+import StudentModal from '../components/StudentModal'; // Yo'llarni o'zingizga moslang
+import PaymentModal from '../components/PaymentModal';
 
 export default function Groups() {
   const [students, setStudents] = useState([]);
@@ -9,7 +9,6 @@ export default function Groups() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Modallar uchun state'lar
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -52,7 +51,6 @@ export default function Groups() {
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
-      {/* Sarlavha va O'quvchi qo'shish tugmasi */}
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800"><span>O'quvchilar</span></h1>
@@ -67,7 +65,6 @@ export default function Groups() {
         </button>
       </div>
 
-      {/* QIDIRUV QATORI */}
       <div className="mb-6 relative w-full">
         <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
         <input 
@@ -79,7 +76,6 @@ export default function Groups() {
         />
       </div>
 
-      {/* JADVAL */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -101,15 +97,12 @@ export default function Groups() {
 
                   return (
                     <tr key={s._id} className="hover:bg-slate-50 transition-colors">
-                      {/* O'quvchi ma'lumotlari */}
                       <td className="px-6 py-4">
                         <div className="font-bold text-slate-800 text-base"><span>{s.name}</span></div>
                         <div className="text-xs text-slate-500 mt-1 font-medium flex items-center gap-2">
                           <span>{s.group}</span> • <span>{s.phone}</span>
                         </div>
                       </td>
-                      
-                      {/* To'lov Holati (Qarz / To'langan) */}
                       <td className="px-6 py-4">
                         {hasPaid ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold">
@@ -121,8 +114,6 @@ export default function Groups() {
                           </span>
                         )}
                       </td>
-
-                      {/* To'lov tugmasi */}
                       <td className="px-6 py-4 text-right">
                         <button 
                           onClick={() => openPaymentModal(s)}
@@ -140,13 +131,12 @@ export default function Groups() {
         </div>
       </div>
 
-      {/* Modallarni chaqirish */}
       {isStudentModalOpen && (
         <StudentModal 
           isOpen={isStudentModalOpen} 
           onClose={() => {
             setIsStudentModalOpen(false);
-            fetchData(); // Yangi o'quvchi qo'shilgach ro'yxatni yangilash
+            fetchData();
           }} 
         />
       )}
@@ -157,7 +147,7 @@ export default function Groups() {
           isOpen={isPaymentModalOpen} 
           onClose={() => {
             setIsPaymentModalOpen(false);
-            fetchData(); // To'lov qilingach qarz statusini yangilash
+            fetchData();
           }} 
         />
       )}

@@ -29,7 +29,6 @@ export default function Dashboard() {
     fetchStats();
   };
 
-  // Filtrlar va hisob-kitob
   const availableMonths = [...new Set(payments.map(p => p.month))].sort().reverse();
   const filteredPayments = selectedMonth === 'all' ? payments : payments.filter(p => p.month === selectedMonth);
   const totalAmount = filteredPayments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -41,7 +40,6 @@ export default function Dashboard() {
     return `${names[parseInt(mm) - 1]} ${y}`;
   };
 
-  // EXCEL YUKLAB OLISH FUNKSIYASI
   const exportToExcel = () => {
     if (filteredPayments.length === 0) return alert("Yuklab olish uchun ma'lumot yo'q!");
 
@@ -76,7 +74,6 @@ export default function Dashboard() {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3">
-          {/* Oy tanlash */}
           <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
             <CalendarDays className="text-indigo-500" size={20} />
             <select 
@@ -89,7 +86,6 @@ export default function Dashboard() {
             </select>
           </div>
 
-          {/* EXCEL TUGMASI */}
           <button 
             onClick={exportToExcel}
             className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
@@ -99,7 +95,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Statistika */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div className="bg-indigo-600 p-6 rounded-2xl shadow-lg text-white">
           <p className="text-indigo-100 text-sm mb-1">
@@ -117,7 +112,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Jadval */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
