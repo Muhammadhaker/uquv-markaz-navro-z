@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Groups from "./pages/Groups";
@@ -12,7 +17,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (!role) return <Navigate to="/login" replace />;
   // Agar foydalanuvchi roli ruxsat etilgan ro'llar ichida bo'lmasa
-  if (allowedRoles && !allowedRoles.includes(role)) return <Navigate to="/groups" replace />;
+  if (allowedRoles && !allowedRoles.includes(role))
+    return <Navigate to="/groups" replace />;
 
   return <Layout>{children}</Layout>;
 };
@@ -24,30 +30,42 @@ export default function App() {
         <Route path="/login" element={<Login />} />
 
         {/* Faqat Super Admin uchun */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute allowedRoles={["super_admin"]}>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["super_admin"]}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/admins" element={
-          <ProtectedRoute allowedRoles={["super_admin"]}>
-            <Admins />
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/admins"
+          element={
+            <ProtectedRoute allowedRoles={["super_admin"]}>
+              <Admins />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Barcha adminlar uchun */}
-        <Route path="/groups" element={
-          <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
-            <Groups />
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/groups"
+          element={
+            <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
+              <Groups />
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/attendance" element={
-          <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
-            <Attendance />
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/attendance"
+          element={
+            <ProtectedRoute allowedRoles={["super_admin", "admin"]}>
+              <Attendance />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Asosiy sahifa yo'naltiruvi */}
         <Route path="/" element={<Navigate to="/groups" replace />} />

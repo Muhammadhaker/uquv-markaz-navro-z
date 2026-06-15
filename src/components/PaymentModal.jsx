@@ -1,24 +1,29 @@
-import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, X } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Loader2, CheckCircle, X } from "lucide-react";
 
 export default function PaymentModal({ isOpen, onClose, student }) {
-  const [amount, setAmount] = useState('');
-  const [paymentType, setPaymentType] = useState('Naqd');
-  const [paymentMonth, setPaymentMonth] = useState('');
-  const [group, setGroup] = useState('');
-  
+  const [amount, setAmount] = useState("");
+  const [paymentType, setPaymentType] = useState("Naqd");
+  const [paymentMonth, setPaymentMonth] = useState("");
+  const [group, setGroup] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (isOpen && student) {
       const today = new Date();
-      setPaymentMonth(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
-      setGroup(student.group || '');
-      setAmount('');
+      setPaymentMonth(
+        `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}`
+      );
+      setGroup(student.group || "");
+      setAmount("");
       setSuccess(false);
-      setErrorMessage('');
+      setErrorMessage("");
     }
   }, [isOpen, student]);
 
@@ -33,20 +38,20 @@ export default function PaymentModal({ isOpen, onClose, student }) {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+      const res = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           studentId: student._id,
           studentName: student.name,
           groupName: group,
-          amount: Number(amount), 
-          paymentType, 
-          month: paymentMonth, 
-          adminName: localStorage.getItem('username') || 'Admin' 
-        })
+          amount: Number(amount),
+          paymentType,
+          month: paymentMonth,
+          adminName: localStorage.getItem("username") || "Admin",
+        }),
       });
-      
+
       if (res.ok) {
         setSuccess(true);
         setTimeout(() => onClose(), 1500);
@@ -63,8 +68,13 @@ export default function PaymentModal({ isOpen, onClose, student }) {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-end sm:items-center z-50 p-4">
       <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full"><X size={20} /></button>
-        
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full"
+        >
+          <X size={20} />
+        </button>
+
         {success ? (
           <div className="p-8 text-center flex flex-col items-center">
             <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
@@ -75,18 +85,51 @@ export default function PaymentModal({ isOpen, onClose, student }) {
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <h2 className="text-xl font-bold">To'lov: {student.name}</h2>
-            {errorMessage && <p className="text-red-500 text-sm bg-red-50 p-2 rounded">{errorMessage}</p>}
-            
-            <input className="w-full border p-3 rounded-xl" placeholder="Guruh" value={group} onChange={(e) => setGroup(e.target.value)} />
-            <input type="number" className="w-full border p-3 rounded-xl" placeholder="Summa" value={amount} onChange={(e) => setAmount(e.target.value)} required />
-            <select className="w-full border p-3 rounded-xl bg-white" value={paymentType} onChange={(e) => setPaymentType(e.target.value)}>
+            {errorMessage && (
+              <p className="text-red-500 text-sm bg-red-50 p-2 rounded">
+                {errorMessage}
+              </p>
+            )}
+
+            <input
+              className="w-full border p-3 rounded-xl"
+              placeholder="Guruh"
+              value={group}
+              onChange={(e) => setGroup(e.target.value)}
+            />
+            <input
+              type="number"
+              className="w-full border p-3 rounded-xl"
+              placeholder="Summa"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+            />
+            <select
+              className="w-full border p-3 rounded-xl bg-white"
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value)}
+            >
               <option>Naqd</option>
               <option>Plastik</option>
             </select>
-            <input type="month" className="w-full border p-3 rounded-xl" value={paymentMonth} onChange={(e) => setPaymentMonth(e.target.value)} required />
-            
-            <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold" disabled={loading}>
-              {loading ? <Loader2 className="animate-spin mx-auto" /> : "To'lovni tasdiqlash"}
+            <input
+              type="month"
+              className="w-full border p-3 rounded-xl"
+              value={paymentMonth}
+              onChange={(e) => setPaymentMonth(e.target.value)}
+              required
+            />
+
+            <button
+              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold"
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="animate-spin mx-auto" />
+              ) : (
+                "To'lovni tasdiqlash"
+              )}
             </button>
           </form>
         )}
