@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, AlertCircle, CheckCircle2, Loader2, UserPlus, CreditCard } from 'lucide-react';
-import StudentModal from '../components/StudentModal'; // Yo'llarni o'zingizga moslang
+import { Search, AlertCircle, CheckCircle2, Loader2, UserPlus } from 'lucide-react';
+import AddStudentModal from '../components/AddStudentModal'; // Nom to'g'rilandi!
 import PaymentModal from '../components/PaymentModal';
 
 export default function Groups() {
@@ -66,7 +66,6 @@ export default function Groups() {
       </div>
 
       <div className="mb-6 relative w-full">
-        <h1>ds</h1>
         <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
         <input 
           type="text" 
@@ -133,7 +132,7 @@ export default function Groups() {
       </div>
 
       {isStudentModalOpen && (
-        <StudentModal 
+        <AddStudentModal 
           isOpen={isStudentModalOpen} 
           onClose={() => {
             setIsStudentModalOpen(false);
