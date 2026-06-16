@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Groups from "./pages/Groups";
 import Attendance from "./pages/Attendance";
 import Admins from "./pages/Admins";
+import BotRegister from "./pages/BotRegister"; // <-- SHU QO'SHILDI
 import Layout from "./components/Layout";
 
 // Himoyalangan marshrut (Layout bilan o'ralgan)
@@ -28,6 +29,9 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+
+        {/* TELEGRAM BOT ANKETASI (Parolsiz, Menyusiz butun ekranda ochiladi) */}
+        <Route path="/bot-register" element={<BotRegister />} />
 
         {/* Faqat Super Admin uchun */}
         <Route
