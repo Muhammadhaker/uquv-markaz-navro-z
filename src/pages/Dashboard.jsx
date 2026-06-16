@@ -4,7 +4,10 @@ import { CalendarDays, Loader2, Download, Trash2 } from "lucide-react";
 export default function Dashboard() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState("all");
+  // Joriy oyni avtomatik tanlaydi (masalan: "2026-06")
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
 
   const fetchStats = async () => {
     setLoading(true);
@@ -38,10 +41,10 @@ export default function Dashboard() {
   const availableMonths = [...new Set(payments.map((p) => p.month))]
     .sort()
     .reverse();
-  const filteredPayments =
-    selectedMonth === "all"
-      ? payments
-      : payments.filter((p) => p.month === selectedMonth);
+
+  // "all" o'rniga faqat tanlangan oy bo'yicha filtrlaymiz
+  const filteredPayments = payments.filter((p) => p.month === selectedMonth);
+
   const totalAmount = filteredPayments.reduce(
     (sum, item) => sum + (Number(item.amount) || 0),
     0
@@ -67,7 +70,6 @@ export default function Dashboard() {
     return `${names[parseInt(mm) - 1]} ${y}`;
   };
 
-  // YANGI PROFESSIONAL EXCEL EXPORT
   const exportToExcel = () => {
     if (filteredPayments.length === 0)
       return alert("Yuklab olish uchun ma'lumot yo'q!");
@@ -104,9 +106,7 @@ export default function Dashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `hisobot_${
-      selectedMonth === "all" ? "barcha" : selectedMonth
-    }.xls`;
+    link.download = `hisobot_${selectedMonth}.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -117,10 +117,10 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
-            <span>Umumiy Statistika</span>
+            <span>Moliyaviy Hisobot</span>
           </h1>
           <p className="text-slate-500 text-sm">
-            <span>Markazning moliyaviy holati</span>
+            <span>Tanlangan oy uchun statistika</span>
           </p>
         </div>
 
@@ -132,7 +132,6 @@ export default function Dashboard() {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="bg-transparent font-semibold text-slate-700 outline-none cursor-pointer"
             >
-              <option value="all">Barcha oylar tarixi</option>
               {availableMonths.map((m) => (
                 <option key={m} value={m}>
                   {formatMonth(m)}
@@ -153,11 +152,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div className="bg-indigo-600 p-6 rounded-2xl shadow-lg text-white">
           <p className="text-indigo-100 text-sm mb-1">
-            <span>
-              {selectedMonth === "all"
-                ? "Jami Tushum"
-                : `${formatMonth(selectedMonth)}dagi tushum`}
-            </span>
+            <span>{formatMonth(selectedMonth)}dagi tushum</span>
           </p>
           <h3 className="text-3xl font-bold">
             {loading ? (
@@ -202,7 +197,7 @@ export default function Dashboard() {
               ) : filteredPayments.length === 0 ? (
                 <tr>
                   <td colSpan="4" className="py-10 text-center text-slate-400">
-                    To'lovlar topilmadi.
+                    Bu oy uchun to'lovlar topilmadi.
                   </td>
                 </tr>
               ) : (
