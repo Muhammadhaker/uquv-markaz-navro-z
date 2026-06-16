@@ -114,13 +114,8 @@ export default function StudentDetailModal({
     ).toLocaleString()} so'm\n💳 *Turi:* ${
       p.paymentType
     }\n📅 *Oy:* ${formatMonth(p.month)}\n\n✅ _To'lov qabul qilindi!_`;
-    window.open(
-      `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`,
-      "_blank"
-    );
-    const url = `tg://msg_url?url=${encodeURIComponent(text)}`;
-    // Agar ilova bo'lmasa, xavfsizlik uchun brauzerda ham ochishga imkon beramiz
-    window.open(url, "_blank");
+    // Telegram ilovasini ochish uchun
+    window.open(`tg://msg_url?url=${encodeURIComponent(text)}`, "_blank");
   };
 
   return (
