@@ -6,14 +6,15 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
+// telegramChatId qo'shildi
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true },
   group: { type: String, required: true },
+  telegramChatId: { type: String, default: null }, // Botdan kelgan foydalanuvchilar uchun
   addedAt: { type: Date, default: Date.now }
 });
 
-// DIQQAT: Uchinchi parametr 'students' aniq ko'rsatildi
 const Student = mongoose.models.Student || mongoose.model('Student', studentSchema, 'students');
 
 export default async function handler(req, res) {
@@ -26,6 +27,12 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const newStudent = await Student.create(req.body);
       return res.status(201).json({ success: true, data: newStudent });
+    }
+    // Agar tahrirlash (Edit) kelsa
+    if (req.method === 'PUT') {
+      const { id, ...updateData } = req.body;
+      const updatedStudent = await Student.findByIdAndUpdate(id, updateData, { new: true });
+      return res.status(200).json({ success: true, data: updatedStudent });
     }
     if (req.method === 'DELETE') {
       await Student.findByIdAndDelete(req.body.id);

@@ -49,6 +49,8 @@ export default function PaymentModal({ isOpen, onClose, student }) {
           paymentType,
           month: paymentMonth,
           adminName: localStorage.getItem("username") || "Admin",
+          // TELEGRAM ID HAM QO'SHILDI
+          telegramChatId: student.telegramChatId,
         }),
       });
 
@@ -70,7 +72,7 @@ export default function PaymentModal({ isOpen, onClose, student }) {
       <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full"
+          className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
         >
           <X size={20} />
         </button>
@@ -80,33 +82,40 @@ export default function PaymentModal({ isOpen, onClose, student }) {
             <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
               <CheckCircle size={32} />
             </div>
-            <h3 className="font-bold text-lg">To'lov qabul qilindi!</h3>
+            <h3 className="font-bold text-lg text-slate-800">
+              To'lov qabul qilindi!
+            </h3>
+            <p className="text-sm text-slate-500 mt-2">
+              Chek saqlandi (va botdan kelgan bo'lsa yuborildi).
+            </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            <h2 className="text-xl font-bold">To'lov: {student.name}</h2>
+            <h2 className="text-xl font-bold text-slate-800">
+              To'lov: {student.name}
+            </h2>
             {errorMessage && (
-              <p className="text-red-500 text-sm bg-red-50 p-2 rounded">
+              <p className="text-red-500 text-sm bg-red-50 p-2 rounded-xl font-medium">
                 {errorMessage}
               </p>
             )}
 
             <input
-              className="w-full border p-3 rounded-xl"
+              className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none"
               placeholder="Guruh"
               value={group}
               onChange={(e) => setGroup(e.target.value)}
             />
             <input
               type="number"
-              className="w-full border p-3 rounded-xl"
-              placeholder="Summa"
+              className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none"
+              placeholder="Summa (so'm)"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
             />
             <select
-              className="w-full border p-3 rounded-xl bg-white"
+              className="w-full border p-3 rounded-xl bg-white font-medium focus:border-indigo-500 outline-none"
               value={paymentType}
               onChange={(e) => setPaymentType(e.target.value)}
             >
@@ -115,18 +124,18 @@ export default function PaymentModal({ isOpen, onClose, student }) {
             </select>
             <input
               type="month"
-              className="w-full border p-3 rounded-xl"
+              className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none"
               value={paymentMonth}
               onChange={(e) => setPaymentMonth(e.target.value)}
               required
             />
 
             <button
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold transition-all shadow-md disabled:opacity-70 flex justify-center items-center"
               disabled={loading}
             >
               {loading ? (
-                <Loader2 className="animate-spin mx-auto" />
+                <Loader2 className="animate-spin" />
               ) : (
                 "To'lovni tasdiqlash"
               )}
