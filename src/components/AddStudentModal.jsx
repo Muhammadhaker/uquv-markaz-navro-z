@@ -1,170 +1,245 @@
-import { useState, useEffect } from "react";
-import { X, User, Phone, Users } from "lucide-react";
+import {
+  X,
+  Phone,
+  BookOpen,
+  CreditCard,
+  History,
+  CalendarCheck,
+  Download,
+  Send,
+  Search,
+} from "lucide-react";
+import PaymentModal from "./PaymentModal";
+import { useState } from "react";
 
-export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "+998 ",
-    group: "",
-  });
-  const [loading, setLoading] = useState(false);
+const formatPhoneNumber = (phone) => {
+  if (!phone) return "";
+  const cleaned = ("" + phone).replace(/\D/g, "");
+  if (cleaned.length === 12 && cleaned.startsWith("998")) {
+    return `+998 ${cleaned.slice(3, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(
+      8,
+      10
+    )} ${cleaned.slice(10, 12)}`;
+  } else if (cleaned.length === 9) {
+    return `+998 ${cleaned.slice(0, 2)} ${cleaned.slice(2, 5)} ${cleaned.slice(
+      5,
+      7
+    )} ${cleaned.slice(7, 9)}`;
+  }
+  return phone;
+};
 
-  // Agar tahrirlash (Edit) tugmasi bosilgan bo'lsa, eski ma'lumotlarni to'ldiramiz
-  useEffect(() => {
-    if (studentToEdit) {
-      setFormData({
-        name: studentToEdit.name,
-        phone: studentToEdit.phone,
-        group: studentToEdit.group,
-      });
-    }
-  }, [studentToEdit]);
+const formatMonth = (m) => {
+  if (!m) return "";
+  const [y, mm] = m.split("-");
+  const names = [
+    "Yanvar",
+    "Fevral",
+    "Mart",
+    "Aprel",
+    "May",
+    "Iyun",
+    "Iyul",
+    "Avgust",
+    "Sentabr",
+    "Oktabr",
+    "Noyabr",
+    "Dekabr",
+  ];
+  return `${names[parseInt(mm) - 1]} ${y}`;
+};
 
-  // TELEFON RAQAMNI YOZAYOTGANDA AVTOMAT FORMATLASH
-  const handlePhoneChange = (e) => {
-    let input = e.target.value.replace(/\D/g, ""); // Faqat raqamlarni olamiz
-    if (input.startsWith("998")) input = input.substring(3); // 998 ni olib tashlaymiz
+export default function StudentDetailModal({
+  student,
+  payments,
+  onClose,
+  onRefresh,
+}) {
+  const [isPayOpen, setIsPayOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
 
-    let formatted = "+998 ";
-    if (input.length > 0) formatted += input.substring(0, 2);
-    if (input.length > 2) formatted += " " + input.substring(2, 5);
-    if (input.length > 5) formatted += " " + input.substring(5, 7);
-    if (input.length > 7) formatted += " " + input.substring(7, 9);
+  const studentPayments = payments
+    .filter((p) => p.studentId === student._id)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    setFormData({ ...formData, phone: formatted });
+  const filteredHistory = studentPayments.filter(
+    (p) =>
+      formatMonth(p.month)
+        .toLowerCase()
+        .includes(historySearch.toLowerCase()) ||
+      p.paymentType.toLowerCase().includes(historySearch.toLowerCase())
+  );
+
+  // YANGILANGAN VA ISHONCHLI EXCEL (CSV) YUKLASH FUNKSIYASI
+  const exportStudentHistory = () => {
+    if (studentPayments.length === 0)
+      return alert("Yuklab olish uchun to'lov tarixi yo'q!");
+
+    let csvContent = "O'quvchi ismi,Guruh,Summa,To'lov turi,Oy,Sana\n";
+
+    studentPayments.forEach((p) => {
+      const row = `"${student.name}","${student.group}","${p.amount}","${
+        p.paymentType
+      }","${formatMonth(p.month)}","${new Date(p.date).toLocaleDateString()}"`;
+      csvContent += row + "\n";
+    });
+
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${student.name.replace(/\s+/g, "_")}_tarix.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    // Xuddi eski API'ingizdek yuboramiz (Edit bo'lsa PUT, yangi bo'lsa POST)
-    const method = studentToEdit ? "PUT" : "POST";
-    const body = studentToEdit
-      ? { id: studentToEdit._id, ...formData }
-      : formData;
-
-    try {
-      const res = await fetch("/api/students", {
-        method: method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        onClose(); // Saqlangach oynani yopamiz va yangilaymiz
-      } else {
-        alert("Xatolik yuz berdi");
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+  const shareReceipt = (p) => {
+    const text = `🧾 *TO'LOV CHEKI*\n\n🏢 *Markaz:* Navro'z O'quv Markazi\n👤 *O'quvchi:* ${
+      student.name
+    }\n📚 *Guruh:* ${student.group}\n💰 *Summa:* ${Number(
+      p.amount
+    ).toLocaleString()} so'm\n💳 *To'lov turi:* ${
+      p.paymentType
+    }\n📅 *Qaysi oy uchun:* ${formatMonth(
+      p.month
+    )}\n📆 *To'lov sanasi:* ${new Date(
+      p.date
+    ).toLocaleDateString()}\n\n✅ _To'lov muvaffaqiyatli qabul qilindi!_`;
+    const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
   };
-
-  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-slate-800">
-            {studentToEdit
-              ? "O'quvchini tahrirlash"
-              : "Yangi o'quvchi qo'shish"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              F.I.SH
-            </label>
-            <div className="relative">
-              <User
-                className="absolute left-3 top-3.5 text-slate-400"
-                size={18}
-              />
-              <input
-                required
-                type="text"
-                placeholder="Masalan: Tursunov Muhammad"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="w-full pl-10 pr-4 py-3 rounded-xl border focus:border-indigo-500 outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              Telefon raqam
-            </label>
-            <div className="relative">
-              <Phone
-                className="absolute left-3 top-3.5 text-slate-400"
-                size={18}
-              />
-              <input
-                required
-                type="text"
-                placeholder="+998 99 123 45 67"
-                value={formData.phone}
-                onChange={handlePhoneChange}
-                maxLength={17}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border focus:border-indigo-500 outline-none font-medium"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              Guruh nomi
-            </label>
-            <div className="relative">
-              <Users
-                className="absolute left-3 top-3.5 text-slate-400"
-                size={18}
-              />
-              <input
-                required
-                type="text"
-                placeholder="Masalan: Ingliz tili"
-                value={formData.group}
-                onChange={(e) =>
-                  setFormData({ ...formData, group: e.target.value })
-                }
-                className="w-full pl-10 pr-4 py-3 rounded-xl border focus:border-indigo-500 outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4">
+    <>
+      <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[95vh] flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-slate-800">{student.name}</h2>
             <button
-              type="button"
               onClick={onClose}
-              className="w-full py-3 bg-slate-100 font-bold rounded-xl hover:bg-slate-200"
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
             >
-              Bekor qilish
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {loading ? "Saqlanmoqda..." : "Saqlash"}
+              <X size={20} />
             </button>
           </div>
-        </form>
+
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
+              <Phone size={18} className="text-indigo-500" />{" "}
+              {formatPhoneNumber(student.phone)}
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
+              <BookOpen size={18} className="text-indigo-500" /> {student.group}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-4 shrink-0">
+            <button
+              onClick={() => setIsPayOpen(true)}
+              className="flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-sm"
+            >
+              <CreditCard size={18} /> To'lov
+            </button>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all ${
+                showHistory
+                  ? "bg-indigo-100 text-indigo-700"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              <History size={18} /> Tarix ({studentPayments.length})
+            </button>
+          </div>
+
+          {showHistory && (
+            <div className="border-t pt-4 mt-2 flex flex-col min-h-0">
+              <div className="flex gap-2 mb-3">
+                <div className="relative flex-1">
+                  <Search
+                    className="absolute left-3 top-2.5 text-slate-400"
+                    size={16}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Oy yoki turini qidiring..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <button
+                  onClick={exportStudentHistory}
+                  className="bg-emerald-50 text-emerald-600 p-2 rounded-lg hover:bg-emerald-100 transition-colors"
+                  title="Yuklash"
+                >
+                  <Download size={20} />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto pr-2 custom-scrollbar flex-1 space-y-2 pb-2">
+                {filteredHistory.length === 0 ? (
+                  <div className="text-center p-4 bg-slate-50 rounded-xl text-slate-500 text-sm">
+                    To'lovlar topilmadi.
+                  </div>
+                ) : (
+                  filteredHistory.map((p) => (
+                    <div
+                      key={p._id}
+                      className="p-3 border rounded-xl hover:border-indigo-200 transition-all bg-white"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="bg-emerald-100 p-1.5 rounded-md text-emerald-600">
+                            <CalendarCheck size={16} />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-700 text-sm">
+                              {formatMonth(p.month)}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              {new Date(p.date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-emerald-600 text-sm">
+                            {Number(p.amount).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] uppercase font-bold text-slate-400">
+                            {p.paymentType}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => shareReceipt(p)}
+                        className="w-full mt-2 flex items-center justify-center gap-2 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        <Send size={14} /> Chek ulashish
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {isPayOpen && (
+        <PaymentModal
+          student={student}
+          isOpen={true}
+          onClose={() => {
+            setIsPayOpen(false);
+            onRefresh();
+          }}
+        />
+      )}
+    </>
   );
 }

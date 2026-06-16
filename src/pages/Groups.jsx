@@ -3,6 +3,22 @@ import { Search, Loader2, UserPlus, Pencil, Trash2 } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
 import StudentDetailModal from "../components/StudentDetailModal";
 
+const formatPhoneNumber = (phone) => {
+  if (!phone) return "";
+  const cleaned = ("" + phone).replace(/\D/g, "");
+  if (cleaned.length === 12 && cleaned.startsWith("998"))
+    return `+998 ${cleaned.slice(3, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(
+      8,
+      10
+    )} ${cleaned.slice(10, 12)}`;
+  else if (cleaned.length === 9)
+    return `+998 ${cleaned.slice(0, 2)} ${cleaned.slice(2, 5)} ${cleaned.slice(
+      5,
+      7
+    )} ${cleaned.slice(7, 9)}`;
+  return phone;
+};
+
 export default function Groups() {
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -10,8 +26,8 @@ export default function Groups() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null); // Karta ochish uchun
-  const [studentToEdit, setStudentToEdit] = useState(null); // Tahrirlash uchun
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentToEdit, setStudentToEdit] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -35,11 +51,9 @@ export default function Groups() {
     fetchData();
   }, []);
 
-  // O'CHIRISH FUNKSIYASI
   const handleDelete = async (e, id, name) => {
-    e.stopPropagation(); // Karta ochilib ketmasligi uchun
-    if (!window.confirm(`${name} o'quvchini butunlay o'chirmoqchimisiz?`))
-      return;
+    e.stopPropagation();
+    if (!window.confirm(`${name} o'quvchini o'chirmoqchimisiz?`)) return;
     try {
       await fetch("/api/students", {
         method: "DELETE",
@@ -48,13 +62,12 @@ export default function Groups() {
       });
       fetchData();
     } catch (error) {
-      console.error("O'chirishda xatolik:", error);
+      console.error("O'chirishda xato:", error);
     }
   };
 
-  // TAHRIRLASH FUNKSIYASI
   const handleEdit = (e, student) => {
-    e.stopPropagation(); // Karta ochilib ketmasligi uchun
+    e.stopPropagation();
     setStudentToEdit(student);
     setIsStudentModalOpen(true);
   };
@@ -108,10 +121,7 @@ export default function Groups() {
             ) : (
               filteredStudents.map((s) => {
                 const hasPaid = payments.some(
-                  (p) =>
-                    p.studentId === s._id &&
-                    p.month === currentMonth &&
-                    p.groupName === s.group
+                  (p) => p.studentId === s._id && p.month === currentMonth
                 );
                 return (
                   <tr
@@ -124,7 +134,7 @@ export default function Groups() {
                         {s.name}
                       </div>
                       <div className="text-xs text-slate-500 mt-1">
-                        {s.group} • {s.phone}
+                        {s.group} • {formatPhoneNumber(s.phone)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -136,18 +146,17 @@ export default function Groups() {
                         {hasPaid ? "To'langan" : "Qarz"}
                       </span>
                     </td>
-                    {/* EDIT VA DELETE TUGMALARI */}
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={(e) => handleEdit(e, s)}
-                          className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-blue-500 hover:bg-blue-100 rounded-lg transition-colors"
                         >
                           <Pencil size={18} />
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, s._id, s.name)}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-2 text-rose-500 hover:bg-rose-100 rounded-lg transition-colors"
                         >
                           <Trash2 size={18} />
                         </button>
