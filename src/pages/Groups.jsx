@@ -3,6 +3,31 @@ import { Search, Loader2, UserPlus } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
 import StudentDetailModal from "../components/StudentDetailModal";
 
+// TELEFON RAQAMNI FORMATLASH FUNKSIYASI
+const formatPhoneNumber = (phone) => {
+  if (!phone) return "";
+  // Faqat raqamlarni ajratib olamiz (barcha probel va '+' larni olib tashlaymiz)
+  const cleaned = ("" + phone).replace(/\D/g, "");
+
+  // Agar 12 xonali va 998 bilan boshlansa
+  if (cleaned.length === 12 && cleaned.startsWith("998")) {
+    return `+998 ${cleaned.slice(3, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(
+      8,
+      10
+    )} ${cleaned.slice(10, 12)}`;
+  }
+  // Agar faqat 9 xonali raqam kiritilgan bo'lsa (masalan: 991234567)
+  else if (cleaned.length === 9) {
+    return `+998 ${cleaned.slice(0, 2)} ${cleaned.slice(2, 5)} ${cleaned.slice(
+      5,
+      7
+    )} ${cleaned.slice(7, 9)}`;
+  }
+
+  // Boshqa g'alati format bo'lsa, o'zini qaytaraveradi
+  return phone;
+};
+
 export default function Groups() {
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -80,7 +105,7 @@ export default function Groups() {
               {loading ? (
                 <tr>
                   <td colSpan="2" className="py-10 text-center">
-                    <Loader2 className="animate-spin mx-auto" />
+                    <Loader2 className="animate-spin mx-auto text-slate-400" />
                   </td>
                 </tr>
               ) : (
@@ -98,9 +123,12 @@ export default function Groups() {
                       className="hover:bg-indigo-50 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-800">{s.name}</div>
-                        <div className="text-xs text-slate-500">
-                          {s.group} • {s.phone}
+                        <div className="font-bold text-slate-800 text-base">
+                          {s.name}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          {s.group} • {formatPhoneNumber(s.phone)}{" "}
+                          {/* Formatlangan raqam chaqirildi */}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -134,6 +162,7 @@ export default function Groups() {
       {selectedStudent && (
         <StudentDetailModal
           student={selectedStudent}
+          payments={payments}
           onClose={() => setSelectedStudent(null)}
           onRefresh={fetchData}
         />
