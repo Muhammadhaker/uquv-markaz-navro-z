@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   X,
   Phone,
@@ -8,9 +9,9 @@ import {
   Download,
   Send,
   Search,
+  User,
 } from "lucide-react";
 import PaymentModal from "./PaymentModal";
-import { useState } from "react";
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
@@ -57,13 +58,12 @@ export default function StudentDetailModal({
 }) {
   const [isPayOpen, setIsPayOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [historySearch, setHistorySearch] = useState(""); // Tarix ichida qidiruv
+  const [historySearch, setHistorySearch] = useState("");
 
   const studentPayments = payments
     .filter((p) => p.studentId === student._id)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  // Qidiruv bo'yicha filtrlash
   const filteredHistory = studentPayments.filter(
     (p) =>
       formatMonth(p.month)
@@ -72,7 +72,6 @@ export default function StudentDetailModal({
       p.paymentType.toLowerCase().includes(historySearch.toLowerCase())
   );
 
-  // 1. FAQAT SHU O'QUVCHI UCHUN EXCEL YUKLASH
   const exportStudentHistory = () => {
     if (studentPayments.length === 0)
       return alert("Yuklab olish uchun to'lov tarixi yo'q!");
@@ -80,24 +79,17 @@ export default function StudentDetailModal({
     let table = `\uFEFF<table border="1">
       <thead>
         <tr style="background-color: #f3f4f6;">
-          <th>O'quvchi ismi</th>
-          <th>Guruh</th>
-          <th>Summa</th>
-          <th>To'lov turi</th>
-          <th>Oy</th>
-          <th>Sana</th>
+          <th>O'quvchi</th><th>Guruh</th><th>Summa</th><th>To'lov turi</th><th>Oy</th><th>Sana</th>
         </tr>
       </thead>
       <tbody>`;
 
     studentPayments.forEach((p) => {
       table += `<tr>
-        <td>${student.name}</td>
-        <td>${student.group}</td>
-        <td>${p.amount}</td>
-        <td>${p.paymentType}</td>
-        <td>${formatMonth(p.month)}</td>
-        <td>${new Date(p.date).toLocaleDateString()}</td>
+        <td>${student.name}</td><td>${student.group}</td><td>${p.amount}</td>
+        <td>${p.paymentType}</td><td>${formatMonth(p.month)}</td><td>${new Date(
+        p.date
+      ).toLocaleDateString()}</td>
       </tr>`;
     });
 
@@ -114,22 +106,20 @@ export default function StudentDetailModal({
     document.body.removeChild(link);
   };
 
-  // 2. TELEGRAM ORQALI CHEK YUBORISH
   const shareReceipt = (p) => {
-    const text = `🧾 *TO'LOV CHEKI*\n\n🏢 *Markaz:* Navro'z O'quv Markazi\n👤 *O'quvchi:* ${
+    const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${
       student.name
     }\n📚 *Guruh:* ${student.group}\n💰 *Summa:* ${Number(
       p.amount
-    ).toLocaleString()} so'm\n💳 *To'lov turi:* ${
+    ).toLocaleString()} so'm\n💳 *Turi:* ${
       p.paymentType
-    }\n📅 *Qaysi oy uchun:* ${formatMonth(
-      p.month
-    )}\n📆 *To'lov sanasi:* ${new Date(
-      p.date
-    ).toLocaleDateString()}\n\n✅ _To'lov muvaffaqiyatli qabul qilindi!_`;
-
-    // Telegram share havolasi
-    const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
+    }\n📅 *Oy:* ${formatMonth(p.month)}\n\n✅ _To'lov qabul qilindi!_`;
+    window.open(
+      `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`,
+      "_blank"
+    );
+    const url = `tg://msg_url?url=${encodeURIComponent(text)}`;
+    // Agar ilova bo'lmasa, xavfsizlik uchun brauzerda ham ochishga imkon beramiz
     window.open(url, "_blank");
   };
 
@@ -141,13 +131,17 @@ export default function StudentDetailModal({
             <h2 className="text-xl font-bold text-slate-800">{student.name}</h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              className="p-2 hover:bg-slate-100 rounded-full"
             >
               <X size={20} />
             </button>
           </div>
 
-          <div className="space-y-4 mb-6">
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
+              <User size={18} className="text-indigo-500" />{" "}
+              {student.parentName || "Ota-ona ismi yo'q"}
+            </div>
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
               <Phone size={18} className="text-indigo-500" />{" "}
               {formatPhoneNumber(student.phone)}
@@ -157,97 +151,56 @@ export default function StudentDetailModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4 shrink-0">
+          <div className="grid grid-cols-2 gap-3 mb-4">
             <button
               onClick={() => setIsPayOpen(true)}
-              className="flex items-center justify-center gap-2 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-sm"
+              className="bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 flex justify-center gap-2"
             >
               <CreditCard size={18} /> To'lov
             </button>
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all ${
-                showHistory
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
+              className="bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 flex justify-center gap-2"
             >
               <History size={18} /> Tarix ({studentPayments.length})
             </button>
           </div>
 
-          {/* TARIX QISMI (Ochilganda) */}
           {showHistory && (
-            <div className="border-t pt-4 mt-2 flex flex-col min-h-0">
-              {/* Qidiruv va Excel tugmalari */}
+            <div className="border-t pt-4 mt-2 flex flex-col flex-1 min-h-0">
               <div className="flex gap-2 mb-3">
-                <div className="relative flex-1">
-                  <Search
-                    className="absolute left-3 top-2.5 text-slate-400"
-                    size={16}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Oy yoki turini qidiring..."
-                    value={historySearch}
-                    onChange={(e) => setHistorySearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border outline-none focus:border-indigo-500"
-                  />
-                </div>
+                <input
+                  type="text"
+                  placeholder="Qidiruv..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="w-full px-4 py-2 text-sm rounded-lg border outline-none focus:border-indigo-500"
+                />
                 <button
                   onClick={exportStudentHistory}
-                  className="bg-emerald-50 text-emerald-600 p-2 rounded-lg hover:bg-emerald-100 transition-colors"
-                  title="Shu o'quvchi hisobotini Excelda yuklash"
+                  className="bg-emerald-50 text-emerald-600 p-2 rounded-lg"
                 >
                   <Download size={20} />
                 </button>
               </div>
 
-              <div className="overflow-y-auto pr-2 custom-scrollbar flex-1 space-y-2 pb-2">
-                {filteredHistory.length === 0 ? (
-                  <div className="text-center p-4 bg-slate-50 rounded-xl text-slate-500 text-sm">
-                    To'lovlar topilmadi.
-                  </div>
-                ) : (
-                  filteredHistory.map((p) => (
-                    <div
-                      key={p._id}
-                      className="p-3 border rounded-xl hover:border-indigo-200 transition-all bg-white"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="bg-emerald-100 p-1.5 rounded-md text-emerald-600">
-                            <CalendarCheck size={16} />
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-700 text-sm">
-                              {formatMonth(p.month)}
-                            </div>
-                            <div className="text-xs text-slate-400">
-                              {new Date(p.date).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold text-emerald-600 text-sm">
-                            {Number(p.amount).toLocaleString()}
-                          </div>
-                          <div className="text-[10px] uppercase font-bold text-slate-400">
-                            {p.paymentType}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CHEK ULASHISH TUGMASI */}
-                      <button
-                        onClick={() => shareReceipt(p)}
-                        className="w-full mt-2 flex items-center justify-center gap-2 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors"
-                      >
-                        <Send size={14} /> Telegram orqali chek ulashish
-                      </button>
+              <div className="overflow-y-auto space-y-2 pb-2">
+                {filteredHistory.map((p) => (
+                  <div key={p._id} className="p-3 border rounded-xl bg-white">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-bold">{formatMonth(p.month)}</span>
+                      <span className="font-bold text-emerald-600">
+                        {Number(p.amount).toLocaleString()}
+                      </span>
                     </div>
-                  ))
-                )}
+                    <button
+                      onClick={() => shareReceipt(p)}
+                      className="w-full mt-2 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex justify-center gap-2"
+                    >
+                      <Send size={14} /> Telegram orqali ulashish
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}

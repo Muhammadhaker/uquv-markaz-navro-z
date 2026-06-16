@@ -120,36 +120,46 @@ export default function PaymentModal({ isOpen, onClose, student }) {
             )}
 
             {/* AQLLI GURUH TANLOVI */}
-            {studentSubjects.length > 1 ? (
-              <select
-                className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none bg-white cursor-pointer"
-                value={group}
-                onChange={(e) => setGroup(e.target.value)}
-              >
-                {studentSubjects.map((subj) => (
-                  <option key={subj} value={subj}>
-                    {subj}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none bg-slate-50 text-slate-600"
-                value={group}
-                readOnly
-              />
-            )}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-400 uppercase">
+                Guruh / Fan
+              </label>
+              {studentSubjects.length > 1 ? (
+                <select
+                  className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none bg-white cursor-pointer"
+                  value={group}
+                  onChange={(e) => setGroup(e.target.value)}
+                >
+                  {studentSubjects.map((subj) => (
+                    <option key={subj} value={subj}>
+                      {subj}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none bg-slate-50 text-slate-600"
+                  value={group}
+                  readOnly
+                />
+              )}
+            </div>
 
             {/* FORMATLANADIGAN SUMMA INPUTI */}
-            <input
-              type="text"
-              inputMode="numeric"
-              className="w-full border p-3 rounded-xl font-bold text-lg text-slate-800 focus:border-indigo-500 outline-none"
-              placeholder="Summa (so'm)"
-              value={amount}
-              onChange={handleAmountChange}
-              required
-            />
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-400 uppercase">
+                Summa
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="w-full border p-3 rounded-xl font-bold text-lg text-slate-800 focus:border-indigo-500 outline-none"
+                placeholder="550 000"
+                value={amount}
+                onChange={handleAmountChange}
+                required
+              />
+            </div>
 
             <select
               className="w-full border p-3 rounded-xl bg-white font-medium focus:border-indigo-500 outline-none cursor-pointer"

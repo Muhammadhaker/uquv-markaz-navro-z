@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { X, User, Phone, BookOpen } from "lucide-react";
+import { X, User, Phone, Users, BookOpen } from "lucide-react";
 
 export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const [formData, setFormData] = useState({
     name: "",
+    parentName: "",
     phone: "+998 ",
-    group: "", // Tanlanadigan qilingan
+    group: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -13,6 +14,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     if (studentToEdit) {
       setFormData({
         name: studentToEdit.name,
+        parentName: studentToEdit.parentName || "",
         phone: studentToEdit.phone,
         group: studentToEdit.group,
       });
@@ -22,36 +24,29 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const handlePhoneChange = (e) => {
     let input = e.target.value.replace(/\D/g, "");
     if (input.startsWith("998")) input = input.substring(3);
-
     let formatted = "+998 ";
     if (input.length > 0) formatted += input.substring(0, 2);
     if (input.length > 2) formatted += " " + input.substring(2, 5);
     if (input.length > 5) formatted += " " + input.substring(5, 7);
     if (input.length > 7) formatted += " " + input.substring(7, 9);
-
     setFormData({ ...formData, phone: formatted });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     const method = studentToEdit ? "PUT" : "POST";
     const body = studentToEdit
       ? { id: studentToEdit._id, ...formData }
       : formData;
 
     try {
-      const res = await fetch("/api/students", {
+      await fetch("/api/students", {
         method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (res.ok) {
-        onClose();
-      } else {
-        alert("Xatolik yuz berdi");
-      }
+      onClose();
     } catch (error) {
       console.error(error);
     } finally {
@@ -63,106 +58,63 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-slate-800">
-            {studentToEdit
-              ? "O'quvchini tahrirlash"
-              : "Yangi o'quvchi qo'shish"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+        <h2 className="text-xl font-bold mb-4">
+          {studentToEdit ? "Tahrirlash" : "Yangi o'quvchi"}
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              F.I.SH
-            </label>
-            <div className="relative">
-              <User
-                className="absolute left-3 top-3.5 text-slate-400"
-                size={18}
-              />
-              <input
-                required
-                type="text"
-                placeholder="Masalan: Tursunov Muhammad"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="w-full pl-10 pr-4 py-3 rounded-xl border focus:border-indigo-500 outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              Telefon raqam
-            </label>
-            <div className="relative">
-              <Phone
-                className="absolute left-3 top-3.5 text-slate-400"
-                size={18}
-              />
-              <input
-                required
-                type="text"
-                placeholder="+998 99 123 45 67"
-                value={formData.phone}
-                onChange={handlePhoneChange}
-                maxLength={17}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border focus:border-indigo-500 outline-none font-medium"
-              />
-            </div>
-          </div>
-
-          {/* FAQAT TANLANADIGAN QILINGAN GURUH QISMI */}
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">
-              Fanni tanlang
-            </label>
-            <div className="relative">
-              <BookOpen
-                className="absolute left-3 top-3.5 text-slate-400"
-                size={18}
-              />
-              <select
-                required
-                value={formData.group}
-                onChange={(e) =>
-                  setFormData({ ...formData, group: e.target.value })
-                }
-                className="w-full pl-10 pr-4 py-3 rounded-xl border focus:border-indigo-500 outline-none appearance-none bg-transparent cursor-pointer font-medium text-slate-700"
-              >
-                <option value="" disabled>
-                  Fanni tanlang...
-                </option>
-                <option value="Matematika">Matematika</option>
-                <option value="Ingliz tili">Ingliz tili</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4">
+          <input
+            required
+            className="w-full p-3 border rounded-xl"
+            placeholder="O'quvchi F.I.SH"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          />
+          <input
+            required
+            className="w-full p-3 border rounded-xl"
+            placeholder="Ota-ona F.I.SH"
+            value={formData.parentName}
+            onChange={(e) =>
+              setFormData({ ...formData, parentName: e.target.value })
+            }
+          />
+          <input
+            required
+            className="w-full p-3 border rounded-xl"
+            placeholder="+998 99 123 45 67"
+            value={formData.phone}
+            onChange={handlePhoneChange}
+            maxLength={17}
+          />
+          <select
+            required
+            className="w-full p-3 border rounded-xl"
+            value={formData.group}
+            onChange={(e) =>
+              setFormData({ ...formData, group: e.target.value })
+            }
+          >
+            <option value="">Fanni tanlang...</option>
+            <option value="Matematika">Matematika</option>
+            <option value="Ingliz tili">Ingliz tili</option>
+            <option value="Matematika, Ingliz tili">
+              Matematika, Ingliz tili
+            </option>
+          </select>
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-3 bg-slate-100 font-bold rounded-xl hover:bg-slate-200"
+              className="w-full py-3 bg-slate-100 rounded-xl"
             >
-              Bekor qilish
+              Bekor
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+              className="w-full py-3 bg-indigo-600 text-white rounded-xl"
             >
-              {loading ? "Saqlanmoqda..." : "Saqlash"}
+              Saqlash
             </button>
           </div>
         </form>
