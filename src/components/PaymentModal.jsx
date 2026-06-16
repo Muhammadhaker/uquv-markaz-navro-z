@@ -11,6 +11,14 @@ export default function PaymentModal({ isOpen, onClose, student }) {
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // O'quvchining fanlarini verguldan ajratib, ro'yxat (array) qilib olamiz
+  const studentSubjects = student?.group
+    ? student.group
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
   useEffect(() => {
     if (isOpen && student) {
       const today = new Date();
@@ -20,7 +28,8 @@ export default function PaymentModal({ isOpen, onClose, student }) {
           "0"
         )}`
       );
-      setGroup(student.group || "");
+      // Agar fanlar bir nechta bo'lsa, birinchisini default qilib qo'yamiz
+      setGroup(studentSubjects.length > 0 ? studentSubjects[0] : "");
       setAmount("");
       setSuccess(false);
       setErrorMessage("");
@@ -29,9 +38,20 @@ export default function PaymentModal({ isOpen, onClose, student }) {
 
   if (!isOpen || !student) return null;
 
+  // SUMMANI HAR 3 TA RAQAMDAN KEYIN PROBEL BILAN FORMATLASH
+  const handleAmountChange = (e) => {
+    let rawValue = e.target.value.replace(/\D/g, ""); // Faqat raqamlarni olib qolamiz
+    let formattedValue = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, " "); // Orqadan 3 tadan sanab probel qo'shamiz
+    setAmount(formattedValue);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (Number(amount) <= 0) {
+
+    // Yuborishdan oldin probellarni qayta olib tashlab, toza raqamga aylantiramiz
+    const numericAmount = Number(amount.replace(/\s/g, ""));
+
+    if (numericAmount <= 0) {
       setErrorMessage("To'lov summasi noto'g'ri!");
       return;
     }
@@ -45,11 +65,10 @@ export default function PaymentModal({ isOpen, onClose, student }) {
           studentId: student._id,
           studentName: student.name,
           groupName: group,
-          amount: Number(amount),
+          amount: numericAmount,
           paymentType,
           month: paymentMonth,
           adminName: localStorage.getItem("username") || "Admin",
-          // TELEGRAM ID HAM QO'SHILDI
           telegramChatId: student.telegramChatId,
         }),
       });
@@ -68,7 +87,7 @@ export default function PaymentModal({ isOpen, onClose, student }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-end sm:items-center z-50 p-4">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center items-end sm:items-center z-[70] p-4">
       <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
         <button
           onClick={onClose}
@@ -79,14 +98,14 @@ export default function PaymentModal({ isOpen, onClose, student }) {
 
         {success ? (
           <div className="p-8 text-center flex flex-col items-center">
-            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
               <CheckCircle size={32} />
             </div>
             <h3 className="font-bold text-lg text-slate-800">
               To'lov qabul qilindi!
             </h3>
             <p className="text-sm text-slate-500 mt-2">
-              Chek saqlandi (va botdan kelgan bo'lsa yuborildi).
+              To'lov saqlandi va chek yuborildi.
             </p>
           </div>
         ) : (
@@ -95,44 +114,63 @@ export default function PaymentModal({ isOpen, onClose, student }) {
               To'lov: {student.name}
             </h2>
             {errorMessage && (
-              <p className="text-red-500 text-sm bg-red-50 p-2 rounded-xl font-medium">
+              <p className="text-rose-500 text-sm bg-rose-50 p-2 rounded-xl font-medium">
                 {errorMessage}
               </p>
             )}
 
+            {/* AQLLI GURUH TANLOVI */}
+            {studentSubjects.length > 1 ? (
+              <select
+                className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none bg-white cursor-pointer"
+                value={group}
+                onChange={(e) => setGroup(e.target.value)}
+              >
+                {studentSubjects.map((subj) => (
+                  <option key={subj} value={subj}>
+                    {subj}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none bg-slate-50 text-slate-600"
+                value={group}
+                readOnly
+              />
+            )}
+
+            {/* FORMATLANADIGAN SUMMA INPUTI */}
             <input
-              className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none"
-              placeholder="Guruh"
-              value={group}
-              onChange={(e) => setGroup(e.target.value)}
-            />
-            <input
-              type="number"
-              className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none"
+              type="text"
+              inputMode="numeric"
+              className="w-full border p-3 rounded-xl font-bold text-lg text-slate-800 focus:border-indigo-500 outline-none"
               placeholder="Summa (so'm)"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={handleAmountChange}
               required
             />
+
             <select
-              className="w-full border p-3 rounded-xl bg-white font-medium focus:border-indigo-500 outline-none"
+              className="w-full border p-3 rounded-xl bg-white font-medium focus:border-indigo-500 outline-none cursor-pointer"
               value={paymentType}
               onChange={(e) => setPaymentType(e.target.value)}
             >
               <option>Naqd</option>
               <option>Plastik</option>
             </select>
+
             <input
               type="month"
-              className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none"
+              className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none cursor-pointer"
               value={paymentMonth}
               onChange={(e) => setPaymentMonth(e.target.value)}
               required
             />
 
             <button
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold transition-all shadow-md disabled:opacity-70 flex justify-center items-center"
-              disabled={loading}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold transition-all shadow-md disabled:opacity-70 flex justify-center items-center mt-2"
+              disabled={loading || !amount}
             >
               {loading ? (
                 <Loader2 className="animate-spin" />

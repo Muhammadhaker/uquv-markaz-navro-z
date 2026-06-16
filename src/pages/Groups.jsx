@@ -76,11 +76,11 @@ export default function Groups() {
   const filteredStudents = students.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.phone.includes(searchQuery)
+      (s.phone && s.phone.includes(searchQuery))
   );
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto pb-20">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto pb-20">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-slate-800">O'quvchilar</h1>
         <button
@@ -88,7 +88,7 @@ export default function Groups() {
             setStudentToEdit(null);
             setIsStudentModalOpen(true);
           }}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2"
+          className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2"
         >
           <UserPlus size={20} /> Yangi o'quvchi
         </button>
@@ -102,72 +102,60 @@ export default function Groups() {
         className="w-full p-4 mb-6 rounded-xl border focus:border-indigo-500 outline-none shadow-sm"
       />
 
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-            <tr>
-              <th className="px-6 py-4">O'quvchi</th>
-              <th className="px-6 py-4">Holati</th>
-              <th className="px-6 py-4 text-right">Amal</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-sm">
-            {loading ? (
-              <tr>
-                <td colSpan="3" className="py-10 text-center">
-                  <Loader2 className="animate-spin mx-auto text-slate-400" />
-                </td>
-              </tr>
-            ) : (
-              filteredStudents.map((s) => {
-                const hasPaid = payments.some(
-                  (p) => p.studentId === s._id && p.month === currentMonth
-                );
-                return (
-                  <tr
-                    key={s._id}
-                    onClick={() => setSelectedStudent(s)}
-                    className="hover:bg-indigo-50 cursor-pointer transition-colors"
+      {/* MOBILE FRIENDLY LIST */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="py-10 text-center">
+            <Loader2 className="animate-spin mx-auto text-slate-400" />
+          </div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="py-10 text-center text-slate-500">
+            O'quvchilar topilmadi
+          </div>
+        ) : (
+          filteredStudents.map((s) => {
+            const hasPaid = payments.some(
+              (p) => p.studentId === s._id && p.month === currentMonth
+            );
+            return (
+              <div
+                key={s._id}
+                onClick={() => setSelectedStudent(s)}
+                className="bg-white p-4 rounded-2xl border shadow-sm flex justify-between items-center hover:border-indigo-300 transition-all cursor-pointer"
+              >
+                <div>
+                  <div className="font-bold text-slate-800 text-lg">
+                    {s.name}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {s.group} • {formatPhoneNumber(s.phone)}
+                  </div>
+                  <div
+                    className={`text-xs font-bold mt-1 ${
+                      hasPaid ? "text-emerald-600" : "text-rose-600"
+                    }`}
                   >
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-slate-800 text-base">
-                        {s.name}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        {s.group} • {formatPhoneNumber(s.phone)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`font-bold ${
-                          hasPaid ? "text-emerald-600" : "text-rose-600"
-                        }`}
-                      >
-                        {hasPaid ? "To'langan" : "Qarz"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={(e) => handleEdit(e, s)}
-                          className="p-2 text-blue-500 hover:bg-blue-100 rounded-lg transition-colors"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(e, s._id, s.name)}
-                          className="p-2 text-rose-500 hover:bg-rose-100 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                    {hasPaid ? "To'langan" : "Qarz"}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={(e) => handleEdit(e, s)}
+                    className="p-3 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+                  >
+                    <Pencil size={20} />
+                  </button>
+                  <button
+                    onClick={(e) => handleDelete(e, s._id, s.name)}
+                    className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {isStudentModalOpen && (
