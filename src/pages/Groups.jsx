@@ -63,7 +63,7 @@ export default function Groups() {
     fetchData();
   }, []);
 
-  const handleDelete = async (e, id, name) => {
+const handleDelete = async (e, id, name) => {
     e.stopPropagation();
     if (!window.confirm(`${name} o'quvchini o'chirmoqchimisiz?`)) return;
     try {
@@ -72,7 +72,20 @@ export default function Groups() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      fetchData();
+
+      // YANGI QO'SHILGAN QISM: Tarixga yozib qo'yish
+      const adminName = localStorage.getItem("username") || "Noma'lum Admin";
+      await fetch("/api/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminName: adminName,
+          actionType: "delete",
+          details: `O'quvchi ro'yxatdan o'chirildi: ${name}`
+        })
+      });
+
+      fetchData(); // Ro'yxatni yangilash
     } catch (error) {
       console.error("O'chirishda xato:", error);
     }

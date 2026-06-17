@@ -4,7 +4,7 @@ import { CalendarDays, Loader2, Download, Trash2, Clock } from "lucide-react";
 export default function Dashboard() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Joriy oyni aniqlash
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -30,12 +30,30 @@ export default function Dashboard() {
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`${name} to'lovini o'chirmoqchimisiz?`)) return;
-    await fetch("/api/payments", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    fetchStats();
+
+    try {
+      await fetch("/api/payments", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+
+      // YANGI QO'SHILGAN QISM: To'lov o'chirilganini tarixga yozish
+      const adminName = localStorage.getItem("username") || "Noma'lum Admin";
+      await fetch("/api/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminName: adminName,
+          actionType: "delete",
+          details: `To'lov o'chirildi: ${name} (Dashboard orqali)`
+        })
+      });
+
+      fetchStats(); // Ro'yxatni yangilash
+    } catch (error) {
+      console.error("To'lovni o'chirishda xatolik:", error);
+    }
   };
 
   // YANGILANISH: Joriy oyda to'lov bo'lmasa ham, uni doim ro'yxatga qo'shish

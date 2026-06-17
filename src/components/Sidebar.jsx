@@ -6,6 +6,7 @@ import {
   UserCheck,
   X,
   Menu,
+  History, // <-- History ikonkasi qo'shildi
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -63,6 +64,13 @@ export default function Sidebar() {
       icon: UserCheck,
       show: role === "super_admin",
     },
+    // YANGI QO'SHILGAN QATOR: Harakatlar tarixi
+    {
+      to: "/logs",
+      label: "Harakatlar tarixi",
+      icon: History,
+      show: role === "super_admin",
+    },
   ];
 
   return (
@@ -107,8 +115,8 @@ export default function Sidebar() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
                       isActive
-                        ? "bg-indigo-600 text-white"
-                        : "hover:bg-slate-800"
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-bold"
+                        : "hover:bg-slate-800/60 hover:text-white text-slate-400"
                     }`
                   }
                 >

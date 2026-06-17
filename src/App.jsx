@@ -9,7 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import Groups from "./pages/Groups";
 import Attendance from "./pages/Attendance";
 import Admins from "./pages/Admins";
-import BotRegister from "./pages/BotRegister"; // <-- SHU QO'SHILDI
+import BotRegister from "./pages/BotRegister";
+import ActivityLogs from "./pages/ActivityLogs"; // <-- YANGI SAHIFA IMPORT QILINDI
 import Layout from "./components/Layout";
 
 // Himoyalangan marshrut (Layout bilan o'ralgan)
@@ -48,6 +49,16 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={["super_admin"]}>
               <Admins />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* YANGI QO'SHILGAN ROUTE: Harakatlar tarixi (Faqat Super Admin uchun) */}
+        <Route
+          path="/logs"
+          element={
+            <ProtectedRoute allowedRoles={["super_admin"]}>
+              <ActivityLogs />
             </ProtectedRoute>
           }
         />
