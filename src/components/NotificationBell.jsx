@@ -1,16 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bell, UserPlus, CheckCircle2 } from "lucide-react";
+import AddStudentModal from "./AddStudentModal";
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [studentToEdit, setStudentToEdit] = useState(null); 
+  const dropdownRef = useRef(null);
 
   const fetchNewStudents = async () => {
     try {
       const res = await fetch("/api/students");
       const data = await res.json();
       if (data.success) {
-        // Faqat isNewStudent = true bo'lganlarni ajratib olamiz
         const newOnes = data.data.filter(s => s.isNewStudent);
         setNotifications(newOnes);
       }
@@ -21,29 +23,42 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNewStudents();
-    // Har 30 soniyada yangi o'quvchilarni tekshirib turadi
     const interval = setInterval(fetchNewStudents, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // O'quvchini "Ko'rildi" qilib belgilash
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const markAsRead = async (e, id) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     try {
       await fetch("/api/students", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, isNewStudent: false }) // Yangi holatini olib tashlaymiz
+        body: JSON.stringify({ id, isNewStudent: false })
       });
-      // Ro'yxatdan olib tashlaymiz
       setNotifications(prev => prev.filter(n => n._id !== id));
     } catch (error) {
       console.error(error);
     }
   };
 
+  const handleStudentClick = (student) => {
+    setStudentToEdit(student); 
+    setIsOpen(false); 
+    markAsRead(null, student._id); 
+  };
+
   return (
-    <div className="relative z-50">
+    <div className="relative z-50" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 bg-white rounded-full shadow-sm hover:bg-slate-50 transition-colors"
@@ -71,18 +86,33 @@ export default function NotificationBell() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {notifications.map(student => (
-                  <div key={student._id} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-center group">
+                  <div 
+                    key={student._id} 
+                    onClick={() => handleStudentClick(student)} 
+                    className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-center group cursor-pointer"
+                  >
                     <div>
                       <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
                         <UserPlus size={14} className="text-indigo-500" />
                         {student.name}
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
+                      
+                      {/* YANGI QO'SHILDI: Ota-onasining ismi */}
+                      {student.parentName && (
+                        <div className="text-[11px] text-slate-400 mt-0.5 ml-5">
+                          Ota-onasi: <span className="text-slate-500 font-medium">{student.parentName}</span>
+                        </div>
+                      )}
+                      
+                      <div className="text-xs text-slate-500 mt-1 ml-5">
                         {student.group} • {new Date(student.addedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </div>
                     </div>
                     <button 
-                      onClick={(e) => markAsRead(e, student._id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); 
+                        markAsRead(e, student._id);
+                      }}
                       className="p-2 text-slate-300 hover:text-emerald-500 transition-colors"
                       title="Ko'rildi qilib belgilash"
                     >
@@ -94,6 +124,17 @@ export default function NotificationBell() {
             )}
           </div>
         </div>
+      )}
+
+      {studentToEdit && (
+        <AddStudentModal
+          isOpen={true}
+          studentToEdit={studentToEdit}
+          onClose={() => {
+            setStudentToEdit(null);
+            fetchNewStudents();
+          }}
+        />
       )}
     </div>
   );

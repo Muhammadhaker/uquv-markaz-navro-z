@@ -4,9 +4,10 @@ import { CalendarDays, Loader2, Download, Trash2, Clock } from "lucide-react";
 export default function Dashboard() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(
-    new Date().toISOString().slice(0, 7)
-  );
+  
+  // Joriy oyni aniqlash
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -37,7 +38,8 @@ export default function Dashboard() {
     fetchStats();
   };
 
-  const availableMonths = [...new Set(payments.map((p) => p.month))]
+  // YANGILANISH: Joriy oyda to'lov bo'lmasa ham, uni doim ro'yxatga qo'shish
+  const availableMonths = [...new Set([currentMonth, ...payments.map((p) => p.month)])]
     .sort()
     .reverse();
 
@@ -76,7 +78,6 @@ export default function Dashboard() {
       <tbody>`;
 
     filteredPayments.forEach((p) => {
-      // Excelda ham vaqt ko'rsatilishi uchun toLocaleString() ga o'zgartirildi
       table += `<tr>
         <td>${p.studentName}</td>
         <td>${p.groupName}</td>
@@ -173,7 +174,6 @@ export default function Dashboard() {
                 <th className="px-6 py-4">O'quvchi</th>
                 <th className="px-6 py-4 hidden sm:table-cell">Guruh</th>
                 <th className="px-6 py-4">Summa</th>
-                {/* Yangi qo'shilgan ustun: Sana va Vaqt */}
                 <th className="px-6 py-4 hidden md:table-cell">Sana va Vaqt</th>
                 <th className="px-6 py-4 text-right">Amal</th>
               </tr>
@@ -203,7 +203,6 @@ export default function Dashboard() {
                     <td className="px-6 py-4 font-bold text-emerald-600">
                       {Number(p.amount).toLocaleString()} so'm
                     </td>
-                    {/* Yangi qo'shilgan sana va vaqt qatori */}
                     <td className="px-6 py-4 hidden md:table-cell text-slate-500">
                       <div className="flex items-center gap-2">
                         <Clock size={14} className="text-slate-400" />
