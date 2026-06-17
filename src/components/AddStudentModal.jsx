@@ -65,14 +65,14 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             required
-            className="w-full p-3 border rounded-xl"
+            className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500"
             placeholder="O'quvchi F.I.SH"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
           <input
             required
-            className="w-full p-3 border rounded-xl"
+            className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500"
             placeholder="Ota-ona F.I.SH"
             value={formData.parentName}
             onChange={(e) =>
@@ -81,40 +81,50 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
           />
           <input
             required
-            className="w-full p-3 border rounded-xl"
+            className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500"
             placeholder="+998 99 123 45 67"
             value={formData.phone}
             onChange={handlePhoneChange}
             maxLength={17}
           />
-          <select
-            required
-            className="w-full p-3 border rounded-xl"
-            value={formData.group}
-            onChange={(e) =>
-              setFormData({ ...formData, group: e.target.value })
-            }
-          >
-            <option value="">Fanni tanlang...</option>
-            <option value="Matematika">Matematika</option>
-            <option value="Ingliz tili">Ingliz tili</option>
-            <option value="Matematika, Ingliz tili">
-              Matematika, Ingliz tili
-            </option>
-          </select>
-          <div className="flex gap-2">
+          
+          {/* YANGILANGAN GURUH TANLASH QISMI */}
+          <div className="space-y-1">
+            <input
+              required
+              list="group-suggestions"
+              className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500"
+              placeholder="Guruh nomi (Mas: Matematika 1-guruh)"
+              value={formData.group}
+              onChange={(e) =>
+                setFormData({ ...formData, group: e.target.value })
+              }
+            />
+            <datalist id="group-suggestions">
+              <option value="Matematika 1-guruh" />
+              <option value="Matematika 2-guruh" />
+              <option value="Ingliz tili 1-guruh" />
+              <option value="Matematika, Ingliz tili" />
+            </datalist>
+            <p className="text-[11px] text-slate-500 leading-tight">
+              Yangi guruh ochish uchun nomini to'liq yozing. O'quvchini boshqa guruhga o'tkazish uchun yozuvni tahrirlang.
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-3 bg-slate-100 rounded-xl"
+              className="w-full py-3 bg-slate-100 font-medium text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
             >
               Bekor
             </button>
             <button
               type="submit"
-              className="w-full py-3 bg-indigo-600 text-white rounded-xl"
+              disabled={loading}
+              className="w-full py-3 bg-indigo-600 font-medium text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-70"
             >
-              Saqlash
+              {loading ? "Saqlanmoqda..." : "Saqlash"}
             </button>
           </div>
         </form>

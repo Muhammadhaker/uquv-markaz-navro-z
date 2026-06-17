@@ -10,7 +10,8 @@ import {
   Send,
   Search,
   User,
-  Clock, // Yangi: Qo'shilgan vaqt ikonkasi
+  Clock,
+  ShieldAlert, // Yangi: Istisno ikonkasi
 } from "lucide-react";
 import PaymentModal from "./PaymentModal";
 
@@ -60,6 +61,11 @@ export default function StudentDetailModal({
   const [isPayOpen, setIsPayOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
+  const [isExcepting, setIsExcepting] = useState(false); // Yangi: Istisno holati
+
+  // Joriy oyni hisoblash (masalan "2026-06")
+  const today = new Date();
+  const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 
   const studentPayments = payments
     .filter((p) => p.studentId === student._id)
@@ -72,6 +78,10 @@ export default function StudentDetailModal({
         .includes(historySearch.toLowerCase()) ||
       p.paymentType.toLowerCase().includes(historySearch.toLowerCase())
   );
+
+  // Shu oydagi to'lovini va istisnosini tekshiramiz
+  const hasPaidCurrentMonth = studentPayments.some(p => p.month === currentMonthStr);
+  const isExcepted = student?.exceptionMonths?.includes(currentMonthStr);
 
   const exportStudentHistory = () => {
     if (studentPayments.length === 0)
@@ -107,7 +117,6 @@ export default function StudentDetailModal({
     document.body.removeChild(link);
   };
 
-  // Yangilangan: Chekni to'g'ridan-to'g'ri bot orqali jo'natish (API orqali)
   const shareReceipt = async (p) => {
     const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${
       student.name
@@ -135,8 +144,27 @@ export default function StudentDetailModal({
         console.error("Bot orqali yuborish xatosi:", error);
       }
     } else {
-      // Chat ID bo'lmasa, o'zingiz ulashasiz (eski usul saqlab qolindi)
       window.open(`tg://msg_url?url=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  // Yangi: ISTISNO QILISH FUNKSIYASI
+  const handleException = async () => {
+    if (!window.confirm("Bu o'quvchini joriy oy uchun qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?")) return;
+    setIsExcepting(true);
+    try {
+      const updatedExceptions = [...(student.exceptionMonths || []), currentMonthStr];
+      await fetch("/api/students", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: student._id, exceptionMonths: updatedExceptions }),
+      });
+      onRefresh(); 
+      onClose(); 
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsExcepting(false);
     }
   };
 
@@ -166,7 +194,6 @@ export default function StudentDetailModal({
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
               <BookOpen size={18} className="text-indigo-500" /> {student.group}
             </div>
-            {/* Yangi: O'quvchi qo'shilgan vaqti */}
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
               <Clock size={18} className="text-emerald-500" />
               Qo'shilgan:{" "}
@@ -181,6 +208,24 @@ export default function StudentDetailModal({
                 : "Mavjud emas"}
             </div>
           </div>
+
+          {/* YANGI: ISTISNO TUGMASI (Faqat to'lamagan va hali istisno qilinmaganlarga chiqadi) */}
+          {!hasPaidCurrentMonth && !isExcepted && (
+             <button 
+               onClick={handleException}
+               disabled={isExcepting}
+               className="mb-4 w-full bg-amber-50 text-amber-600 border border-amber-200 py-2.5 rounded-xl font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+             >
+               <ShieldAlert size={18} /> {isExcepting ? "Kutib turing..." : "To'lovni istisno qilish (Kechiktirish)"}
+             </button>
+          )}
+
+          {/* YANGI: ISTISNO QILINGANLIGI HAQIDA XABAR */}
+          {isExcepted && !hasPaidCurrentMonth && (
+             <div className="mb-4 w-full bg-slate-100 text-slate-500 py-2.5 rounded-xl font-bold text-center text-sm flex items-center justify-center gap-2">
+                <ShieldAlert size={16} /> Bu oydagi to'lovdan istisno qilingan
+             </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3 mb-4">
             <button

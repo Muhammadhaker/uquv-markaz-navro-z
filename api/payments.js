@@ -6,76 +6,118 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
+// To'lov sxemasiga telegramMessageId maydoni qo'shildi
 const paymentSchema = new mongoose.Schema({
   studentId: { type: String, required: true },
   studentName: { type: String, required: true },
   groupName: { type: String, required: true },
   amount: { type: Number, required: true },
-  paymentType: { type: String, enum: ['Naqd', 'Plastik'], required: true },
+  paymentType: { type: String, required: true },
   month: { type: String, required: true },
-  adminName: { type: String, required: true },
+  adminName: { type: String, default: "Admin" },
+  telegramChatId: { type: String, default: null },
+  telegramMessageId: { type: Number, default: null }, // Bot yuborgan xabar IDsi
   date: { type: Date, default: Date.now }
 });
 
 const Payment = mongoose.models.Payment || mongoose.model('Payment', paymentSchema, 'payments');
 
-// OYNI O'ZBEKCHAGA O'GIRISH FUNKSIYASI (Chek uchun)
-const formatMonth = (m) => {
-  if (!m) return "";
-  const [y, mm] = m.split("-");
-  const names = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
-  return `${names[parseInt(mm) - 1]} ${y}`;
-};
-
 export default async function handler(req, res) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+
   try {
     await connectDB();
 
+    // 1. TO'LOVLARNI OLISH
     if (req.method === 'GET') {
       const payments = await Payment.find({}).sort({ date: -1 });
       return res.status(200).json({ success: true, data: payments });
     }
 
+    // 2. YANGI TO'LOV QISHISH (VA AVTOMATIK CHEK YUBORISH)
     if (req.method === 'POST') {
-      // Frontenddan kelgan ma'lumotlarni ikkiga bo'lamiz: telegramChatId va qolgan bazaga yoziladiganlari
-      const { telegramChatId, ...paymentData } = req.body;
+      const { studentId, studentName, groupName, amount, paymentType, month, adminName, telegramChatId } = req.body;
+      
+      let messageId = null;
 
-      // 1. To'lovni bazaga saqlaymiz
-      const newPayment = await Payment.create(paymentData);
+      // Agar o'quvchining telegramChatId si bo'lsa, birinchi chek yuboramiz
+      if (telegramChatId) {
+        const formatMonthName = (m) => {
+          const [y, mm] = m.split("-");
+          const names = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+          return `${names[parseInt(mm) - 1]} ${y}`;
+        };
 
-      // 2. AGAR O'QUVCHI BOT ORQALI RO'YXATDAN O'TGAN BO'LSA VA CHAT ID BO'LSA
-      if (telegramChatId && process.env.TELEGRAM_BOT_TOKEN) {
-        // Chek matni xuddi ulashish tugmasidagidek tayyorlanadi
-        const text = `🧾 *TO'LOV CHEKI*\n\n🏢 *Markaz:* Navro'z O'quv Markazi\n👤 *O'quvchi:* ${paymentData.studentName}\n📚 *Guruh:* ${paymentData.groupName}\n💰 *Summa:* ${Number(paymentData.amount).toLocaleString()} so'm\n💳 *To'lov turi:* ${paymentData.paymentType}\n📅 *Qaysi oy uchun:* ${formatMonth(paymentData.month)}\n📆 *To'lov sanasi:* ${new Date().toLocaleDateString()}\n\n✅ _To'lov muvaffaqiyatli qabul qilindi!_`;
+        const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${studentName}\n📚 *Guruh:* ${groupName}\n💰 *Summa:* ${Number(amount).toLocaleString()} so'm\n💳 *Turi:* ${paymentType}\n📅 *Oy:* ${formatMonthName(month)}\n\n✅ _To'lov muvaffaqiyatli qabul qilindi!_`;
 
-        // Telegram API orqali yuborish
         try {
-          await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: telegramChatId,
               text: text,
-              parse_mode: 'Markdown' // Bu yozuvlarni qalin (*) qilib beradi
+              parse_mode: 'Markdown'
             })
           });
-        } catch (tgError) {
-          console.error("Telegramga yuborishda xatolik:", tgError);
+          const tgData = await tgRes.json();
+          
+          // Telegram yuborgan xabarning ID sini ushlab qolamiz
+          if (tgData.ok) {
+            messageId = tgData.result.message_id;
+          }
+        } catch (err) {
+          console.error("Telegramga chek yuborishda xato:", err);
         }
       }
+
+      // To'lovni bazaga saqlaymiz (ichida telegramMessageId ham ketadi)
+      const newPayment = await Payment.create({
+        studentId,
+        studentName,
+        groupName,
+        amount,
+        paymentType,
+        month,
+        adminName,
+        telegramChatId,
+        telegramMessageId: messageId // Xabar ID si saqlandi
+      });
 
       return res.status(201).json({ success: true, data: newPayment });
     }
 
+    // 3. TO'LOVNI O'CHIRISH (VA TELEGRAMDAN CHEKNI HAM YO'Q QILISH)
     if (req.method === 'DELETE') {
-      await Payment.findByIdAndDelete(req.body.id);
-      return res.status(200).json({ success: true });
-    }
+      const { id } = req.body;
 
-    if (req.method === 'PUT') {
-      const { id, ...updateData } = req.body;
-      const updated = await Payment.findByIdAndUpdate(id, updateData, { new: true });
-      return res.status(200).json({ success: true, data: updated });
+      // Avval o'chirilishi kerak bo'lgan to'lovni bazadan topamiz
+      const paymentToDelete = await Payment.findById(id);
+
+      if (!paymentToDelete) {
+        return res.status(404).json({ success: false, message: "To'lov topilmadi" });
+      }
+
+      // Agar ushbu to'lovda telegramChatId va telegramMessageId mavjud bo'lsa
+      if (paymentToDelete.telegramChatId && paymentToDelete.telegramMessageId) {
+        try {
+          // Telegramdan xabarni o'chirish API si
+          await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: paymentToDelete.telegramChatId,
+              message_id: paymentToDelete.telegramMessageId
+            })
+          });
+        } catch (err) {
+          console.error("Telegramdan xabarni o'chirishda xato:", err);
+        }
+      }
+
+      // Endi to'lovni bazaning o'zidan ham o'chirib tashlaymiz
+      await Payment.findByIdAndDelete(id);
+      return res.status(200).json({ success: true });
     }
 
     res.status(405).json({ message: "Metod ruxsat etilmagan" });

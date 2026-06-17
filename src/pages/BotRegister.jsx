@@ -62,9 +62,17 @@ export default function BotRegister() {
 
       if (res.ok) {
         setIsSuccess(true);
-        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred(
-          "success"
-        );
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.HapticFeedback?.notificationOccurred("success");
+          
+          // Telegram Alert oynasi va yopish logikasi
+          window.Telegram.WebApp.showAlert(
+            "🎉 Muvaffaqiyatli ro'yxatdan o'tdingiz!", 
+            () => {
+              window.Telegram.WebApp.close(); 
+            }
+          );
+        }
       } else {
         alert("Saqlashda xatolik!");
       }
@@ -75,6 +83,7 @@ export default function BotRegister() {
     }
   };
 
+  // Aslida bu oyna chiqmaydi, chunki showAlert(close) qilingan, lekin ehtiyot shart qoladi
   if (isSuccess) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
@@ -93,7 +102,6 @@ export default function BotRegister() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Inputlar... (oldingi kod qoladi) */}
           <input
             required
             className="w-full p-4 bg-slate-50 border rounded-2xl"
@@ -120,20 +128,27 @@ export default function BotRegister() {
             }
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            {["Matematika", "Ingliz tili"].map((fan) => (
-              <div
-                key={fan}
-                onClick={() => toggleGroup(fan)}
-                className={`p-4 text-center rounded-2xl border-2 cursor-pointer transition-all ${
-                  formData.groups.includes(fan)
-                    ? "border-indigo-600 bg-indigo-50"
-                    : "border-slate-100"
-                }`}
-              >
-                <span className="font-bold text-sm">{fan}</span>
-              </div>
-            ))}
+          <div>
+            {/* Yangi qo'shilgan yozuv */}
+            <p className="text-[13px] text-slate-500 font-medium text-center mb-3 px-4">
+              Qaysi fanlarga qatnashasiz? <br />
+              <span className="text-[11px] opacity-80">(Ikkalasini ham tanlashingiz mumkin)</span>
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              {["Matematika", "Ingliz tili"].map((fan) => (
+                <div
+                  key={fan}
+                  onClick={() => toggleGroup(fan)}
+                  className={`p-4 text-center rounded-2xl border-2 cursor-pointer transition-all ${
+                    formData.groups.includes(fan)
+                      ? "border-indigo-600 bg-indigo-50"
+                      : "border-slate-100"
+                  }`}
+                >
+                  <span className="font-bold text-sm">{fan}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           <button
