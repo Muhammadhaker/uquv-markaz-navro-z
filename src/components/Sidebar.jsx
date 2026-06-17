@@ -7,11 +7,46 @@ import {
   X,
   Menu,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const role = localStorage.getItem("userRole");
+
+  // BARMOG' BILAN SURISH (SWIPE) FUNKSIYASI
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+
+    const handleTouchStart = (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    };
+
+    const handleTouchEnd = (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      touchEndY = e.changedTouches[0].screenY;
+      
+      const xDiff = touchEndX - touchStartX;
+      const yDiff = touchEndY - touchStartY;
+
+      // Faqat gorizontal surish bo'lsagina ishlaydi (pastga/tepaga aylantirganda xalaqit bermaydi)
+      if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 50) {
+        if (xDiff > 0) setIsOpen(true); // Chapdan o'ngga surilganda menyuni ochish
+        else setIsOpen(false); // O'ngdan chapga surilganda menyuni yopish
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchend', handleTouchEnd);
+    
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
 
   const navItems = [
     {
@@ -42,7 +77,7 @@ export default function Sidebar() {
       {/* Overlay (mobil uchun) */}
       {isOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
