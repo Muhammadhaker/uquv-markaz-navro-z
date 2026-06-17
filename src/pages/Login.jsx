@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Lock, User } from "lucide-react";
+import { Loader2, Lock, User, Eye, EyeOff } from "lucide-react"; // Eye va EyeOff qo'shildi
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // YANGI: Parolni ko'rsatish/yashirish holati
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -65,7 +66,7 @@ export default function Login() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               placeholder="Login"
               required
             />
@@ -77,19 +78,27 @@ export default function Login() {
               size={18}
             />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"} // YANGI: Type dinamik o'zgaradi
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 pr-12 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               placeholder="Parol"
               required
             />
+            {/* YANGI: Ko'zcha tugmasi */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3.5 text-slate-400 hover:text-indigo-500 transition-colors focus:outline-none"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-200 flex justify-center items-center gap-2"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-200 flex justify-center items-center gap-2 mt-2"
           >
             {loading ? (
               <Loader2 className="animate-spin" size={20} />
