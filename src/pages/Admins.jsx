@@ -7,6 +7,7 @@ import {
   Key,
   Loader2,
   X,
+  User
 } from "lucide-react";
 
 export default function Admins() {
@@ -75,7 +76,7 @@ export default function Admins() {
   };
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Tizim Xodimlari</h1>
@@ -85,98 +86,186 @@ export default function Admins() {
         </div>
         <button
           onClick={() => setIsOpen(true)}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-indigo-700"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-sm transition-all"
         >
           <UserPlus size={18} /> Yangi Admin
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-              <tr>
-                <th className="px-6 py-4">Admin</th>
-                <th className="px-6 py-4 hidden sm:table-cell">Parol</th>
-                <th className="px-6 py-4">Rol</th>
-                <th className="px-6 py-4 text-right">Amallar</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="animate-spin text-slate-400" size={32} />
+        </div>
+      ) : (
+        <>
+          {/* DESKTOP UCHUN JADVAL (TABLE) KO'RINISHI */}
+          <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
                 <tr>
-                  <td colSpan="4" className="py-10 text-center">
-                    <Loader2 className="animate-spin mx-auto" />
-                  </td>
+                  <th className="px-6 py-4">Admin</th>
+                  <th className="px-6 py-4">Parol</th>
+                  <th className="px-6 py-4">Rol</th>
+                  <th className="px-6 py-4 text-right">Amallar</th>
                 </tr>
-              ) : (
-                admins.map((a) => (
-                  <tr key={a._id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 font-bold">{a.username}</td>
-                    <td className="px-6 py-4 hidden sm:table-cell font-mono text-slate-500">
-                      {a.password}
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {admins.map((a) => (
+                  <tr key={a._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 font-bold text-slate-800">
+                      <div className="flex items-center gap-2">
+                        <User size={16} className="text-slate-400" />
+                        {a.username}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-mono text-slate-500 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Key size={14} className="text-slate-400" />
+                        {a.password}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold ${
+                        className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 w-fit ${
                           a.role === "super_admin"
                             ? "bg-purple-50 text-purple-700"
                             : "bg-blue-50 text-blue-700"
                         }`}
                       >
-                        {a.role === "super_admin" ? "SUPER ADMIN" : "ADMIN"}
+                        {a.role === "super_admin" ? (
+                          <><ShieldAlert size={12} /> SUPER ADMIN</>
+                        ) : (
+                          <><Shield size={12} /> ADMIN</>
+                        )}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       {a.username !== "Navro'z" && (
                         <button
                           onClick={() => handleDeleteAdmin(a._id, a.username)}
-                          className="text-rose-500 p-2"
+                          className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="O'chirish"
                         >
                           <Trash2 size={18} />
                         </button>
                       )}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
+          {/* TELEFON UCHUN KARTOCHKA (CARD) KO'RINISHI */}
+          <div className="md:hidden space-y-4">
+            {admins.map((a) => (
+              <div key={a._id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                      <User size={18} className="text-indigo-500" />
+                      {a.username}
+                    </h3>
+                    <div className="flex items-center gap-2 text-slate-500 font-mono text-sm mt-1">
+                      <Key size={14} /> {a.password}
+                    </div>
+                  </div>
+                  {a.username !== "Navro'z" && (
+                    <button
+                      onClick={() => handleDeleteAdmin(a._id, a.username)}
+                      className="text-rose-500 bg-rose-50 p-2.5 rounded-xl hover:bg-rose-100 transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
+                </div>
+                
+                <div className="pt-2 border-t border-slate-50 flex justify-between items-center">
+                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">
+                    Ruxsat darajasi:
+                  </span>
+                  <span
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${
+                      a.role === "super_admin"
+                        ? "bg-purple-50 text-purple-700"
+                        : "bg-blue-50 text-blue-700"
+                    }`}
+                  >
+                    {a.role === "super_admin" ? (
+                      <><ShieldAlert size={14} /> SUPER ADMIN</>
+                    ) : (
+                      <><Shield size={14} /> ADMIN</>
+                    )}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* YANGI XODIM QO'SHISH MODALI */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 animate-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center z-[60] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 animate-in zoom-in duration-200 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="font-bold text-lg">Yangi xodim</h2>
-              <button onClick={() => setIsOpen(false)}>
+              <h2 className="font-bold text-xl text-slate-800">Yangi xodim</h2>
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"
+              >
                 <X size={20} />
               </button>
             </div>
+            
             <form onSubmit={handleAddAdmin} className="space-y-4">
-              <input
-                required
-                placeholder="Login"
-                className="w-full border p-3 rounded-xl"
-                onChange={(e) => setUsername(e.target.value)}
-              />
-              <input
-                required
-                placeholder="Parol"
-                className="w-full border p-3 rounded-xl"
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <select
-                className="w-full border p-3 rounded-xl bg-white"
-                onChange={(e) => setRole(e.target.value)}
+              {error && (
+                <div className="bg-rose-50 text-rose-600 p-3 rounded-xl text-sm font-medium border border-rose-100">
+                  {error}
+                </div>
+              )}
+              
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Login</label>
+                <input
+                  required
+                  placeholder="masalan: admin_1"
+                  className="w-full border p-3.5 rounded-xl outline-none focus:border-indigo-500 transition-colors bg-slate-50 focus:bg-white"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Parol</label>
+                <input
+                  required
+                  placeholder="********"
+                  className="w-full border p-3.5 rounded-xl outline-none focus:border-indigo-500 transition-colors bg-slate-50 focus:bg-white"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Rolni tanlang</label>
+                <select
+                  className="w-full border p-3.5 rounded-xl outline-none focus:border-indigo-500 transition-colors bg-slate-50 cursor-pointer text-slate-700 font-medium"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                >
+                  <option value="admin">Oddiy Admin</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 mt-2 disabled:opacity-70 flex justify-center"
               >
-                <option value="admin">Oddiy Admin</option>
-                <option value="super_admin">Super Admin</option>
-              </select>
-              <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">
                 {submitting ? (
-                  <Loader2 className="animate-spin mx-auto" />
+                  <Loader2 className="animate-spin" size={24} />
                 ) : (
                   "Saqlash"
                 )}
