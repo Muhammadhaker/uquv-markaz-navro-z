@@ -11,24 +11,27 @@ export default function PaymentModal({ isOpen, onClose, student }) {
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // O'quvchining fanlarini verguldan ajratib, ro'yxat (array) qilib olamiz
   const studentSubjects = student?.group
-    ? student.group
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
+    ? student.group.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
 
   useEffect(() => {
     if (isOpen && student) {
       const today = new Date();
-      setPaymentMonth(
-        `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
-          2,
-          "0"
-        )}`
-      );
-      // Agar fanlar bir nechta bo'lsa, birinchisini default qilib qo'yamiz
+      // --- 5-SANA LOGIKASI QO'SHILDI ---
+      // Agar bugun 5-sana yoki undan kichik bo'lsa, o'tgan oyni tanlaymiz
+      let year = today.getFullYear();
+      let month = today.getMonth() + 1; // getMonth() 0 dan boshlanadi
+
+      if (today.getDate() <= 5) {
+        month = month - 1;
+        if (month === 0) {
+          month = 12;
+          year = year - 1;
+        }
+      }
+
+      setPaymentMonth(`${year}-${String(month).padStart(2, "0")}`);
       setGroup(studentSubjects.length > 0 ? studentSubjects[0] : "");
       setAmount("");
       setSuccess(false);
@@ -38,17 +41,15 @@ export default function PaymentModal({ isOpen, onClose, student }) {
 
   if (!isOpen || !student) return null;
 
-  // SUMMANI HAR 3 TA RAQAMDAN KEYIN PROBEL BILAN FORMATLASH
   const handleAmountChange = (e) => {
-    let rawValue = e.target.value.replace(/\D/g, ""); // Faqat raqamlarni olib qolamiz
-    let formattedValue = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, " "); // Orqadan 3 tadan sanab probel qo'shamiz
+    let rawValue = e.target.value.replace(/\D/g, "");
+    let formattedValue = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     setAmount(formattedValue);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Yuborishdan oldin probellarni qayta olib tashlab, toza raqamga aylantiramiz
     const numericAmount = Number(amount.replace(/\s/g, ""));
 
     if (numericAmount <= 0) {
@@ -119,7 +120,6 @@ export default function PaymentModal({ isOpen, onClose, student }) {
               </p>
             )}
 
-            {/* AQLLI GURUH TANLOVI */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-400 uppercase">
                 Guruh / Fan
@@ -145,7 +145,6 @@ export default function PaymentModal({ isOpen, onClose, student }) {
               )}
             </div>
 
-            {/* FORMATLANADIGAN SUMMA INPUTI */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-400 uppercase">
                 Summa

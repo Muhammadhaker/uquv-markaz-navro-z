@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { CalendarDays, Loader2, Download, Trash2 } from "lucide-react";
+import { CalendarDays, Loader2, Download, Trash2, Clock } from "lucide-react";
 
 export default function Dashboard() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Joriy oyni avtomatik tanlaydi (masalan: "2026-06")
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
@@ -42,7 +41,6 @@ export default function Dashboard() {
     .sort()
     .reverse();
 
-  // "all" o'rniga faqat tanlangan oy bo'yicha filtrlaymiz
   const filteredPayments = payments.filter((p) => p.month === selectedMonth);
 
   const totalAmount = filteredPayments.reduce(
@@ -54,18 +52,8 @@ export default function Dashboard() {
     if (!m) return "";
     const [y, mm] = m.split("-");
     const names = [
-      "Yanvar",
-      "Fevral",
-      "Mart",
-      "Aprel",
-      "May",
-      "Iyun",
-      "Iyul",
-      "Avgust",
-      "Sentabr",
-      "Oktabr",
-      "Noyabr",
-      "Dekabr",
+      "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+      "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
     ];
     return `${names[parseInt(mm) - 1]} ${y}`;
   };
@@ -82,19 +70,20 @@ export default function Dashboard() {
           <th>Summa</th>
           <th>To'lov turi</th>
           <th>Oy</th>
-          <th>Sana</th>
+          <th>Sana va Vaqt</th>
         </tr>
       </thead>
       <tbody>`;
 
     filteredPayments.forEach((p) => {
+      // Excelda ham vaqt ko'rsatilishi uchun toLocaleString() ga o'zgartirildi
       table += `<tr>
         <td>${p.studentName}</td>
         <td>${p.groupName}</td>
         <td>${p.amount}</td>
         <td>${p.paymentType}</td>
         <td>${p.month}</td>
-        <td>${new Date(p.date).toLocaleDateString()}</td>
+        <td>${new Date(p.date).toLocaleString("ru-RU")}</td>
       </tr>`;
     });
 
@@ -184,25 +173,27 @@ export default function Dashboard() {
                 <th className="px-6 py-4">O'quvchi</th>
                 <th className="px-6 py-4 hidden sm:table-cell">Guruh</th>
                 <th className="px-6 py-4">Summa</th>
+                {/* Yangi qo'shilgan ustun: Sana va Vaqt */}
+                <th className="px-6 py-4 hidden md:table-cell">Sana va Vaqt</th>
                 <th className="px-6 py-4 text-right">Amal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan="4" className="py-10 text-center text-slate-400">
+                  <td colSpan="5" className="py-10 text-center text-slate-400">
                     Yuklanmoqda...
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="py-10 text-center text-slate-400">
+                  <td colSpan="5" className="py-10 text-center text-slate-400">
                     Bu oy uchun to'lovlar topilmadi.
                   </td>
                 </tr>
               ) : (
                 filteredPayments.map((p) => (
-                  <tr key={p._id} className="hover:bg-slate-50">
+                  <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-semibold text-slate-800">
                       {p.studentName}
                     </td>
@@ -212,10 +203,23 @@ export default function Dashboard() {
                     <td className="px-6 py-4 font-bold text-emerald-600">
                       {Number(p.amount).toLocaleString()} so'm
                     </td>
+                    {/* Yangi qo'shilgan sana va vaqt qatori */}
+                    <td className="px-6 py-4 hidden md:table-cell text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} className="text-slate-400" />
+                        {new Date(p.date).toLocaleString("ru-RU", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handleDelete(p._id, p.studentName)}
-                        className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg"
+                        className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors"
                       >
                         <Trash2 size={18} />
                       </button>

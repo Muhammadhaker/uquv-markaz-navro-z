@@ -10,6 +10,7 @@ import {
   Send,
   Search,
   User,
+  Clock, // Yangi: Qo'shilgan vaqt ikonkasi
 } from "lucide-react";
 import PaymentModal from "./PaymentModal";
 
@@ -106,7 +107,8 @@ export default function StudentDetailModal({
     document.body.removeChild(link);
   };
 
-  const shareReceipt = (p) => {
+  // Yangilangan: Chekni to'g'ridan-to'g'ri bot orqali jo'natish (API orqali)
+  const shareReceipt = async (p) => {
     const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${
       student.name
     }\n📚 *Guruh:* ${student.group}\n💰 *Summa:* ${Number(
@@ -114,8 +116,28 @@ export default function StudentDetailModal({
     ).toLocaleString()} so'm\n💳 *Turi:* ${
       p.paymentType
     }\n📅 *Oy:* ${formatMonth(p.month)}\n\n✅ _To'lov qabul qilindi!_`;
-    // Telegram ilovasini ochish uchun
-    window.open(`tg://msg_url?url=${encodeURIComponent(text)}`, "_blank");
+
+    if (student.telegramChatId) {
+      try {
+        const res = await fetch("/api/send-message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chatId: student.telegramChatId, text }),
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          alert("✅ Chek o'quvchiga bot orqali yuborildi!");
+        } else {
+          alert("Chekni yuborishda xatolik yuz berdi.");
+        }
+      } catch (error) {
+        console.error("Bot orqali yuborish xatosi:", error);
+      }
+    } else {
+      // Chat ID bo'lmasa, o'zingiz ulashasiz (eski usul saqlab qolindi)
+      window.open(`tg://msg_url?url=${encodeURIComponent(text)}`, "_blank");
+    }
   };
 
   return (
@@ -143,6 +165,20 @@ export default function StudentDetailModal({
             </div>
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
               <BookOpen size={18} className="text-indigo-500" /> {student.group}
+            </div>
+            {/* Yangi: O'quvchi qo'shilgan vaqti */}
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
+              <Clock size={18} className="text-emerald-500" />
+              Qo'shilgan:{" "}
+              {student.addedAt
+                ? new Date(student.addedAt).toLocaleString("ru-RU", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "Mavjud emas"}
             </div>
           </div>
 

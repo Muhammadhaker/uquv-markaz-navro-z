@@ -29,6 +29,16 @@ export default function Groups() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentToEdit, setStudentToEdit] = useState(null);
 
+  // --- 5-SANA LOGIKASI QO'SHILDI ---
+  const today = new Date();
+  const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const lastMonthStr = today.getMonth() === 0 
+    ? `${today.getFullYear() - 1}-12` 
+    : `${today.getFullYear()}-${String(today.getMonth()).padStart(2, "0")}`;
+  
+  // Agar bugun 5-sana yoki undan kichik bo'lsa, o'tgan oyni tekshiradi. Aks holda joriy oyni.
+  const targetMonth = today.getDate() <= 5 ? lastMonthStr : currentMonthStr;
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -72,7 +82,6 @@ export default function Groups() {
     setIsStudentModalOpen(true);
   };
 
-  const currentMonth = new Date().toISOString().slice(0, 7);
   const filteredStudents = students.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -114,8 +123,9 @@ export default function Groups() {
           </div>
         ) : (
           filteredStudents.map((s) => {
+            // targetMonth ga asoslanib qarz yoki to'langanligini aniqlash
             const hasPaid = payments.some(
-              (p) => p.studentId === s._id && p.month === currentMonth
+              (p) => p.studentId === s._id && p.month === targetMonth
             );
             return (
               <div
