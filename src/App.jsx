@@ -9,11 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import Groups from "./pages/Groups";
 import Attendance from "./pages/Attendance";
 import Admins from "./pages/Admins";
-import BotRegister from "./pages/BotRegister";
+import BotRegister from "./pages/BotRegister"; // <-- SHU QO'SHILDI
 import Layout from "./components/Layout";
-
-// 1. QO'NG'IROQCHANI IMPORT QILAMIZ
-import NotificationBell from "./components/NotificationBell";
 
 // Himoyalangan marshrut (Layout bilan o'ralgan)
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -24,16 +21,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   if (allowedRoles && !allowedRoles.includes(role))
     return <Navigate to="/groups" replace />;
 
-  return (
-    <Layout>
-      {/* 2. QO'NG'IROQCHANI SHU YERGA QO'SHAMIZ (Tepa o'ng burchakda turadi) */}
-      <div className="fixed top-4 right-24 z-[60]">
-        <NotificationBell />
-      </div>
-      
-      {children}
-    </Layout>
-  );
+  return <Layout>{children}</Layout>;
 };
 
 export default function App() {
