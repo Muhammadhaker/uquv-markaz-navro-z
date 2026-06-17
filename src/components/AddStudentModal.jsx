@@ -53,7 +53,16 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
       setLoading(false);
     }
   };
-
+  // Masalan AddStudentModal.jsx ichidagi handleSubmit tugagach:
+  await fetch("/api/logs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      adminName: localStorage.getItem("username") || "Admin",
+      actionType: "update",
+      details: `O'quvchi qo'shildi/tahrirlandi: ${formData.name} (Fani: ${formData.group})`
+    })
+  });
   if (!isOpen) return null;
 
   return (
@@ -87,7 +96,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             onChange={handlePhoneChange}
             maxLength={17}
           />
-          
+
           {/* YANGILANGAN GURUH TANLASH QISMI */}
           <div className="space-y-1">
             <input

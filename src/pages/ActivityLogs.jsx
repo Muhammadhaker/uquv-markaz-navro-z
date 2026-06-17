@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
-import { History, Trash2, Edit, AlertCircle, Loader2, User, Clock, FileText } from "lucide-react";
+import { History, Trash2, Edit, AlertCircle, Loader2, User, Clock, FileText, RotateCcw } from "lucide-react";
 
 export default function ActivityLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Bu funksiya backenddan oxirgi 48 soatdagi loglarni olib keladi
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/logs"); // Backendda shu API ni yaratish kerak bo'ladi
+      const res = await fetch("/api/logs");
       const data = await res.json();
       if (data.success) {
         setLogs(data.data || []);
@@ -24,6 +23,37 @@ export default function ActivityLogs() {
   useEffect(() => {
     fetchLogs();
   }, []);
+
+  // TIKLASH (RESTORE) FUNKSIYASI MANA SHU:
+  const handleRestore = async (log) => {
+    if (!window.confirm("Bu ma'lumotni haqiqatan ham tiklaysizmi?")) return;
+    try {
+      const res = await fetch(log.targetApi, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(log.deletedData) 
+      });
+
+      if (res.ok) {
+        await fetch("/api/logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            adminName: localStorage.getItem("username") || "Super Admin",
+            actionType: "update",
+            details: `Ma'lumot TIKLANDI: ${log.details.split(':')[1] || "Obyekt"}`
+          })
+        });
+        
+        alert("Muvaffaqiyatli tiklandi! Endi ro'yxatga qaytib ko'rishingiz mumkin.");
+        fetchLogs(); 
+      } else {
+        alert("Tiklashda xatolik yuz berdi.");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const getActionIcon = (action) => {
     switch (action) {
@@ -80,6 +110,7 @@ export default function ActivityLogs() {
                   <th className="px-6 py-4">Kim qildi? (Admin)</th>
                   <th className="px-6 py-4">Harakat turi</th>
                   <th className="px-6 py-4">Nima o'zgardi?</th>
+                  <th className="px-6 py-4 text-right">Amal</th> {/* YANGI USTUN */}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -108,6 +139,17 @@ export default function ActivityLogs() {
                         {log.details}
                       </div>
                     </td>
+                    <td className="px-6 py-4 text-right">
+                      {/* TIKLASH TUGMASI (DESKTOP) */}
+                      {log.actionType === "delete" && log.deletedData && (
+                        <button 
+                          onClick={() => handleRestore(log)}
+                          className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <RotateCcw size={14} /> Tiklash
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -131,11 +173,23 @@ export default function ActivityLogs() {
                   <span>{log.details}</span>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-slate-400 font-medium border-t border-slate-50 pt-2">
-                  <Clock size={12} />
-                  {new Date(log.createdAt).toLocaleString("ru-RU", {
-                    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
-                  })}
+                <div className="flex justify-between items-center border-t border-slate-50 pt-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
+                    <Clock size={12} />
+                    {new Date(log.createdAt).toLocaleString("ru-RU", {
+                      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+                    })}
+                  </div>
+                  
+                  {/* TIKLASH TUGMASI (MOBIL) */}
+                  {log.actionType === "delete" && log.deletedData && (
+                    <button 
+                      onClick={() => handleRestore(log)}
+                      className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <RotateCcw size={14} /> Tiklash
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

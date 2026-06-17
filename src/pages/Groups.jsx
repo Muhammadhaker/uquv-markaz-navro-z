@@ -7,15 +7,9 @@ const formatPhoneNumber = (phone) => {
   if (!phone) return "";
   const cleaned = ("" + phone).replace(/\D/g, "");
   if (cleaned.length === 12 && cleaned.startsWith("998"))
-    return `+998 ${cleaned.slice(3, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(
-      8,
-      10
-    )} ${cleaned.slice(10, 12)}`;
+    return `+998 ${cleaned.slice(3, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(8, 10)} ${cleaned.slice(10, 12)}`;
   else if (cleaned.length === 9)
-    return `+998 ${cleaned.slice(0, 2)} ${cleaned.slice(2, 5)} ${cleaned.slice(
-      5,
-      7
-    )} ${cleaned.slice(7, 9)}`;
+    return `+998 ${cleaned.slice(0, 2)} ${cleaned.slice(2, 5)} ${cleaned.slice(5, 7)} ${cleaned.slice(7, 9)}`;
   return phone;
 };
 
@@ -24,21 +18,17 @@ export default function Groups() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // YANGI: Filtr uchun state
   const [selectedFilterGroup, setSelectedFilterGroup] = useState("Barchasi");
-
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentToEdit, setStudentToEdit] = useState(null);
 
-  // 5-sana logikasi: bugun 5-sana yoki undan kichik bo'lsa, o'tgan oyni qarz deb hisoblaydi
   const today = new Date();
   const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const lastMonthStr = today.getMonth() === 0 
-    ? `${today.getFullYear() - 1}-12` 
+  const lastMonthStr = today.getMonth() === 0
+    ? `${today.getFullYear() - 1}-12`
     : `${today.getFullYear()}-${String(today.getMonth()).padStart(2, "0")}`;
-  
+
   const targetMonth = today.getDate() <= 5 ? lastMonthStr : currentMonthStr;
 
   const fetchData = async () => {
@@ -63,17 +53,17 @@ export default function Groups() {
     fetchData();
   }, []);
 
-const handleDelete = async (e, id, name) => {
+  const handleDelete = async (e, s) => {
     e.stopPropagation();
-    if (!window.confirm(`${name} o'quvchini o'chirmoqchimisiz?`)) return;
+    if (!window.confirm(`${s.name} o'quvchini o'chirmoqchimisiz?`)) return;
+
     try {
       await fetch("/api/students", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: s._id }),
       });
 
-      // YANGI QO'SHILGAN QISM: Tarixga yozib qo'yish
       const adminName = localStorage.getItem("username") || "Noma'lum Admin";
       await fetch("/api/logs", {
         method: "POST",
@@ -81,11 +71,13 @@ const handleDelete = async (e, id, name) => {
         body: JSON.stringify({
           adminName: adminName,
           actionType: "delete",
-          details: `O'quvchi ro'yxatdan o'chirildi: ${name}`
+          details: `O'quvchi o'chirildi: ${s.name} (Fani: ${s.group})`,
+          targetApi: "/api/students",
+          deletedData: s
         })
       });
 
-      fetchData(); // Ro'yxatni yangilash
+      fetchData();
     } catch (error) {
       console.error("O'chirishda xato:", error);
     }
@@ -97,19 +89,12 @@ const handleDelete = async (e, id, name) => {
     setIsStudentModalOpen(true);
   };
 
-  // YANGI: Bazadagi mavjud guruhlarni avtomatik aniqlab ro'yxat qilish
   const uniqueGroups = ["Barchasi", ...new Set(students.map(s => s.group).filter(Boolean))];
 
-  // YANGI: Ham filtr, ham qidiruvni birlashtiruvchi logika
   const filteredStudents = students.filter((s) => {
-    // 1. Guruh bo'yicha tekshirish
     const matchesGroup = selectedFilterGroup === "Barchasi" || s.group === selectedFilterGroup;
-    
-    // 2. Qidiruv bo'yicha tekshirish (Katta-kichik harfni farqlamaydi)
     const lowerQuery = searchQuery.toLowerCase();
     const matchesSearch = s.name.toLowerCase().includes(lowerQuery) || (s.phone && s.phone.includes(searchQuery));
-
-    // Ikkala shartga ham tushsa ko'rsatamiz
     return matchesGroup && matchesSearch;
   });
 
@@ -128,9 +113,7 @@ const handleDelete = async (e, id, name) => {
         </button>
       </div>
 
-      {/* YANGI: QIDIRUV VA FILTR QISMI YONMA-YON */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        {/* Qidiruv inputi */}
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input
@@ -142,7 +125,6 @@ const handleDelete = async (e, id, name) => {
           />
         </div>
 
-        {/* Guruhlar filtri (Select) */}
         <div className="relative sm:w-64">
           <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
           <select
@@ -156,14 +138,12 @@ const handleDelete = async (e, id, name) => {
               </option>
             ))}
           </select>
-          {/* Custom arrow for select */}
           <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-             <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </div>
         </div>
       </div>
 
-      {/* MOBILE FRIENDLY LIST */}
       <div className="space-y-3">
         {loading ? (
           <div className="py-10 text-center">
@@ -192,9 +172,8 @@ const handleDelete = async (e, id, name) => {
                     {s.group} • {formatPhoneNumber(s.phone)}
                   </div>
                   <div
-                    className={`text-xs font-bold mt-1 ${
-                      hasPaid ? "text-emerald-600" : "text-rose-600"
-                    }`}
+                    className={`text-xs font-bold mt-1 ${hasPaid ? "text-emerald-600" : "text-rose-600"
+                      }`}
                   >
                     {hasPaid ? "To'langan" : "Qarz"}
                   </div>
@@ -206,8 +185,9 @@ const handleDelete = async (e, id, name) => {
                   >
                     <Pencil size={20} />
                   </button>
+                  {/* MANA SHU YER O'ZGARDI: handleDelete(e, s) qilib qo'yildi */}
                   <button
-                    onClick={(e) => handleDelete(e, s._id, s.name)}
+                    onClick={(e) => handleDelete(e, s)}
                     className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
                   >
                     <Trash2 size={20} />
