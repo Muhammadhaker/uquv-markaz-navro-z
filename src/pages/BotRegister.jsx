@@ -130,7 +130,7 @@ export default function BotRegister() {
             <input
               required
               className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-500 transition-colors"
-              placeholder="Masalan: Alisher"
+              placeholder="Masalan: Tursunov Muhammad"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
@@ -141,7 +141,7 @@ export default function BotRegister() {
             <input
               required
               className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-500 transition-colors"
-              placeholder="Masalan: Vali"
+              placeholder="Masalan: Eshmatov Eshmat"
               value={formData.parentName}
               onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
             />
