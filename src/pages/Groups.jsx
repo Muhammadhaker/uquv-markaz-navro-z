@@ -89,10 +89,17 @@ export default function Groups() {
     setIsStudentModalOpen(true);
   };
 
-  const uniqueGroups = ["Barchasi", ...new Set(students.map(s => s.group).filter(Boolean))];
+  // YANGILANGAN QISM: Guruhlarni vergul orqali alohida ajratib olish
+  const allGroups = students.flatMap(s => 
+    s.group ? s.group.split(',').map(g => g.trim()) : []
+  );
+  const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
+  // YANGILANGAN QISM: Filtrda ham ichida borligini tekshirish
   const filteredStudents = students.filter((s) => {
-    const matchesGroup = selectedFilterGroup === "Barchasi" || s.group === selectedFilterGroup;
+    const studentGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
+    const matchesGroup = selectedFilterGroup === "Barchasi" || studentGroups.includes(selectedFilterGroup);
+    
     const lowerQuery = searchQuery.toLowerCase();
     const matchesSearch = s.name.toLowerCase().includes(lowerQuery) || (s.phone && s.phone.includes(searchQuery));
     return matchesGroup && matchesSearch;
@@ -185,7 +192,6 @@ export default function Groups() {
                   >
                     <Pencil size={20} />
                   </button>
-                  {/* MANA SHU YER O'ZGARDI: handleDelete(e, s) qilib qo'yildi */}
                   <button
                     onClick={(e) => handleDelete(e, s)}
                     className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"

@@ -1,25 +1,41 @@
 import { useState, useEffect } from "react";
 import { X, User, Phone, Users, BookOpen } from "lucide-react";
 
+// O'quv markazingizdagi barcha fanlar ro'yxati (Buni istalgancha ko'paytirishingiz mumkin)
+const AVAILABLE_SUBJECTS = ["Matematika", "Ingliz tili", "Rus tili", "Fizika"];
+
 export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const [formData, setFormData] = useState({
     name: "",
     parentName: "",
     phone: "+998 ",
-    group: "",
+    groups: [], // Endi guruh bitta so'z emas, massiv (Array) bo'ladi
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (studentToEdit) {
+      // Tahrirlashda o'quvchining fanlarini (vergul bilan ajratilgan yozuvni) qayta massivga aylantiramiz
+      const studentGroups = studentToEdit.group 
+        ? studentToEdit.group.split(",").map(g => g.trim()) 
+        : [];
+        
       setFormData({
         name: studentToEdit.name,
         parentName: studentToEdit.parentName || "",
         phone: studentToEdit.phone,
-        group: studentToEdit.group,
+        groups: studentGroups,
+      });
+    } else {
+      // Yangi o'quvchi qo'shilayotganda oynani tozalab qo'yamiz
+      setFormData({
+        name: "",
+        parentName: "",
+        phone: "+998 ",
+        groups: [],
       });
     }
-  }, [studentToEdit]);
+  }, [studentToEdit, isOpen]);
 
   const handlePhoneChange = (e) => {
     let input = e.target.value.replace(/\D/g, "");
@@ -32,37 +48,68 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     setFormData({ ...formData, phone: formatted });
   };
 
+  // YANGI: Fanlarni tanlash/o'chirish logikasi
+  const toggleSubject = (subject) => {
+    setFormData((prev) => {
+      const isSelected = prev.groups.includes(subject);
+      return {
+        ...prev,
+        groups: isSelected
+          ? prev.groups.filter((g) => g !== subject) // Agar tanlangan bo'lsa o'chiramiz
+          : [...prev.groups, subject],               // Tanlanmagan bo'lsa qo'shamiz
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Majburiy tekshiruv
+    if (formData.groups.length === 0) {
+      alert("Iltimos, o'quvchiga kamida bitta fanni tanlang!");
+      return;
+    }
+
     setLoading(true);
     const method = studentToEdit ? "PUT" : "POST";
+    
+    // Massivni yana orqaga (bazaga saqlash uchun) string'ga o'giramiz: "Matematika, Ingliz tili"
+    const finalGroupString = formData.groups.join(", "); 
+    
     const body = studentToEdit
-      ? { id: studentToEdit._id, ...formData }
-      : formData;
+      ? { id: studentToEdit._id, ...formData, group: finalGroupString }
+      : { ...formData, group: finalGroupString };
 
     try {
-      await fetch("/api/students", {
+      const response = await fetch("/api/students", {
         method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      onClose();
+      
+      if (response.ok) {
+        // TUGAGANDAN KEYIN LOGGA YOZISH (To'g'ri joylashtirildi)
+        const adminName = localStorage.getItem("username") || "Admin";
+        await fetch("/api/logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            adminName: adminName,
+            actionType: studentToEdit ? "update" : "create",
+            details: `O'quvchi ${studentToEdit ? "tahrirlandi" : "qo'shildi"}: ${formData.name} (Fani: ${finalGroupString})`
+          })
+        });
+
+        onClose();
+      }
     } catch (error) {
       console.error(error);
+      alert("Saqlashda xatolik yuz berdi");
     } finally {
       setLoading(false);
     }
   };
-  // Masalan AddStudentModal.jsx ichidagi handleSubmit tugagach:
-  await fetch("/api/logs", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      adminName: localStorage.getItem("username") || "Admin",
-      actionType: "update",
-      details: `O'quvchi qo'shildi/tahrirlandi: ${formData.name} (Fani: ${formData.group})`
-    })
-  });
+
   if (!isOpen) return null;
 
   return (
@@ -97,30 +144,31 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             maxLength={17}
           />
 
-          {/* YANGILANGAN GURUH TANLASH QISMI */}
-          <div className="space-y-1">
-            <input
-              required
-              list="group-suggestions"
-              className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500"
-              placeholder="Guruh nomi (Mas: Matematika 1-guruh)"
-              value={formData.group}
-              onChange={(e) =>
-                setFormData({ ...formData, group: e.target.value })
-              }
-            />
-            <datalist id="group-suggestions">
-              <option value="Matematika 1-guruh" />
-              <option value="Matematika 2-guruh" />
-              <option value="Ingliz tili 1-guruh" />
-              <option value="Matematika, Ingliz tili" />
-            </datalist>
-            <p className="text-[11px] text-slate-500 leading-tight">
-              Yangi guruh ochish uchun nomini to'liq yozing. O'quvchini boshqa guruhga o'tkazish uchun yozuvni tahrirlang.
-            </p>
+          {/* YANGI GURUH TANLASH QISMI (TUGMACHALAR) */}
+          <div className="space-y-2 pt-2">
+            <label className="text-xs font-bold text-slate-500 uppercase ml-1">Fanlarni tanlang:</label>
+            <div className="flex flex-wrap gap-2">
+              {AVAILABLE_SUBJECTS.map((subject) => {
+                const isSelected = formData.groups.includes(subject);
+                return (
+                  <button
+                    key={subject}
+                    type="button"
+                    onClick={() => toggleSubject(subject)}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
+                      isSelected 
+                        ? "border-indigo-600 bg-indigo-50 text-indigo-700" 
+                        : "border-slate-100 bg-white text-slate-600 hover:border-indigo-200"
+                    }`}
+                  >
+                    {subject}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-4">
             <button
               type="button"
               onClick={onClose}
