@@ -26,10 +26,19 @@ export default async function handler(req, res) {
     // GET metodini birlashtirdik (Barchasini yoki bittasini tekshirish)
     if (req.method === 'GET') {
       const { telegramChatId } = req.query;
+      
       if (telegramChatId) {
-        const student = await Student.findOne({ telegramChatId: String(telegramChatId) });
+        // 🔥 SUPER QIDIRUV (AYNAN SHU YER O'ZGARTIRILDI)
+        const student = await Student.findOne({ 
+            $or: [
+                { telegramChatId: telegramChatId },
+                { telegramChatId: String(telegramChatId) },
+                { telegramChatId: Number(telegramChatId) }
+            ] 
+        });
         return res.status(200).json({ exists: !!student });
       }
+      
       const students = await Student.find({}).sort({ addedAt: -1 });
       return res.status(200).json({ success: true, data: students });
     }

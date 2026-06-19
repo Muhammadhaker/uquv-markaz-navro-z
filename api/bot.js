@@ -21,7 +21,15 @@ export default async function handler(req, res) {
     const firstName = message.from.first_name || "O'quvchi";
 
     await connectDB();
-    const existingStudent = await Student.findOne({ telegramChatId: chatId });
+    
+    // 🔥 SUPER QIDIRUV QO'SHILDI: Endi bot ham raqam, ham matnni tushunadi!
+    const existingStudent = await Student.findOne({ 
+        $or: [
+            { telegramChatId: chatId },
+            { telegramChatId: String(chatId) },
+            { telegramChatId: Number(chatId) }
+        ] 
+    });
 
     // 1-QISM: Profil tugmasi bosilganda botning javobi
     if (text === "📋 Mening ma'lumotlarim") {
