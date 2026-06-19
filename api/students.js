@@ -12,9 +12,9 @@ const studentSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   group: { type: String, required: true },
   telegramChatId: { type: String, default: null },
-  isNewStudent: { type: Boolean, default: true }, // <--- YANGI QO'SHILDI
+  isNewStudent: { type: Boolean, default: true },
   exceptionMonths: { type: [String], default: [] },
-  addedAt: { type: Date, default: Date.now } // Mana shu qator vaqtni real-time saqlaydi!
+  addedAt: { type: Date, default: Date.now }
 });
 
 const Student = mongoose.models.Student || mongoose.model('Student', studentSchema, 'students');
@@ -23,7 +23,13 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
+    // GET metodini birlashtirdik (Barchasini yoki bittasini tekshirish)
     if (req.method === 'GET') {
+      const { telegramChatId } = req.query;
+      if (telegramChatId) {
+        const student = await Student.findOne({ telegramChatId: String(telegramChatId) });
+        return res.status(200).json({ exists: !!student });
+      }
       const students = await Student.find({}).sort({ addedAt: -1 });
       return res.status(200).json({ success: true, data: students });
     }
@@ -31,18 +37,15 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const newStudent = await Student.create(req.body);
 
+      // Telegramga xabar yuborish
       if (newStudent.telegramChatId) {
-        const token = process.env.TELEGRAM_BOT_TOKEN;
-        const text = `🎉 *Tabriklaymiz, ${newStudent.name}!*\n\nSiz Navro'z O'quv Markazidan muvaffaqiyatli ro'yxatdan o'tdingiz.\n\n📚 *Tanlagan faningiz:* ${newStudent.group}\n\n⏳ _Tez orada adminlarimiz siz bilan bog'lanishadi. Darslarda ko'rishguncha!_`;
-
-        // AWAIT qo'shildi: Endi xabar yuborilmaguncha server kutib turadi
         try {
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: newStudent.telegramChatId,
-              text: text,
+              text: `🎉 *Tabriklaymiz, ${newStudent.name}!*\n\nSiz ro'yxatdan o'tdingiz.\n\n📚 *Fan:* ${newStudent.group}`,
               parse_mode: 'Markdown'
             })
           });
@@ -50,7 +53,6 @@ export default async function handler(req, res) {
           console.error("Xabar yuborishda xato:", err);
         }
       }
-
       return res.status(201).json({ success: true, data: newStudent });
     }
 
@@ -66,7 +68,9 @@ export default async function handler(req, res) {
     }
 
     res.status(405).json({ message: "Metod ruxsat etilmagan" });
+    
   } catch (error) {
+    console.error("API XATOSI:", error); // Bu logni Vercel dashboardida ko'rasiz
     res.status(500).json({ success: false, error: error.message });
   }
 }
