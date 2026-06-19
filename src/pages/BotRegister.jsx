@@ -1,42 +1,62 @@
 import { useState, useEffect } from "react";
-import { User, Phone, Users, BookOpen, CheckCircle2 } from "lucide-react";
+import { User, Phone, Users, BookOpen, CheckCircle2, Loader2 } from "lucide-react";
 
 export default function BotRegister() {
   const [formData, setFormData] = useState({
     name: "",
     parentName: "",
-    phone: "", // Boshida bo'sh turadi, placeholder ko'rinishi uchun
+    phone: "",
     groups: [],
   });
 
   const [chatId, setChatId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  
+  // YANGI STATE'LAR: Tekshiruv jarayoni va holati uchun
+  const [loading, setLoading] = useState(true); 
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
   useEffect(() => {
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
-      setChatId(tg.initDataUnsafe?.user?.id || null);
+      const id = tg.initDataUnsafe?.user?.id || null;
+      setChatId(id);
       tg.setHeaderColor("#4f46e5");
+
+      // BAZADAN TEKSHIRUV: O'quvchi avval ro'yxatdan o'tganmi?
+      if (id) {
+        fetch(`/api/students?telegramChatId=${id}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.exists) {
+              setAlreadyRegistered(true); // Allaqachon ro'yxatda bor
+              setIsSuccess(true);
+            }
+          })
+          .catch((err) => console.error("Tekshiruvda xatolik:", err))
+          .finally(() => setLoading(false)); // Tekshiruv tugadi
+      } else {
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
     }
   }, []);
 
-  // YANGI: Telefon raqamini Telegramdan so'rab oluvchi funksiya
   const requestPhoneFromTelegram = () => {
     const tg = window.Telegram?.WebApp;
     
     if (tg && tg.requestContact) {
       tg.requestContact((shared, data) => {
         if (shared && data?.responseUnsafe?.contact?.phone_number) {
-          // Foydalanuvchi tasdiqlasa, raqamni saqlaymiz
           setFormData((prev) => ({
             ...prev,
             phone: data.responseUnsafe.contact.phone_number
           }));
         } else {
-          // Bekor qilsa qat'iy ogohlantiramiz
           alert("Ro'yxatdan o'tish uchun raqamni ulashish majburiy!");
         }
       });
@@ -60,7 +80,6 @@ export default function BotRegister() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Raqam kiritilmagan bo'lsa to'xtatamiz
     if (!formData.phone) {
       alert("Iltimos, telefon raqamingizni Telegram orqali tasdiqlang!");
       return;
@@ -107,12 +126,28 @@ export default function BotRegister() {
     }
   };
 
+  // YANGI: Ekranga chiqishdan oldin yuklanishni ko'rsatamiz
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-indigo-600" size={40} />
+      </div>
+    );
+  }
+
+  // YANGILANGAN: Muvaffaqiyat yoki allaqachon ro'yxatdan o'tganlik ekrani
   if (isSuccess) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
         <CheckCircle2 size={80} className="text-emerald-500 mb-4" />
-        <h2 className="text-2xl font-bold text-slate-800">Muvaffaqiyatli!</h2>
-        <p className="text-slate-500 mt-2">Siz ro'yxatdan o'tdingiz.</p>
+        <h2 className="text-2xl font-bold text-slate-800">
+          {alreadyRegistered ? "Tizimdasiz!" : "Muvaffaqiyatli!"}
+        </h2>
+        <p className="text-slate-500 mt-2">
+          {alreadyRegistered 
+            ? "Siz allaqachon ro'yxatdan o'tgansiz." 
+            : "Siz ro'yxatdan o'tdingiz."}
+        </p>
       </div>
     );
   }
@@ -147,12 +182,11 @@ export default function BotRegister() {
             />
           </div>
 
-          {/* TELEFON RAQAM QISMI (YANGILANDI) */}
           <div className="space-y-1">
             <label className="text-xs font-bold text-slate-500 uppercase ml-1">Telefon raqam (Majburiy)</label>
             <input
               required
-              readOnly // Qo'lda yozib bo'lmaydi
+              readOnly
               className="w-full p-4 bg-slate-100 border border-slate-200 rounded-2xl outline-none text-slate-600 font-medium cursor-not-allowed"
               placeholder="Pastdagi tugmani bosing 👇"
               value={formData.phone}
@@ -191,7 +225,8 @@ export default function BotRegister() {
 
           <button
             type="submit"
-            className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-emerald-700 transition-colors"
+            disabled={isSubmitting}
+            className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-emerald-700 transition-colors disabled:opacity-70"
           >
             {isSubmitting ? "Yuborilmoqda..." : "Tasdiqlash"}
           </button>

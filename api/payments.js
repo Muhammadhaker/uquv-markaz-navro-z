@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     // 2. YANGI TO'LOV QISHISH (VA AVTOMATIK CHEK YUBORISH)
     if (req.method === 'POST') {
       const { studentId, studentName, groupName, amount, paymentType, month, adminName, telegramChatId } = req.body;
-      
+
       let messageId = null;
 
       // Agar o'quvchining telegramChatId si bo'lsa, birinchi chek yuboramiz
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
             })
           });
           const tgData = await tgRes.json();
-          
+
           // Telegram yuborgan xabarning ID sini ushlab qolamiz
           if (tgData.ok) {
             messageId = tgData.result.message_id;
@@ -90,32 +90,38 @@ export default async function handler(req, res) {
     // 3. TO'LOVNI O'CHIRISH (VA TELEGRAMDAN CHEKNI HAM YO'Q QILISH)
     if (req.method === 'DELETE') {
       const { id } = req.body;
+      const payment = await Payment.findById(id);
 
-      // Avval o'chirilishi kerak bo'lgan to'lovni bazadan topamiz
-      const paymentToDelete = await Payment.findById(id);
+      if (payment && payment.telegramChatId) {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
 
-      if (!paymentToDelete) {
-        return res.status(404).json({ success: false, message: "To'lov topilmadi" });
-      }
+        // Barcha xabar ID larini bitta idishga (massiv) yig'amiz
+        const messagesToDelete = [];
 
-      // Agar ushbu to'lovda telegramChatId va telegramMessageId mavjud bo'lsa
-      if (paymentToDelete.telegramChatId && paymentToDelete.telegramMessageId) {
-        try {
-          // Telegramdan xabarni o'chirish API si
-          await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: paymentToDelete.telegramChatId,
-              message_id: paymentToDelete.telegramMessageId
-            })
-          });
-        } catch (err) {
-          console.error("Telegramdan xabarni o'chirishda xato:", err);
+        // 1. Avto yuborilgan chek ID si (bazangizda nomi messageId yoki message_id bo'lishi mumkin)
+        if (payment.messageId) messagesToDelete.push(payment.messageId);
+        if (payment.message_id) messagesToDelete.push(payment.message_id);
+
+        // 2. Qo'lda yuborilgan (biz boya yig'gan) cheklar ID lari
+        if (payment.extraMessageIds && payment.extraMessageIds.length > 0) {
+          messagesToDelete.push(...payment.extraMessageIds);
+        }
+
+        // 3. Yig'ilgan hamma cheklarni Telegramdan bittadan o'chirib chiqamiz
+        for (let msgId of messagesToDelete) {
+          try {
+            await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: payment.telegramChatId, message_id: msgId })
+            });
+          } catch (err) {
+            console.error("Telegram xabarni o'chirishda xatolik:", err);
+          }
         }
       }
 
-      // Endi to'lovni bazaning o'zidan ham o'chirib tashlaymiz
+      // Va nihoyat, to'lovning o'zini bazadan tozalaymiz
       await Payment.findByIdAndDelete(id);
       return res.status(200).json({ success: true });
     }

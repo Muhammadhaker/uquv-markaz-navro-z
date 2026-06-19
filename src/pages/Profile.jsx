@@ -10,7 +10,6 @@ export default function Profile() {
     const fetchProfile = async () => {
       let currentChatId = null;
 
-      // Telegramdan ID ni olamiz
       if (window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
         tg.ready();
@@ -65,8 +64,11 @@ export default function Profile() {
     );
   }
 
-  const { data: student, hasPaid, month } = profileData;
-  const groups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+  // YANGILANGAN: Xatolikni oldini olish uchun xavfsiz ajratib olish
+  const student = profileData?.data || {};
+  const hasPaid = profileData?.hasPaid || false;
+  const month = profileData?.month || "";
+  const groups = student?.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 animate-in fade-in duration-300">
@@ -77,7 +79,7 @@ export default function Profile() {
             <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-white/40 shadow-xl">
               <User size={36} className="text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-white">{student.name}</h1>
+            <h1 className="text-2xl font-bold text-white">{student?.name || "Noma'lum o'quvchi"}</h1>
             <p className="text-indigo-100 font-medium mt-1 text-sm">Shaxsiy Kabinet</p>
           </div>
         </div>
@@ -93,7 +95,7 @@ export default function Profile() {
               </div>
               <div>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">To'lov holati</p>
-                <p className="font-bold text-slate-800">{month} oyi uchun</p>
+                <p className="font-bold text-slate-800">{month || "Joriy"} oyi uchun</p>
               </div>
             </div>
             <div className={`px-4 py-2 rounded-xl text-sm font-bold shadow-sm ${hasPaid ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
@@ -108,7 +110,7 @@ export default function Profile() {
             </div>
             <div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Telefon raqam</p>
-              <p className="font-bold text-slate-700">{student.phone}</p>
+              <p className="font-bold text-slate-700">{student?.phone || "Kiritilmagan"}</p>
             </div>
           </div>
 

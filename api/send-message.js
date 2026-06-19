@@ -1,9 +1,12 @@
+import mongoose from 'mongoose';
+
+// Payment modelini chaqirib olamiz
+const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: "Faqat POST" });
 
-  const { chatId, text } = req.body;
-  
-  // DIQQAT: Sizning api/bot.js dagi o'zgaruvchi nomingiz bilan bir xil qildik!
+  const { chatId, text, paymentId } = req.body; // paymentId ni ham qabul qildik
   const token = process.env.TELEGRAM_BOT_TOKEN;
 
   if (!chatId) return res.status(400).json({ success: false, error: "Chat ID yo'q" });
@@ -20,7 +23,20 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+    
     if (data.ok) {
+      // YANGI MANTIQ: Agar xabar muvaffaqiyatli ketsa va paymentId mavjud bo'lsa:
+      if (paymentId && data.result?.message_id) {
+        // Bazaga ulanmagan bo'lsak ulanamiz
+        if (mongoose.connection.readyState < 1) {
+          await mongoose.connect(process.env.MONGODB_URI);
+        }
+        // To'lov bazasiga "extraMessageIds" degan ro'yxat ochib, xabar ID sini solib qo'yamiz
+        await Payment.findByIdAndUpdate(paymentId, {
+          $push: { extraMessageIds: data.result.message_id }
+        });
+      }
+
       return res.status(200).json({ success: true });
     } else {
       return res.status(400).json({ success: false, error: data.description });

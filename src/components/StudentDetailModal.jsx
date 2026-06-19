@@ -100,7 +100,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         const res = await fetch("/api/send-message", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chatId: student.telegramChatId, text }),
+          // YANGI QO'SHILDI: paymentId: p._id ni ham yuboryapmiz
+          body: JSON.stringify({ chatId: student.telegramChatId, text, paymentId: p._id }),
         });
         const data = await res.json();
 
@@ -116,7 +117,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       window.open(`tg://msg_url?url=${encodeURIComponent(text)}`, "_blank");
     }
   };
-
   const handleException = async () => {
     if (!window.confirm("Bu o'quvchini joriy oy uchun qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?")) return;
     setIsExcepting(true);

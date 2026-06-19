@@ -5,8 +5,9 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }));
-const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }));
+// Modellar (Collection nomlari aniq ko'rsatildi)
+const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
+const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
 
 export default async function handler(req, res) {
   await connectDB();
@@ -15,22 +16,39 @@ export default async function handler(req, res) {
     try {
       const { chatId } = req.query;
       
-      // O'quvchini topamiz
-      const student = await Student.findOne({ telegramChatId: Number(chatId) });
+      // XAVFSIZ QIDIRUV: chatId ni ham raqam, ham matn sifatida izlaymiz
+      const student = await Student.findOne({ 
+        $or: [
+          { telegramChatId: Number(chatId) },
+          { telegramChatId: String(chatId) }
+        ]
+      });
+
       if (!student) {
         return res.status(404).json({ success: false, message: "O'quvchi topilmadi" });
       }
 
-      // To'lovni tekshiramiz (Xuddi Admin panelgiga o'xshab)
+      // To'lov oyni tekshiramiz
       const today = new Date();
-      const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-      const lastMonthStr = today.getMonth() === 0
-        ? `${today.getFullYear() - 1}-12`
-        : `${today.getFullYear()}-${String(today.getMonth()).padStart(2, "0")}`;
-      const targetMonth = today.getDate() <= 5 ? lastMonthStr : currentMonthStr;
+      let year = today.getFullYear();
+      let month = today.getMonth() + 1;
 
+      if (today.getDate() <= 5) {
+        month -= 1;
+        if (month === 0) {
+          month = 12;
+          year -= 1;
+        }
+      }
+      
+      const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
+
+      // To'lovlar ro'yxatini tekshirish
       const payments = await Payment.find({ studentId: student._id, month: targetMonth });
-      const hasPaid = payments.length > 0;
+      
+      // YANGI: Agar o'quvchi shu oy uchun istisno (exception) qilingan bo'lsa, uni qarz deb hisoblamaymiz
+      const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
+      const hasPaid = payments.length > 0 || isExcepted;
 
       return res.status(200).json({ 
         success: true, 
@@ -39,6 +57,7 @@ export default async function handler(req, res) {
         month: targetMonth
       });
     } catch (error) {
+      console.error("Profile API xatosi:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
