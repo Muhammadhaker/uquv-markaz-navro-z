@@ -21,7 +21,8 @@ export default async function handler(req, res) {
   // DOIMIY ADMINLARNI TEKSHIRISH VA AVTOMAT YARATISH
   try {
     const defaultUsers = [
-      { username: "Navro'z", password: "Real Madrid", role: "super_admin" },
+      // YANGILANGAN SUPER ADMIN
+      { username: "Navroz", password: "Navroz", role: "super_admin" },
       { username: "muhammad", password: "kaneki235", role: "admin" }
     ];
     for (const dUser of defaultUsers) {
@@ -77,10 +78,10 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     const { id } = req.body;
     try {
-      // Navro'zni o'chirib bo'lmasligi uchun himoya
+      // Navroz'ni o'chirib bo'lmasligi uchun himoya (YANGILANDI)
       const userToDelete = await User.findById(id);
-      if (userToDelete && userToDelete.username === "Navro'z") {
-        return res.status(400).json({ success: false, message: "Asosiy Super Adminni o'chirib bo'lmaiydi!" });
+      if (userToDelete && userToDelete.username === "Navroz") {
+        return res.status(400).json({ success: false, message: "Asosiy Super Adminni o'chirib bo'lmaydi!" });
       }
       await User.findByIdAndDelete(id);
       return res.status(200).json({ success: true });
