@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Loader2, UserPlus, Pencil, Trash2, Filter } from "lucide-react";
+import { Search, Loader2, UserPlus, Pencil, Trash2, Filter, CalendarDays } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
 import StudentDetailModal from "../components/StudentDetailModal";
 
@@ -11,6 +11,13 @@ const formatPhoneNumber = (phone) => {
   else if (cleaned.length === 9)
     return `+998 ${cleaned.slice(0, 2)} ${cleaned.slice(2, 5)} ${cleaned.slice(5, 7)} ${cleaned.slice(7, 9)}`;
   return phone;
+};
+
+// 🔥 YANGI: Sanani chiroyli ko'rsatish uchun funksiya
+const formatDate = (dateString) => {
+  if (!dateString) return "Sana yo'q";
+  const d = new Date(dateString);
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 };
 
 export default function Groups() {
@@ -89,13 +96,11 @@ export default function Groups() {
     setIsStudentModalOpen(true);
   };
 
-  // YANGILANGAN QISM: Guruhlarni vergul orqali alohida ajratib olish
   const allGroups = students.flatMap(s => 
     s.group ? s.group.split(',').map(g => g.trim()) : []
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
-  // YANGILANGAN QISM: Filtrda ham ichida borligini tekshirish
   const filteredStudents = students.filter((s) => {
     const studentGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
     const matchesGroup = selectedFilterGroup === "Barchasi" || studentGroups.includes(selectedFilterGroup);
@@ -175,11 +180,18 @@ export default function Groups() {
                   <div className="font-bold text-slate-800 text-lg">
                     {s.name}
                   </div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-slate-500 mt-0.5">
                     {s.group} • {formatPhoneNumber(s.phone)}
                   </div>
+                  
+                  {/* 🔥 YANGI: Ro'yxatdan o'tgan sanasi */}
+                  <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mt-1">
+                    <CalendarDays size={12} />
+                    Ro'yxatdan o'tgan: {formatDate(s.addedAt)}
+                  </div>
+
                   <div
-                    className={`text-xs font-bold mt-1 ${hasPaid ? "text-emerald-600" : "text-rose-600"
+                    className={`text-xs font-bold mt-2 inline-block px-2 py-0.5 rounded-md ${hasPaid ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
                       }`}
                   >
                     {hasPaid ? "To'langan" : "Qarz"}
