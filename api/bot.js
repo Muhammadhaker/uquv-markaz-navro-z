@@ -1,5 +1,21 @@
+import mongoose from 'mongoose';
+
+// Bazaga ulanish funksiyasi
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  return mongoose.connect(process.env.MONGODB_URI);
+};
+
+// O'quvchi modelini chaqiramiz
+const studentSchema = new mongoose.Schema({
+  name: String,
+  phone: String,
+  group: String,
+  telegramChatId: Number
+}, { strict: false });
+const Student = mongoose.models.Student || mongoose.model('Student', studentSchema);
+
 export default async function handler(req, res) {
-    // 1. Agar so'rov POST bo'lmasa, bot faol ekanini bildirib chiqib ketamiz
     if (req.method !== 'POST') {
         return res.status(200).json({ message: 'Bot webhook ishlamoqda!' });
     }
@@ -7,7 +23,6 @@ export default async function handler(req, res) {
     const { message } = req.body;
     const token = process.env.TELEGRAM_BOT_TOKEN;
 
-    // 2. Agar xabar kelmasa yoki matn bo'lmasa, Telegramga "OK" deymiz (qotib qolmasligi uchun)
     if (!message || !message.text) {
         return res.status(200).send('OK');
     }
@@ -16,22 +31,33 @@ export default async function handler(req, res) {
     const text = message.text;
     const firstName = message.from.first_name || "O'quvchi";
 
-    // 3. /start buyrug'ini tekshiramiz
     if (text === '/start') {
-        const replyText = `Assalomu alaykum, ${firstName}! 🎓\n\nNavro'z O'quv Markaziga xush kelibsiz. Quyidagi tugma orqali ro'yxatdan o'tishingiz mumkin:`;
+        await connectDB(); // Bazaga ulanamiz
+        
+        // Mijozning chatId sini bazadan qidiramiz
+        const existingStudent = await Student.findOne({ telegramChatId: chatId });
 
-        const keyboard = {
-            inline_keyboard: [
-                [
-                    {
-                        text: "📝 Ro'yxatdan o'tish",
-                        web_app: { url: "https://uquv-markaz-navroz.vercel.app/bot-register" }
-                    }
+        let replyText = "";
+        let keyboard = {};
+
+        if (existingStudent) {
+            // AGAR RO'YXATDAN O'TGAN BO'LSA
+            replyText = `Assalomu alaykum, *${existingStudent.name}*! 🎓\n\nSiz ro'yxatdan o'tgansiz. Shaxsiy kabinetingizga kirib ma'lumotlaringizni va to'lov holatini ko'rishingiz mumkin:`;
+            keyboard = {
+                inline_keyboard: [
+                    [{ text: "👤 Mening profilim", web_app: { url: "https://uquv-markaz-navroz.vercel.app/profile" } }]
                 ]
-            ]
-        };
+            };
+        } else {
+            // AGAR RO'YXATDAN O'TMAGAN BO'LSA
+            replyText = `Assalomu alaykum, *${firstName}*! 🎓\n\nNavro'z O'quv Markaziga xush kelibsiz. Quyidagi tugma orqali ro'yxatdan o'tishingiz mumkin:`;
+            keyboard = {
+                inline_keyboard: [
+                    [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: "https://uquv-markaz-navroz.vercel.app/bot-register" } }]
+                ]
+            };
+        }
 
-        // 4. Telegramga javob yuboramiz
         try {
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST',
@@ -48,6 +74,5 @@ export default async function handler(req, res) {
         }
     }
 
-    // 5. Telegram serveriga har doim "OK" qaytarish shart!
     return res.status(200).send('OK');
 }

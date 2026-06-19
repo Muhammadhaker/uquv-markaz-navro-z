@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Loader2, CheckCircle, X } from "lucide-react";
 
-export default function PaymentModal({ isOpen, onClose, student }) {
+// YANGI: Props ichiga `groupName` qo'shildi
+export default function PaymentModal({ isOpen, onClose, student, groupName }) {
   const [amount, setAmount] = useState("");
   const [paymentType, setPaymentType] = useState("Naqd");
   const [paymentMonth, setPaymentMonth] = useState("");
@@ -18,10 +19,9 @@ export default function PaymentModal({ isOpen, onClose, student }) {
   useEffect(() => {
     if (isOpen && student) {
       const today = new Date();
-      // --- 5-SANA LOGIKASI QO'SHILDI ---
-      // Agar bugun 5-sana yoki undan kichik bo'lsa, o'tgan oyni tanlaymiz
+      // 5-SANA LOGIKASI
       let year = today.getFullYear();
-      let month = today.getMonth() + 1; // getMonth() 0 dan boshlanadi
+      let month = today.getMonth() + 1;
 
       if (today.getDate() <= 5) {
         month = month - 1;
@@ -32,12 +32,16 @@ export default function PaymentModal({ isOpen, onClose, student }) {
       }
 
       setPaymentMonth(`${year}-${String(month).padStart(2, "0")}`);
-      setGroup(studentSubjects.length > 0 ? studentSubjects[0] : "");
+      
+      // YANGI: Agar tashqaridan (ota komponentdan) aniq guruh nomi kelgan bo'lsa, o'shani o'rnatamiz. 
+      // Yo'qsa, birinchi guruhni standart qilib qo'yamiz.
+      setGroup(groupName || (studentSubjects.length > 0 ? studentSubjects[0] : ""));
+      
       setAmount("");
       setSuccess(false);
       setErrorMessage("");
     }
-  }, [isOpen, student]);
+  }, [isOpen, student, groupName]);
 
   if (!isOpen || !student) return null;
 
@@ -65,7 +69,7 @@ export default function PaymentModal({ isOpen, onClose, student }) {
         body: JSON.stringify({
           studentId: student._id,
           studentName: student.name,
-          groupName: group,
+          groupName: group, // Endi aynan tanlangan aniq guruh ketadi
           amount: numericAmount,
           paymentType,
           month: paymentMonth,
@@ -124,7 +128,15 @@ export default function PaymentModal({ isOpen, onClose, student }) {
               <label className="text-xs font-bold text-slate-400 uppercase">
                 Guruh / Fan
               </label>
-              {studentSubjects.length > 1 ? (
+              
+              {/* YANGI: Agar guruh aniq bo'lsa uni o'zgartirib bo'lmaydi */}
+              {groupName ? (
+                <input
+                  className="w-full border p-3 rounded-xl font-bold text-indigo-700 bg-indigo-50 border-indigo-100 outline-none cursor-not-allowed"
+                  value={group}
+                  readOnly
+                />
+              ) : studentSubjects.length > 1 ? (
                 <select
                   className="w-full border p-3 rounded-xl font-medium focus:border-indigo-500 outline-none bg-white cursor-pointer"
                   value={group}

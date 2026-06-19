@@ -12,7 +12,7 @@ import Admins from "./pages/Admins";
 import BotRegister from "./pages/BotRegister";
 import ActivityLogs from "./pages/ActivityLogs"; // <-- YANGI SAHIFA IMPORT QILINDI
 import Layout from "./components/Layout";
-
+import Profile from './pages/Profile';
 // Himoyalangan marshrut (Layout bilan o'ralgan)
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const role = localStorage.getItem("userRole");
@@ -62,7 +62,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-
+        <Route path="/profile" element={<Profile />} />
         {/* Barcha adminlar uchun */}
         <Route
           path="/groups"
