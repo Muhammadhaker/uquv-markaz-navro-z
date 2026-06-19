@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const newStudent = await Student.create(req.body);
 
-      // Telegramga xabar yuborish
+      // Telegramga xabar yuborish (YANGILANGAN QISM: Menyular qo'shildi)
       if (newStudent.telegramChatId) {
         try {
           await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -45,8 +45,16 @@ export default async function handler(req, res) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: newStudent.telegramChatId,
-              text: `🎉 *Tabriklaymiz, ${newStudent.name}!*\n\nSiz ro'yxatdan o'tdingiz.\n\n📚 *Fan:* ${newStudent.group}`,
-              parse_mode: 'Markdown'
+              text: `🎉 *Tabriklaymiz, ${newStudent.name}!*\n\nSiz ro'yxatdan o'tdingiz.\n\n📚 *Fan:* ${newStudent.group}\n\n👇 _Pastki menyudan Shaxsiy Kabinetingizga kirishingiz mumkin!_`,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                keyboard: [
+                  [{ text: "👤 Shaxsiy Kabinet", web_app: { url: "https://uquv-markaz-navroz.vercel.app/profile" } }],
+                  [{ text: "📋 Mening ma'lumotlarim" }]
+                ],
+                resize_keyboard: true,
+                is_persistent: true
+              }
             })
           });
         } catch (err) {
