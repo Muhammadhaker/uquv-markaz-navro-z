@@ -71,7 +71,7 @@ export default function Groups() {
         body: JSON.stringify({
           adminName: adminName,
           actionType: "delete",
-          details: `O'quvchi o'chirildi: ${s.name} (Guruhlari: ${s.group})`,
+          details: `O'quvchi o'chirildi: ${s.name} (Fani: ${s.group})`,
           targetApi: "/api/students",
           deletedData: s
         })
@@ -89,12 +89,13 @@ export default function Groups() {
     setIsStudentModalOpen(true);
   };
 
-  // Guruhlarni vergul orqali alohida ajratib olish va toza ro'yxat tuzish
+  // YANGILANGAN QISM: Guruhlarni vergul orqali alohida ajratib olish
   const allGroups = students.flatMap(s => 
-    s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : []
+    s.group ? s.group.split(',').map(g => g.trim()) : []
   );
-  const uniqueGroups = ["Barchasi", ...new Set(allGroups)];
+  const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
+  // YANGILANGAN QISM: Filtrda ham ichida borligini tekshirish
   const filteredStudents = students.filter((s) => {
     const studentGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
     const matchesGroup = selectedFilterGroup === "Barchasi" || studentGroups.includes(selectedFilterGroup);
@@ -161,13 +162,9 @@ export default function Groups() {
           </div>
         ) : (
           filteredStudents.map((s) => {
-            // TO'LOV MANTIQINI TEKSHIRISH
-            // Hozircha bitta umumiy to'lov bo'lgani uchun eski mantiq ishlayveradi. 
-            // Agar har bir guruhga alohida to'lov bo'lishi kerak bo'lsa, bu joyini keyinchalik yana o'zgartiramiz.
             const hasPaid = payments.some(
               (p) => p.studentId === s._id && p.month === targetMonth
             );
-            
             return (
               <div
                 key={s._id}
@@ -178,16 +175,12 @@ export default function Groups() {
                   <div className="font-bold text-slate-800 text-lg">
                     {s.name}
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    {/* O'quvchining guruhlarini ajratib, chiroyli qilib chiqaramiz */}
-                    {s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean).join(" • ") : "Guruhsiz"} 
-                    <span className="mx-2">|</span> 
-                    {formatPhoneNumber(s.phone)}
+                  <div className="text-xs text-slate-500">
+                    {s.group} • {formatPhoneNumber(s.phone)}
                   </div>
                   <div
-                    className={`text-xs font-bold mt-2 inline-block px-2 py-1 rounded-md ${
-                      hasPaid ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                    }`}
+                    className={`text-xs font-bold mt-1 ${hasPaid ? "text-emerald-600" : "text-rose-600"
+                      }`}
                   >
                     {hasPaid ? "To'langan" : "Qarz"}
                   </div>
