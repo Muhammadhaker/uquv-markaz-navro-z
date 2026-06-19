@@ -13,34 +13,40 @@ export default function BotRegister() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   
-  // YANGI STATE'LAR: Tekshiruv jarayoni va holati uchun
   const [loading, setLoading] = useState(true); 
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
   useEffect(() => {
+    // 1. ENG ISHONCHLI USUL: URL'dan ID ni qidirish
+    const params = new URLSearchParams(window.location.search);
+    let currentId = params.get('chatId');
+
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
-      const id = tg.initDataUnsafe?.user?.id || null;
-      setChatId(id);
       tg.setHeaderColor("#4f46e5");
-
-      // BAZADAN TEKSHIRUV: O'quvchi avval ro'yxatdan o'tganmi?
-      if (id) {
-        fetch(`/api/students?telegramChatId=${id}`)
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.exists) {
-              setAlreadyRegistered(true); // Allaqachon ro'yxatda bor
-              setIsSuccess(true);
-            }
-          })
-          .catch((err) => console.error("Tekshiruvda xatolik:", err))
-          .finally(() => setLoading(false)); // Tekshiruv tugadi
-      } else {
-        setLoading(false);
+      
+      // Agar ssilkada bo'lmasa, Telegramdan qidiramiz
+      if (!currentId) {
+        currentId = tg.initDataUnsafe?.user?.id || null;
       }
+    }
+
+    setChatId(currentId);
+
+    // BAZADAN TEKSHIRUV: O'quvchi avval ro'yxatdan o'tganmi?
+    if (currentId) {
+      fetch(`/api/students?telegramChatId=${currentId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.exists) {
+            setAlreadyRegistered(true);
+            setIsSuccess(true);
+          }
+        })
+        .catch((err) => console.error("Tekshiruvda xatolik:", err))
+        .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
@@ -101,7 +107,7 @@ export default function BotRegister() {
           parentName: formData.parentName,
           phone: formData.phone,
           group: formData.groups.join(", "),
-          telegramChatId: chatId,
+          telegramChatId: chatId, // Ssilkadan olingan aniq ID ketadi!
         }),
       });
 
@@ -126,7 +132,6 @@ export default function BotRegister() {
     }
   };
 
-  // YANGI: Ekranga chiqishdan oldin yuklanishni ko'rsatamiz
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -135,7 +140,6 @@ export default function BotRegister() {
     );
   }
 
-  // YANGILANGAN: Muvaffaqiyat yoki allaqachon ro'yxatdan o'tganlik ekrani
   if (isSuccess) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">

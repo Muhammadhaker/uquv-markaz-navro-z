@@ -5,30 +5,37 @@ export default function Profile() {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [debugMsg, setDebugMsg] = useState(""); // XATONI ANIQLOVCHI YANGI STATE
+  const [debugMsg, setDebugMsg] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
       let currentChatId = null;
 
-      // 1. Telegram ID ni olishga harakat qilamiz
+      // 1. ENG ISHONCHLI USUL: Ssilkadagi (URL) ID ni qidirish
+      const params = new URLSearchParams(window.location.search);
+      currentChatId = params.get('chatId');
+
+      // 2. Agar ssilkada bo'lmasa, Telegram o'zidan izlash
       if (window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
         tg.setHeaderColor("#4f46e5");
-        currentChatId = tg.initDataUnsafe?.user?.id;
+        
+        if (!currentChatId) {
+          currentChatId = tg.initDataUnsafe?.user?.id;
+        }
       }
 
-      // Agar ID olinmasa, darhol sababini yozamiz
+      // Agar ID umuman topilmasa
       if (!currentChatId) {
         setLoading(false);
         setError(true);
-        setDebugMsg("Telegram ID topilmadi. (Kompyuterdan emas, telefon orqali kirib ko'ring yoki WebApp ruxsatlari yo'q).");
+        setDebugMsg("Telegram ID topilmadi. Ssilka yoki WebApp orqali muammo bor.");
         return;
       }
 
-      // 2. Bazadan qidiramiz
+      // Bazadan qidiramiz
       try {
         const res = await fetch(`/api/student-profile?chatId=${currentChatId}`);
         

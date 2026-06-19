@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
     await connectDB();
     
-    // 🔥 SUPER QIDIRUV QO'SHILDI: Endi bot ham raqam, ham matnni tushunadi!
+    // 🔥 SUPER QIDIRUV: Bot ham raqam, ham matnni adashmasdan tushunadi!
     const existingStudent = await Student.findOne({ 
         $or: [
             { telegramChatId: chatId },
@@ -59,10 +59,10 @@ export default async function handler(req, res) {
         if (existingStudent) {
             replyText = `Assalomu alaykum, *${existingStudent.name}*! 🎓\n\nPastki menyudan kerakli bo'limni tanlang 👇`;
             
-            // TIZIMDAGILAR UCHUN DOIMIY PASTKI MENYU
+            // 🔥 YANGILANISH: Shaxsiy Kabinet ssilkasi oxiriga chatId qo'shildi
             keyboard = {
                 keyboard: [
-                    [{ text: "👤 Shaxsiy Kabinet", web_app: { url: "https://uquv-markaz-navroz.vercel.app/profile" } }],
+                    [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }],
                     [{ text: "📋 Mening ma'lumotlarim" }]
                 ],
                 resize_keyboard: true,
@@ -71,10 +71,10 @@ export default async function handler(req, res) {
         } else {
             replyText = `Assalomu alaykum, *${firstName}*! 🎓\n\nNavro'z O'quv Markaziga xush kelibsiz. Ro'yxatdan o'tish uchun quyidagi tugmani bosing:`;
             
-            // RO'YXATDAN O'TMAGANLAR UCHUN INLINE TUGMA
+            // 🔥 YANGILANISH: Ro'yxatdan o'tish ssilkasi oxiriga chatId qo'shildi
             keyboard = {
                 inline_keyboard: [
-                    [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: "https://uquv-markaz-navroz.vercel.app/bot-register" } }]
+                    [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }]
                 ]
             };
         }

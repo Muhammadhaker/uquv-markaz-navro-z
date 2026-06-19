@@ -23,12 +23,10 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
-    // GET metodini birlashtirdik (Barchasini yoki bittasini tekshirish)
     if (req.method === 'GET') {
       const { telegramChatId } = req.query;
       
       if (telegramChatId) {
-        // 🔥 SUPER QIDIRUV (AYNAN SHU YER O'ZGARTIRILDI)
         const student = await Student.findOne({ 
             $or: [
                 { telegramChatId: telegramChatId },
@@ -46,7 +44,6 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const newStudent = await Student.create(req.body);
 
-      // Telegramga xabar yuborish (YANGILANGAN QISM: Menyular qo'shildi)
       if (newStudent.telegramChatId) {
         try {
           await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -58,7 +55,8 @@ export default async function handler(req, res) {
               parse_mode: 'Markdown',
               reply_markup: {
                 keyboard: [
-                  [{ text: "👤 Shaxsiy Kabinet", web_app: { url: "https://uquv-markaz-navroz.vercel.app/profile" } }],
+                  // 🔥 YANGILANISH: URL oxiriga telegramChatId qoshildi
+                  [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${newStudent.telegramChatId}` } }],
                   [{ text: "📋 Mening ma'lumotlarim" }]
                 ],
                 resize_keyboard: true,
@@ -87,7 +85,7 @@ export default async function handler(req, res) {
     res.status(405).json({ message: "Metod ruxsat etilmagan" });
     
   } catch (error) {
-    console.error("API XATOSI:", error); // Bu logni Vercel dashboardida ko'rasiz
+    console.error("API XATOSI:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 }
