@@ -70,3 +70,14 @@ export default async function handler(req, res) {
     res.status(500).json({ success: false, error: error.message });
   }
 }
+
+// api/students.js faylingizga qo'shing
+if (req.method === 'GET') {
+    const { telegramChatId } = req.query;
+    if (telegramChatId) {
+        const student = await Student.findOne({ telegramChatId: Number(telegramChatId) });
+        return res.status(200).json({ exists: !!student });
+    }
+    const students = await Student.find({});
+    return res.status(200).json({ success: true, data: students });
+}
