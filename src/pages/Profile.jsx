@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Phone, BookOpen, CreditCard, Loader2, Bug } from "lucide-react";
+import { User, Phone, BookOpen, CreditCard, Loader2, Bug, Clock } from "lucide-react";
 
 export default function Profile() {
   const [profileData, setProfileData] = useState(null);
@@ -11,11 +11,9 @@ export default function Profile() {
     const fetchProfile = async () => {
       let currentChatId = null;
 
-      // 1. ENG ISHONCHLI USUL: Ssilkadagi (URL) ID ni qidirish
       const params = new URLSearchParams(window.location.search);
       currentChatId = params.get('chatId');
 
-      // 2. Agar ssilkada bo'lmasa, Telegram o'zidan izlash
       if (window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
         tg.ready();
@@ -27,7 +25,6 @@ export default function Profile() {
         }
       }
 
-      // Agar ID umuman topilmasa
       if (!currentChatId) {
         setLoading(false);
         setError(true);
@@ -35,9 +32,16 @@ export default function Profile() {
         return;
       }
 
-      // Bazadan qidiramiz
       try {
-        const res = await fetch(`/api/student-profile?chatId=${currentChatId}`);
+        // 🔥 YANGI: Telegram eski ma'lumotni ko'rsatmasligi uchun ssilka oxiriga tasodifiy raqam (vaqt) qo'shamiz
+        const timestamp = new Date().getTime();
+        const res = await fetch(`/api/student-profile?chatId=${currentChatId}&t=${timestamp}`, {
+          cache: 'no-store', // Qat'iy buyruq: Xotiradan foydalanma!
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
         
         if (!res.ok) {
           setDebugMsg(`Server xatosi: ${res.status}. API fayl nomi "student-profile.js" ekanini tekshiring.`);
@@ -51,7 +55,7 @@ export default function Profile() {
         if (data.success) {
           setProfileData(data);
         } else {
-          setDebugMsg(`Baza topmadi: ${data.message} (Qidirilgan ID: ${currentChatId})`);
+          setDebugMsg(`Baza topmadi: ${data.message}`);
           setError(true);
         }
       } catch (err) {
@@ -74,7 +78,6 @@ export default function Profile() {
     );
   }
 
-  // XATO BO'LSA, QIZIL RANGDA SABABINI KO'RSATAMIZ
   if (error || !profileData) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
@@ -95,9 +98,32 @@ export default function Profile() {
   }
 
   const student = profileData?.data || {};
-  const hasPaid = profileData?.hasPaid || false;
+  const paymentStatus = profileData?.paymentStatus || "unpaid";
   const month = profileData?.month || "";
   const groups = student?.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+
+  let statusConfig = {
+    iconBg: "bg-rose-100 text-rose-600",
+    badgeBg: "bg-rose-500 text-white",
+    text: "Qarz",
+    icon: <CreditCard size={20} />
+  };
+
+  if (paymentStatus === "paid") {
+    statusConfig = {
+      iconBg: "bg-emerald-100 text-emerald-600",
+      badgeBg: "bg-emerald-500 text-white",
+      text: "To'langan",
+      icon: <CreditCard size={20} />
+    };
+  } else if (paymentStatus === "excepted") {
+    statusConfig = {
+      iconBg: "bg-amber-100 text-amber-600",
+      badgeBg: "bg-amber-500 text-white",
+      text: "Istisno (Kechiktirilgan)",
+      icon: <Clock size={20} />
+    };
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 animate-in fade-in duration-300">
@@ -115,16 +141,16 @@ export default function Profile() {
         <div className="p-6 -mt-6 relative z-20 space-y-4">
           <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-50 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-full ${hasPaid ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                <CreditCard size={20} />
+              <div className={`p-3 rounded-full ${statusConfig.iconBg}`}>
+                {statusConfig.icon}
               </div>
               <div>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">To'lov holati</p>
                 <p className="font-bold text-slate-800">{month || "Joriy"} oyi uchun</p>
               </div>
             </div>
-            <div className={`px-4 py-2 rounded-xl text-sm font-bold shadow-sm ${hasPaid ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
-              {hasPaid ? "To'langan" : "Qarz"}
+            <div className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-sm ${statusConfig.badgeBg}`}>
+              {statusConfig.text}
             </div>
           </div>
 

@@ -5,18 +5,21 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// Modellar (Collection nomlari aniq ko'rsatildi)
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
 
 export default async function handler(req, res) {
+  // 🔥 YANGI: Brauzerga bu sahifani umuman xotirada saqlamaslikni buyuramiz!
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   await connectDB();
 
   if (req.method === 'GET') {
     try {
       const { chatId } = req.query;
       
-      // XAVFSIZ QIDIRUV: chatId ni ham raqam, ham matn sifatida izlaymiz
       const student = await Student.findOne({ 
         $or: [
           { telegramChatId: Number(chatId) },
@@ -28,7 +31,6 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "O'quvchi topilmadi" });
       }
 
-      // To'lov oyni tekshiramiz
       const today = new Date();
       let year = today.getFullYear();
       let month = today.getMonth() + 1;
@@ -43,17 +45,23 @@ export default async function handler(req, res) {
       
       const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
 
-      // To'lovlar ro'yxatini tekshirish
       const payments = await Payment.find({ studentId: student._id, month: targetMonth });
       
-      // YANGI: Agar o'quvchi shu oy uchun istisno (exception) qilingan bo'lsa, uni qarz deb hisoblamaymiz
       const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
-      const hasPaid = payments.length > 0 || isExcepted;
+      const actuallyPaid = payments.length > 0;
+
+      let paymentStatus = "unpaid"; 
+      
+      if (actuallyPaid) {
+        paymentStatus = "paid"; 
+      } else if (isExcepted) {
+        paymentStatus = "excepted"; 
+      }
 
       return res.status(200).json({ 
         success: true, 
         data: student,
-        hasPaid: hasPaid,
+        paymentStatus: paymentStatus, 
         month: targetMonth
       });
     } catch (error) {
