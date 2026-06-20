@@ -5,19 +5,12 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/((?!sitemap.xml|robots.txt).*)",
-      "destination": "/index.html"
-    }
-  ],
-  "headers": [
+      "source": "/sitemap2.xml",
+      "destination": "/sitemap2.xml"
+    },
     {
-      "source": "/sitemap.xml",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/xml"
-        }
-      ]
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "crons": [
