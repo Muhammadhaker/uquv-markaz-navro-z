@@ -9,7 +9,6 @@ const Student = mongoose.models.Student || mongoose.model('Student', new mongoos
 const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
 
 export default async function handler(req, res) {
-  // 🔥 YANGI: Brauzerga bu sahifani umuman xotirada saqlamaslikni buyuramiz!
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
@@ -45,24 +44,28 @@ export default async function handler(req, res) {
       
       const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
 
-      const payments = await Payment.find({ studentId: student._id, month: targetMonth });
+      // 1. Joriy oy to'lovini tekshirish
+      const currentMonthPayments = await Payment.find({ studentId: student._id, month: targetMonth });
       
       const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
-      const actuallyPaid = payments.length > 0;
+      const actuallyPaid = currentMonthPayments.length > 0;
 
       let paymentStatus = "unpaid"; 
-      
       if (actuallyPaid) {
         paymentStatus = "paid"; 
       } else if (isExcepted) {
         paymentStatus = "excepted"; 
       }
 
+      // 🔥 YANGI: O'quvchining hamma oylardagi hamma to'lovlarini tariq sifatida tortamiz
+      const paymentsHistory = await Payment.find({ studentId: student._id }).sort({ date: -1 });
+
       return res.status(200).json({ 
         success: true, 
         data: student,
         paymentStatus: paymentStatus, 
-        month: targetMonth
+        month: targetMonth,
+        paymentsHistory: paymentsHistory // Tarix massivi ketdi
       });
     } catch (error) {
       console.error("Profile API xatosi:", error);

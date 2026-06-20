@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Phone, BookOpen, CreditCard, Loader2, Bug, Clock } from "lucide-react";
+import { User, Phone, BookOpen, CreditCard, Loader2, Bug, Clock, History } from "lucide-react";
 
 export default function Profile() {
   const [profileData, setProfileData] = useState(null);
@@ -19,10 +19,7 @@ export default function Profile() {
         tg.ready();
         tg.expand();
         tg.setHeaderColor("#4f46e5");
-        
-        if (!currentChatId) {
-          currentChatId = tg.initDataUnsafe?.user?.id;
-        }
+        if (!currentChatId) currentChatId = tg.initDataUnsafe?.user?.id;
       }
 
       if (!currentChatId) {
@@ -33,25 +30,20 @@ export default function Profile() {
       }
 
       try {
-        // 🔥 YANGI: Telegram eski ma'lumotni ko'rsatmasligi uchun ssilka oxiriga tasodifiy raqam (vaqt) qo'shamiz
         const timestamp = new Date().getTime();
         const res = await fetch(`/api/student-profile?chatId=${currentChatId}&t=${timestamp}`, {
-          cache: 'no-store', // Qat'iy buyruq: Xotiradan foydalanma!
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
         });
         
         if (!res.ok) {
-          setDebugMsg(`Server xatosi: ${res.status}. API fayl nomi "student-profile.js" ekanini tekshiring.`);
+          setDebugMsg(`Server xatosi: ${res.status}`);
           setError(true);
           setLoading(false);
           return;
         }
 
         const data = await res.json();
-        
         if (data.success) {
           setProfileData(data);
         } else {
@@ -59,7 +51,6 @@ export default function Profile() {
           setError(true);
         }
       } catch (err) {
-        console.error(err);
         setDebugMsg(`Ulanishda xatolik: ${err.message}`);
         setError(true);
       } finally {
@@ -69,6 +60,14 @@ export default function Profile() {
 
     fetchProfile();
   }, []);
+
+  // Oylarni matnga o'giruvchi yordamchi funksiya
+  const formatMonthName = (m) => {
+    if (!m) return "";
+    const [y, mm] = m.split("-");
+    const names = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+    return `${names[parseInt(mm) - 1]} ${y}`;
+  };
 
   if (loading) {
     return (
@@ -84,14 +83,7 @@ export default function Profile() {
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 w-full max-w-sm">
           <User className="mx-auto text-slate-300 mb-4" size={48} />
           <h2 className="text-xl font-bold text-slate-700">Profil topilmadi</h2>
-          <p className="text-slate-500 mt-2 text-sm">Siz hali ro'yxatdan o'tmagansiz yoki xatolik yuz berdi.</p>
-          
-          {debugMsg && (
-            <div className="mt-6 p-4 bg-red-50 text-red-600 text-xs font-medium rounded-xl border border-red-100 flex items-start gap-3 text-left">
-              <Bug size={18} className="shrink-0 mt-0.5 text-red-500" />
-              <span>{debugMsg}</span>
-            </div>
-          )}
+          {debugMsg && <p className="text-red-500 text-xs mt-2">{debugMsg}</p>}
         </div>
       </div>
     );
@@ -101,6 +93,9 @@ export default function Profile() {
   const paymentStatus = profileData?.paymentStatus || "unpaid";
   const month = profileData?.month || "";
   const groups = student?.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+  
+  // 🔥 YANGI: To'lovlar tarixi massivi
+  const history = profileData?.paymentsHistory || [];
 
   let statusConfig = {
     iconBg: "bg-rose-100 text-rose-600",
@@ -110,19 +105,9 @@ export default function Profile() {
   };
 
   if (paymentStatus === "paid") {
-    statusConfig = {
-      iconBg: "bg-emerald-100 text-emerald-600",
-      badgeBg: "bg-emerald-500 text-white",
-      text: "To'langan",
-      icon: <CreditCard size={20} />
-    };
+    statusConfig = { iconBg: "bg-emerald-100 text-emerald-600", badgeBg: "bg-emerald-500 text-white", text: "To'langan", icon: <CreditCard size={20} /> };
   } else if (paymentStatus === "excepted") {
-    statusConfig = {
-      iconBg: "bg-amber-100 text-amber-600",
-      badgeBg: "bg-amber-500 text-white",
-      text: "Istisno (Kechiktirilgan)",
-      icon: <Clock size={20} />
-    };
+    statusConfig = { iconBg: "bg-amber-100 text-amber-600", badgeBg: "bg-amber-500 text-white", text: "Istisno", icon: <Clock size={20} /> };
   }
 
   return (
@@ -139,14 +124,13 @@ export default function Profile() {
         </div>
 
         <div className="p-6 -mt-6 relative z-20 space-y-4">
+          {/* TO'LOV HOLATI */}
           <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-50 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-full ${statusConfig.iconBg}`}>
-                {statusConfig.icon}
-              </div>
+              <div className={`p-3 rounded-full ${statusConfig.iconBg}`}>{statusConfig.icon}</div>
               <div>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">To'lov holati</p>
-                <p className="font-bold text-slate-800">{month || "Joriy"} oyi uchun</p>
+                <p className="font-bold text-slate-800">{formatMonthName(month) || "Joriy oy"}</p>
               </div>
             </div>
             <div className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-sm ${statusConfig.badgeBg}`}>
@@ -154,36 +138,62 @@ export default function Profile() {
             </div>
           </div>
 
+          {/* TELEFON */}
           <div className="bg-white rounded-2xl p-5 border shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-slate-50 text-slate-500 rounded-xl">
-              <Phone size={20} />
-            </div>
+            <div className="p-3 bg-slate-50 text-slate-500 rounded-xl"><Phone size={20} /></div>
             <div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Telefon raqam</p>
               <p className="font-bold text-slate-700">{student?.phone || "Kiritilmagan"}</p>
             </div>
           </div>
 
+          {/* FANLAR */}
           <div className="bg-white rounded-2xl p-5 border shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                <BookOpen size={20} />
-              </div>
+              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><BookOpen size={20} /></div>
               <p className="font-bold text-slate-800 text-lg">Mening Fanlarim</p>
             </div>
-            
             {groups.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {groups.map((g, idx) => (
-                  <span key={idx} className="bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-2 rounded-xl text-sm font-bold">
-                    {g}
-                  </span>
+                  <span key={idx} className="bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-2 rounded-xl text-sm font-bold">{g}</span>
                 ))}
               </div>
             ) : (
               <p className="text-slate-500 text-sm font-medium">Siz hali birorta guruhga qo'shilmagansiz.</p>
             )}
           </div>
+
+          {/* 🔥 YANGI: TO'LOVLAR TARIXI BO'LIMI */}
+          <div className="bg-white rounded-2xl p-5 border shadow-sm">
+            <div className="flex items-center gap-3 mb-4 border-b pb-3">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><History size={20} /></div>
+              <div>
+                <p className="font-bold text-slate-800 text-lg">To'lovlar tarixi</p>
+                <p className="text-xs text-slate-400">Barcha amalga oshirilgan to'lovlar ro'yxati</p>
+              </div>
+            </div>
+
+            {history.length > 0 ? (
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                {history.map((pay) => (
+                  <div key={pay._id} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">{formatMonthName(pay.month)}</p>
+                      <p className="text-[11px] text-slate-400 font-medium">{pay.groupName} • {pay.paymentType}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-emerald-600 text-sm">+{Number(pay.amount).toLocaleString()} so'm</p>
+                      <p className="text-[10px] text-slate-400">{new Date(pay.date).toLocaleDateString("ru-RU")}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center text-sm py-4">To'lovlar tarixi mavjud emas.</p>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     name: "",
     parentName: "",
     phone: "+998 ",
+    telegramChatId: "", // 🔥 YANGI: Telegram ID qo'shildi
     groups: [], // Guruhlar ro'yxati (Massiv)
   });
   
@@ -24,6 +25,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         name: studentToEdit.name,
         parentName: studentToEdit.parentName || "",
         phone: studentToEdit.phone,
+        telegramChatId: studentToEdit.telegramChatId || "", // 🔥 Tahrirlashda ID ni yuklash
         groups: studentGroups,
       });
     } else {
@@ -31,6 +33,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         name: "",
         parentName: "",
         phone: "+998 ",
+        telegramChatId: "", // 🔥 Yangi qo'shishda bo'sh turadi
         groups: [],
       });
     }
@@ -48,7 +51,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     setFormData({ ...formData, phone: formatted });
   };
 
-  // YANGI: Guruhni ro'yxatga qo'shish funksiyasi
+  // Guruhni ro'yxatga qo'shish funksiyasi
   const addGroup = () => {
     const trimmed = currentGroupInput.trim();
     if (trimmed && !formData.groups.includes(trimmed)) {
@@ -125,7 +128,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
         <h2 className="text-xl font-bold mb-4">
           {studentToEdit ? "Tahrirlash" : "Yangi o'quvchi"}
         </h2>
@@ -154,6 +157,18 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             onChange={handlePhoneChange}
             maxLength={17}
           />
+
+          {/* 🔥 YANGI: TELEGRAM ID INPUTI */}
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase">Telegram Chat ID (Ixtiyoriy):</label>
+            <input
+              type="text"
+              className="w-full mt-1 p-3 border rounded-xl outline-none focus:border-indigo-500"
+              placeholder="Masalan: 2025338995"
+              value={formData.telegramChatId}
+              onChange={(e) => setFormData({ ...formData, telegramChatId: e.target.value.replace(/\D/g, "") })}
+            />
+          </div>
 
           {/* DYNAMIC GURUH QO'SHISH QISMI */}
           <div className="space-y-2 pt-2 border p-3 rounded-xl bg-slate-50">
