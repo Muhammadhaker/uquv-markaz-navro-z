@@ -9,8 +9,8 @@ const logSchema = new mongoose.Schema({
   adminName: { type: String, required: true },
   actionType: { type: String, required: true },
   details: { type: String, required: true },
-  targetApi: { type: String, default: null }, // Tiklash uchun qaysi API ga yuborish kerakligi
-  deletedData: { type: Object, default: null }, // O'chirilgan ma'lumotning o'zi xotirada qoladi
+  targetApi: { type: String, default: null }, 
+  deletedData: { type: Object, default: null }, 
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -21,7 +21,6 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Faqat oxirgi 48 soatni tortib olish
       const logs = await Log.find({
         createdAt: { $gte: new Date(Date.now() - 48 * 60 * 60 * 1000) }
       }).sort({ createdAt: -1 });
@@ -35,6 +34,16 @@ export default async function handler(req, res) {
     try {
       const newLog = await Log.create(req.body);
       return res.status(201).json({ success: true, data: newLog });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  // 🔥 YANGI QO'SHILGAN QISM: Tarixni butunlay tozalash
+  if (req.method === 'DELETE') {
+    try {
+      await Log.deleteMany({}); // Bazadagi hamma loglarni o'chiradi
+      return res.status(200).json({ success: true, message: "Barcha tarix tozalandi" });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });
     }

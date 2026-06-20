@@ -17,6 +17,7 @@ const paymentSchema = new mongoose.Schema({
   adminName: { type: String, default: "Admin" },
   telegramChatId: { type: String, default: null },
   telegramMessageId: { type: Number, default: null }, // Bot yuborgan xabar IDsi
+  extraMessageIds: { type: [Number], default: [] }, // Qo'lda yuborilgan xabarlar uchun
   date: { type: Date, default: Date.now }
 });
 
@@ -93,21 +94,19 @@ export default async function handler(req, res) {
       const payment = await Payment.findById(id);
 
       if (payment && payment.telegramChatId) {
-        const token = process.env.TELEGRAM_BOT_TOKEN;
-
         // Barcha xabar ID larini bitta idishga (massiv) yig'amiz
         const messagesToDelete = [];
 
-        // 1. Avto yuborilgan chek ID si (bazangizda nomi messageId yoki message_id bo'lishi mumkin)
-        if (payment.messageId) messagesToDelete.push(payment.messageId);
+        // To'g'ri maydon nomlarini qidirish
+        if (payment.telegramMessageId) messagesToDelete.push(payment.telegramMessageId);
+        if (payment.messageId) messagesToDelete.push(payment.messageId); 
         if (payment.message_id) messagesToDelete.push(payment.message_id);
 
-        // 2. Qo'lda yuborilgan (biz boya yig'gan) cheklar ID lari
         if (payment.extraMessageIds && payment.extraMessageIds.length > 0) {
           messagesToDelete.push(...payment.extraMessageIds);
         }
 
-        // 3. Yig'ilgan hamma cheklarni Telegramdan bittadan o'chirib chiqamiz
+        // Yig'ilgan hamma cheklarni Telegramdan bittadan o'chirib chiqamiz
         for (let msgId of messagesToDelete) {
           try {
             await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
