@@ -34,7 +34,6 @@ const formatMonth = (m) => {
 };
 
 export default function StudentDetailModal({ student, payments, onClose, onRefresh }) {
-  // YANGI: isPayOpen o'rniga payGroup ishlatamiz (Qaysi guruhga to'layotganini bilish uchun)
   const [payGroup, setPayGroup] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
@@ -54,14 +53,15 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       (p.groupName && p.groupName.toLowerCase().includes(historySearch.toLowerCase()))
   );
 
-  // O'quvchining guruhlarini alohida massiv qilib ajratib olamiz
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
   const isExcepted = student?.exceptionMonths?.includes(currentMonthStr);
 
-  // Kamida bitta fanidan qarzi bormi yo'qmi tekshiramiz (Istisno tugmasi uchun)
-  const hasAnyDebt = studentGroups.some(g =>
-    !studentPayments.some(p => p.month === currentMonthStr && (p.groupName === g || !p.groupName))
-  );
+  const hasAnyDebt = studentGroups.some(g => {
+    const COURSE_PRICE = 300000;
+    const groupPayments = studentPayments.filter(p => p.month === currentMonthStr && (p.groupName === g || !p.groupName));
+    const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    return totalPaid < COURSE_PRICE;
+  });
 
   const exportStudentHistory = () => {
     if (studentPayments.length === 0) return alert("Yuklab olish uchun to'lov tarixi yo'q!");
@@ -100,7 +100,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         const res = await fetch("/api/send-message", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // YANGI QO'SHILDI: paymentId: p._id ni ham yuboryapmiz
           body: JSON.stringify({ chatId: student.telegramChatId, text, paymentId: p._id }),
         });
         const data = await res.json();
@@ -117,6 +116,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       window.open(`tg://msg_url?url=${encodeURIComponent(text)}`, "_blank");
     }
   };
+
   const handleException = async () => {
     if (!window.confirm("Bu o'quvchini joriy oy uchun qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?")) return;
     setIsExcepting(true);
@@ -148,10 +148,10 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
           </div>
 
           <div className="space-y-3 mb-4">
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
               <User size={18} className="text-indigo-500" /> {student.parentName || "Ota-ona ismi yo'q"}
             </div>
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700">
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
               <Phone size={18} className="text-indigo-500" /> {formatPhoneNumber(student.phone)}
             </div>
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
@@ -160,31 +160,50 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             </div>
           </div>
 
-          {/* YANGILANGAN QISM: HAR BIR FAN UCHUN ALOHIDA TO'LOV QATORI */}
           <div className="mb-6 space-y-2">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va To'lov ({currentMonthStr})</h3>
 
             {studentGroups.length > 0 ? studentGroups.map((g, idx) => {
-              // Shu aniq guruh uchun to'lov qilinganini tekshiramiz
-              const isGroupPaid = studentPayments.some(p => p.month === currentMonthStr && (p.groupName === g || !p.groupName));
+              // 🔥 YANGI: To'lovni aniq matematika qilib hisoblaymiz
+              const COURSE_PRICE = 300000;
+              const groupPayments = studentPayments.filter(p => p.month === currentMonthStr && (p.groupName === g || !p.groupName));
+              
+              const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+              const qarz = COURSE_PRICE - totalPaid;
+              
+              const isGroupPaid = qarz <= 0;
+              const isPartial = totalPaid > 0 && qarz > 0;
 
               return (
-                <div key={idx} className="flex justify-between items-center p-3 border rounded-xl bg-white shadow-sm">
+                <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 border rounded-xl bg-white shadow-sm gap-3">
                   <div className="font-bold text-slate-700 flex items-center gap-2 text-sm">
                     <BookOpen size={16} className="text-indigo-500" /> {g}
                   </div>
-                  {isGroupPaid ? (
-                    <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold">
-                      To'langan
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => setPayGroup(g)} // Qaysi fanga to'layotganini saqlaymiz
-                      className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1"
-                    >
-                      <CreditCard size={14} /> To'lash
-                    </button>
-                  )}
+                  
+                  <div className="flex items-center gap-2">
+                    {isGroupPaid ? (
+                      <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold w-full text-center sm:w-auto">
+                        To'langan
+                      </span>
+                    ) : isPartial ? (
+                      <span className="bg-orange-100 text-orange-700 px-2 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap">
+                        Qarz: {qarz.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="bg-rose-100 text-rose-700 px-2 py-1.5 rounded-lg text-xs font-bold">
+                        To'lanmagan
+                      </span>
+                    )}
+
+                    {!isGroupPaid && (
+                      <button
+                        onClick={() => setPayGroup(g)}
+                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1 justify-center whitespace-nowrap"
+                      >
+                        <CreditCard size={14} /> To'lash
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             }) : (
@@ -244,7 +263,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                         {Number(p.amount).toLocaleString()}
                       </span>
                     </div>
-                    {/* Qaysi fanga to'lagani ko'rinib turadi */}
                     <div className="text-xs text-slate-500 font-medium mb-2 flex items-center gap-1">
                       <BookOpen size={12} /> <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{p.groupName || "Umumiy"}</span>
                     </div>
@@ -265,14 +283,13 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         </div>
       </div>
 
-      {/* payGroup ni PaymentModal'ga prop qilib yuboramiz */}
       {payGroup && (
         <PaymentModal
           student={student}
           groupName={payGroup}
           isOpen={true}
           onClose={() => {
-            setPayGroup(null); // Yopilganda tanlovni tozalaymiz
+            setPayGroup(null);
             onRefresh();
           }}
         />

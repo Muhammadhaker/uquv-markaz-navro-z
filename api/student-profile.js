@@ -43,15 +43,20 @@ export default async function handler(req, res) {
       }
       
       const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
-
-      // 1. Joriy oy to'lovlarini tekshirish
-      const currentMonthPayments = await Payment.find({ studentId: student._id, month: targetMonth });
       
-      // 🔥 YANGI: Qarzni hisoblash (Oylik to'lov 300,000 deb belgilandi)
+      // 🔥 YANGI: ID ni xavfsiz formatga o'tkazamiz (MongoDB ObjectId vs String muammosi yechimi)
+      const safeId = student._id.toString();
+
+      // 1. Joriy oy to'lovlarini xavfsiz ID orqali tekshirish
+      const currentMonthPayments = await Payment.find({ 
+        $or: [ { studentId: student._id }, { studentId: safeId } ],
+        month: targetMonth 
+      });
+      
+      // Qarzni hisoblash (Oylik to'lov 300,000 deb belgilandi)
       const COURSE_PRICE = 300000;
       let totalPaidForMonth = 0;
       
-      // Bu oyda bir necha marta to'lagan bo'lsa, hammasini qo'shamiz
       currentMonthPayments.forEach(p => {
         totalPaidForMonth += Number(p.amount) || 0; 
       });
@@ -59,26 +64,29 @@ export default async function handler(req, res) {
       const qarz = COURSE_PRICE - totalPaidForMonth;
       const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
 
-      // 🔥 YANGI: To'lov holatini 3 ta turga ajratamiz (unpaid, partial, paid, excepted)
+      // To'lov holatini aniqlash
       let paymentStatus = "unpaid"; 
       if (isExcepted) {
         paymentStatus = "excepted"; 
       } else if (qarz <= 0) {
-        paymentStatus = "paid"; // To'liq to'lagan
+        paymentStatus = "paid"; 
       } else if (totalPaidForMonth > 0) {
-        paymentStatus = "partial"; // Chala to'lagan (Bo'lib to'lash)
+        paymentStatus = "partial"; 
       }
 
-      const paymentsHistory = await Payment.find({ studentId: student._id }).sort({ date: -1 });
+      // 🔥 YANGI: To'lovlar tarixini ham xavfsiz ID bilan qidiramiz
+      const paymentsHistory = await Payment.find({ 
+        $or: [ { studentId: student._id }, { studentId: safeId } ]
+      }).sort({ date: -1 });
 
       return res.status(200).json({ 
         success: true, 
         data: student,
         paymentStatus: paymentStatus, 
         month: targetMonth,
-        coursePrice: COURSE_PRICE, // Frontendga yuboramiz
-        totalPaid: totalPaidForMonth, // Frontendga yuboramiz
-        qarz: qarz > 0 ? qarz : 0, // Frontendga yuboramiz
+        coursePrice: COURSE_PRICE, 
+        totalPaid: totalPaidForMonth, 
+        qarz: qarz > 0 ? qarz : 0, 
         paymentsHistory: paymentsHistory 
       });
     } catch (error) {
