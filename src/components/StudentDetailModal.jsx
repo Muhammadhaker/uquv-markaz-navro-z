@@ -52,19 +52,17 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
   const isExcepted = student?.exceptionMonths?.includes(targetMonth);
 
-  // 🔥 XAVFSIZ QIDIRUV: Katta-kichik harf va probellarni tekislab, aniq narxni topamiz
   const getPrice = (groupName) => {
     if (student.groupsData && Array.isArray(student.groupsData) && student.groupsData.length > 0) {
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
       if (match && match.price !== undefined) return Number(match.price);
     }
-    return 300000; // Agar topolmasa yoki kiritilmagan bo'lsa
+    return 300000; 
   };
 
   const debtDetails = [];
   let OVERALL_DEBT = 0;
 
-  // 🔥 QARZNI HISOBLASH LOGIKASI
   if (studentGroups.length > 0) {
     studentGroups.forEach(g => {
       const COURSE_PRICE = getPrice(g);
@@ -78,7 +76,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       }
     });
   } else {
-    // Agar o'quvchining umuman guruhi yo'q bo'lsa (pustoy qoldirilgan bo'lsa)
     const COURSE_PRICE = 300000;
     const groupPayments = studentPayments.filter(p => p.month === targetMonth);
     const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -118,13 +115,50 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     }
   };
 
+  // 🔥 YANGI: O'quvchi tarixi uchun ham Chiroyli va Raqamlari ajratilgan Excel
   const exportStudentHistory = () => {
     if (studentPayments.length === 0) return alert("Yuklab olish uchun to'lov tarixi yo'q!");
-    let table = `\uFEFF<table border="1"><thead><tr style="background-color: #f3f4f6;"><th>O'quvchi</th><th>Fan/Guruh</th><th>Summa</th><th>To'lov turi</th><th>Oy</th><th>Sana</th></tr></thead><tbody>`;
+
+    let table = `\uFEFF
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; font-family: 'Segoe UI', Arial, sans-serif; width: 100%; }
+          th { background-color: #4f46e5; color: #ffffff; font-weight: bold; border: 1px solid #000000; padding: 12px; text-align: center; }
+          td { border: 1px solid #d1d5db; padding: 8px; vertical-align: middle; }
+          .num { text-align: right; white-space: nowrap; font-weight: bold; color: #059669; }
+          .text-center { text-align: center; }
+          .bold { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              <th>O'quvchi</th>
+              <th>Fan/Guruh</th>
+              <th>Summa</th>
+              <th>To'lov turi</th>
+              <th>Oy</th>
+              <th>Sana</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
     studentPayments.forEach((p) => {
-      table += `<tr><td>${student.name}</td><td>${p.groupName || student.group}</td><td>${p.amount}</td><td>${p.paymentType}</td><td>${formatMonth(p.month)}</td><td>${new Date(p.date).toLocaleDateString()}</td></tr>`;
+      table += `<tr>
+        <td class="bold">${student.name}</td>
+        <td class="text-center">${p.groupName || student.group}</td>
+        <td class="num">${Number(p.amount).toLocaleString("ru-RU")}</td>
+        <td class="text-center">${p.paymentType}</td>
+        <td class="text-center">${formatMonth(p.month)}</td>
+        <td class="text-center">${new Date(p.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+      </tr>`;
     });
-    table += `</tbody></table>`;
+
+    table += `</tbody></table></body></html>`;
+
     const blob = new Blob([table], { type: "application/vnd.ms-excel;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -226,7 +260,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                     <BookOpen size={16} className="text-indigo-500 min-w-[16px]" /> 
                     <div>
                        {g} <br/>
-                       {/* 🔥 BU YERDA ENDI FANNING NARXI CHIQADI */}
                        <span className="text-[10px] text-slate-400 font-medium">Narxi: {COURSE_PRICE.toLocaleString()} so'm</span>
                     </div>
                   </div>
@@ -325,7 +358,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                     <div className="flex justify-between items-center text-sm mb-1.5">
                       <span className="font-bold text-slate-800">{formatMonth(p.month)}</span>
                       <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                        {Number(p.amount).toLocaleString()}
+                        {Number(p.amount).toLocaleString("ru-RU")} {/* Bunga ham qo'shib qo'yildi */}
                       </span>
                     </div>
                     <div className="text-xs text-slate-500 font-medium mb-2 flex items-center gap-1">

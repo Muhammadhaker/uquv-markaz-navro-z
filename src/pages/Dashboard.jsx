@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { CalendarDays, Loader2, Download, Trash2, Plus, TrendingUp, TrendingDown, Wallet, ArrowDownRight, ArrowUpRight } from "lucide-react";
-import AddExpenseModal from "../components/AddExpenseModal"; // 🔥 Yangi komponentni chaqirib oldik
+import AddExpenseModal from "../components/AddExpenseModal"; 
 
 export default function Dashboard() {
   const [payments, setPayments] = useState([]);
@@ -85,7 +85,7 @@ export default function Dashboard() {
         table { border-collapse: collapse; font-family: 'Segoe UI', Arial, sans-serif; width: 100%; }
         th { background-color: #4f46e5; color: #ffffff; font-weight: bold; border: 1px solid #000000; padding: 12px; text-align: center; }
         td { border: 1px solid #d1d5db; padding: 8px; vertical-align: middle; }
-        .num { text-align: right; }
+        .num { text-align: right; white-space: nowrap; }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .bold { font-weight: bold; }
@@ -102,6 +102,7 @@ export default function Dashboard() {
     </html>
   `;
 
+  // 🔥 Excel yuklashdagi sonlarni probel bilan ajratish
   const exportToExcel = () => {
     let body = "";
 
@@ -126,16 +127,16 @@ export default function Dashboard() {
         body += `<tr>
           <td class="bold">${p.studentName}</td>
           <td class="text-center">${p.groupName}</td>
-          <td class="num bold">${p.amount}</td>
+          <td class="num bold">${Number(p.amount).toLocaleString("ru-RU")}</td>
           <td class="text-center">${p.paymentType}</td>
           <td class="text-center">${new Date(p.date).toLocaleString("ru-RU")}</td>
         </tr>`;
       });
 
       body += `<tr><td colspan="5"></td></tr>
-        <tr class="bg-yellow"><td colspan="2" class="text-right bold">JAMI NAQD:</td><td colspan="3" class="num bold">${totalCash}</td></tr>
-        <tr class="bg-blue"><td colspan="2" class="text-right bold">JAMI PLASTIK:</td><td colspan="3" class="num bold">${totalCard}</td></tr>
-        <tr class="bg-green"><td colspan="2" class="text-right bold">UMUMIY TUSHUM:</td><td colspan="3" class="num bold">${totalIncome}</td></tr>
+        <tr class="bg-yellow"><td colspan="2" class="text-right bold">JAMI NAQD:</td><td colspan="3" class="num bold">${totalCash.toLocaleString("ru-RU")}</td></tr>
+        <tr class="bg-blue"><td colspan="2" class="text-right bold">JAMI PLASTIK:</td><td colspan="3" class="num bold">${totalCard.toLocaleString("ru-RU")}</td></tr>
+        <tr class="bg-green"><td colspan="2" class="text-right bold">UMUMIY TUSHUM:</td><td colspan="3" class="num bold">${totalIncome.toLocaleString("ru-RU")}</td></tr>
       </tbody></table>`;
 
       downloadBlob(getExcelTemplate(body), `Kirim_${selectedMonth}.xls`);
@@ -157,14 +158,14 @@ export default function Dashboard() {
       filteredExpenses.forEach((e) => {
         body += `<tr>
           <td class="bold">${e.reason}</td>
-          <td class="num bold">${e.amount}</td>
+          <td class="num bold">${Number(e.amount).toLocaleString("ru-RU")}</td>
           <td class="text-center">${e.adminName}</td>
           <td class="text-center">${new Date(e.date).toLocaleString("ru-RU")}</td>
         </tr>`;
       });
 
       body += `<tr><td colspan="4"></td></tr>
-        <tr class="bg-red"><td colspan="1" class="text-right bold">UMUMIY XARAJAT:</td><td colspan="3" class="num bold">${totalExpense}</td></tr>
+        <tr class="bg-red"><td colspan="1" class="text-right bold">UMUMIY XARAJAT:</td><td colspan="3" class="num bold">${totalExpense.toLocaleString("ru-RU")}</td></tr>
       </tbody></table>`;
 
       downloadBlob(getExcelTemplate(body), `Xarajatlar_${selectedMonth}.xls`);
@@ -192,15 +193,15 @@ export default function Dashboard() {
           <td class="text-center bold ${isInc ? 'text-green' : 'text-red'}">${isInc ? 'Kirim' : 'Chiqim'}</td>
           <td class="bold">${item.title}</td>
           <td class="text-center">${item.detail}</td>
-          <td class="num bold text-green">${isInc ? item.amount : ''}</td>
-          <td class="num bold text-red">${!isInc ? item.amount : ''}</td>
+          <td class="num bold text-green">${isInc ? Number(item.amount).toLocaleString("ru-RU") : ''}</td>
+          <td class="num bold text-red">${!isInc ? Number(item.amount).toLocaleString("ru-RU") : ''}</td>
         </tr>`;
       });
 
       body += `<tr><td colspan="6"></td></tr>
-        <tr class="bg-green"><td colspan="4" class="text-right bold">JAMI KIRIM (+):</td><td colspan="2" class="num bold">${totalIncome}</td></tr>
-        <tr class="bg-red"><td colspan="4" class="text-right bold">JAMI CHIQIM (-):</td><td colspan="2" class="num bold">${totalExpense}</td></tr>
-        <tr class="bg-indigo"><td colspan="4" class="text-right bold">SOF FOYDA (QOLDIQ):</td><td colspan="2" class="num bold">${netProfit}</td></tr>
+        <tr class="bg-green"><td colspan="4" class="text-right bold">JAMI KIRIM (+):</td><td colspan="2" class="num bold">${totalIncome.toLocaleString("ru-RU")}</td></tr>
+        <tr class="bg-red"><td colspan="4" class="text-right bold">JAMI CHIQIM (-):</td><td colspan="2" class="num bold">${totalExpense.toLocaleString("ru-RU")}</td></tr>
+        <tr class="bg-indigo"><td colspan="4" class="text-right bold">SOF FOYDA (QOLDIQ):</td><td colspan="2" class="num bold">${netProfit.toLocaleString("ru-RU")}</td></tr>
       </tbody></table>`;
 
       downloadBlob(getExcelTemplate(body), `Sof_Foyda_Hisoboti_${selectedMonth}.xls`);
@@ -244,19 +245,19 @@ export default function Dashboard() {
         <div className="bg-emerald-500 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
           <TrendingUp className="absolute -right-4 -bottom-4 text-emerald-400/30" size={100} />
           <p className="text-emerald-100 text-sm font-medium mb-1">Umumiy Kirim</p>
-          <h3 className="text-2xl md:text-3xl font-bold">{loading ? <Loader2 className="animate-spin" /> : `${totalIncome.toLocaleString()} so'm`}</h3>
+          <h3 className="text-2xl md:text-3xl font-bold">{loading ? <Loader2 className="animate-spin" /> : `${totalIncome.toLocaleString("ru-RU")} so'm`}</h3>
         </div>
 
         <div className="bg-rose-500 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
           <TrendingDown className="absolute -right-4 -bottom-4 text-rose-400/30" size={100} />
           <p className="text-rose-100 text-sm font-medium mb-1">Umumiy Chiqim</p>
-          <h3 className="text-2xl md:text-3xl font-bold">{loading ? <Loader2 className="animate-spin" /> : `${totalExpense.toLocaleString()} so'm`}</h3>
+          <h3 className="text-2xl md:text-3xl font-bold">{loading ? <Loader2 className="animate-spin" /> : `${totalExpense.toLocaleString("ru-RU")} so'm`}</h3>
         </div>
 
         <div className="bg-indigo-600 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
           <Wallet className="absolute -right-4 -bottom-4 text-indigo-400/30" size={100} />
           <p className="text-indigo-100 text-sm font-medium mb-1">Qoldiq (Sof Foyda)</p>
-          <h3 className="text-2xl md:text-3xl font-bold">{loading ? <Loader2 className="animate-spin" /> : `${netProfit.toLocaleString()} so'm`}</h3>
+          <h3 className="text-2xl md:text-3xl font-bold">{loading ? <Loader2 className="animate-spin" /> : `${netProfit.toLocaleString("ru-RU")} so'm`}</h3>
         </div>
       </div>
 
@@ -326,7 +327,7 @@ export default function Dashboard() {
                     <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-800">{p.studentName}</td>
                       <td className="px-6 py-4 hidden sm:table-cell text-slate-600">{p.groupName}</td>
-                      <td className="px-6 py-4 font-bold text-emerald-600">{Number(p.amount).toLocaleString()} so'm</td>
+                      <td className="px-6 py-4 font-bold text-emerald-600">{Number(p.amount).toLocaleString("ru-RU")} so'm</td>
                       <td className="px-6 py-4 hidden md:table-cell text-slate-500">{new Date(p.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                       <td className="px-6 py-4 text-right">
                         <button onClick={() => handleDeletePayment(p._id, p.studentName)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
@@ -344,7 +345,7 @@ export default function Dashboard() {
                     <tr key={e._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-800">{e.reason}</td>
                       <td className="px-6 py-4 hidden sm:table-cell text-slate-600">{e.adminName}</td>
-                      <td className="px-6 py-4 font-bold text-rose-600">{Number(e.amount).toLocaleString()} so'm</td>
+                      <td className="px-6 py-4 font-bold text-rose-600">{Number(e.amount).toLocaleString("ru-RU")} so'm</td>
                       <td className="px-6 py-4 hidden md:table-cell text-slate-500">{new Date(e.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                       <td className="px-6 py-4 text-right">
                         <button onClick={() => handleDeleteExpense(e._id, e.reason)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
@@ -373,7 +374,7 @@ export default function Dashboard() {
                           <div className="text-xs text-slate-500">{item.detail}</div>
                         </td>
                         <td className={`px-6 py-4 font-bold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {isIncome ? '+' : '-'}{Number(item.amount).toLocaleString()} so'm
+                          {isIncome ? '+' : '-'}{Number(item.amount).toLocaleString("ru-RU")} so'm
                         </td>
                         <td className="px-6 py-4 hidden sm:table-cell text-slate-500">
                           {new Date(item.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
@@ -388,7 +389,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 🔥 Modalni chaqirdik */}
       <AddExpenseModal 
         isOpen={isExpenseModalOpen} 
         onClose={() => setIsExpenseModalOpen(false)} 
