@@ -13,7 +13,6 @@ const formatPhoneNumber = (phone) => {
   return phone;
 };
 
-// 🔥 YANGI: Sanani chiroyli ko'rsatish uchun funksiya
 const formatDate = (dateString) => {
   if (!dateString) return "Sana yo'q";
   const d = new Date(dateString);
@@ -167,9 +166,20 @@ export default function Groups() {
           </div>
         ) : (
           filteredStudents.map((s) => {
-            const hasPaid = payments.some(
+            const COURSE_PRICE = 300000;
+            const studentPaymentsThisMonth = payments.filter(
               (p) => p.studentId === s._id && p.month === targetMonth
             );
+            
+            let totalPaid = 0;
+            studentPaymentsThisMonth.forEach(p => {
+              totalPaid += Number(p.amount) || 0;
+            });
+
+            const qarz = COURSE_PRICE - totalPaid;
+            const isPaid = qarz <= 0;
+            const isPartial = totalPaid > 0 && qarz > 0;
+
             return (
               <div
                 key={s._id}
@@ -184,17 +194,19 @@ export default function Groups() {
                     {s.group} • {formatPhoneNumber(s.phone)}
                   </div>
                   
-                  {/* 🔥 YANGI: Ro'yxatdan o'tgan sanasi */}
                   <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mt-1">
                     <CalendarDays size={12} />
                     Ro'yxatdan o'tgan: {formatDate(s.addedAt)}
                   </div>
 
                   <div
-                    className={`text-xs font-bold mt-2 inline-block px-2 py-0.5 rounded-md ${hasPaid ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                      }`}
+                    className={`text-xs font-bold mt-2 inline-block px-2 py-0.5 rounded-md ${
+                      isPaid ? "bg-emerald-50 text-emerald-600" : 
+                      isPartial ? "bg-orange-50 text-orange-600" : 
+                      "bg-rose-50 text-rose-600"
+                    }`}
                   >
-                    {hasPaid ? "To'langan" : "Qarz"}
+                    {isPaid ? "To'liq to'langan" : isPartial ? `Qarz: ${qarz.toLocaleString()} so'm` : "To'lanmagan"}
                   </div>
                 </div>
                 <div className="flex gap-1">

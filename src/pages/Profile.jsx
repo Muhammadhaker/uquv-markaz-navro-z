@@ -61,7 +61,6 @@ export default function Profile() {
     fetchProfile();
   }, []);
 
-  // Oylarni matnga o'giruvchi yordamchi funksiya
   const formatMonthName = (m) => {
     if (!m) return "";
     const [y, mm] = m.split("-");
@@ -93,21 +92,45 @@ export default function Profile() {
   const paymentStatus = profileData?.paymentStatus || "unpaid";
   const month = profileData?.month || "";
   const groups = student?.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-  
-  // 🔥 YANGI: To'lovlar tarixi massivi
   const history = profileData?.paymentsHistory || [];
+  
+  // Moliyaviy ma'lumotlar
+  const qarz = profileData?.qarz || 300000;
+  const totalPaid = profileData?.totalPaid || 0;
+  const coursePrice = profileData?.coursePrice || 300000;
 
   let statusConfig = {
     iconBg: "bg-rose-100 text-rose-600",
     badgeBg: "bg-rose-500 text-white",
-    text: "Qarz",
+    text: "Qarzdor",
+    subText: `To'lanmagan: ${coursePrice.toLocaleString()} so'm`,
     icon: <CreditCard size={20} />
   };
 
   if (paymentStatus === "paid") {
-    statusConfig = { iconBg: "bg-emerald-100 text-emerald-600", badgeBg: "bg-emerald-500 text-white", text: "To'langan", icon: <CreditCard size={20} /> };
+    statusConfig = { 
+      iconBg: "bg-emerald-100 text-emerald-600", 
+      badgeBg: "bg-emerald-500 text-white", 
+      text: "To'langan", 
+      subText: "Siz bu oyni to'liq yopgansiz",
+      icon: <CreditCard size={20} /> 
+    };
+  } else if (paymentStatus === "partial") {
+    statusConfig = { 
+      iconBg: "bg-orange-100 text-orange-600", 
+      badgeBg: "bg-orange-500 text-white", 
+      text: "Chala to'langan", 
+      subText: `Qolgan qarz: ${qarz.toLocaleString()} so'm`,
+      icon: <CreditCard size={20} /> 
+    };
   } else if (paymentStatus === "excepted") {
-    statusConfig = { iconBg: "bg-amber-100 text-amber-600", badgeBg: "bg-amber-500 text-white", text: "Istisno", icon: <Clock size={20} /> };
+    statusConfig = { 
+      iconBg: "bg-amber-100 text-amber-600", 
+      badgeBg: "bg-amber-500 text-white", 
+      text: "Istisno", 
+      subText: "Bu oy uchun ruxsat berilgan",
+      icon: <Clock size={20} /> 
+    };
   }
 
   return (
@@ -125,16 +148,24 @@ export default function Profile() {
 
         <div className="p-6 -mt-6 relative z-20 space-y-4">
           {/* TO'LOV HOLATI */}
-          <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-50 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-full ${statusConfig.iconBg}`}>{statusConfig.icon}</div>
-              <div>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">To'lov holati</p>
-                <p className="font-bold text-slate-800">{formatMonthName(month) || "Joriy oy"}</p>
+          <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-50 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-full ${statusConfig.iconBg}`}>{statusConfig.icon}</div>
+                <div>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">To'lov holati</p>
+                  <p className="font-bold text-slate-800">{formatMonthName(month) || "Joriy oy"}</p>
+                </div>
+              </div>
+              <div className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-sm ${statusConfig.badgeBg}`}>
+                {statusConfig.text}
               </div>
             </div>
-            <div className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-sm ${statusConfig.badgeBg}`}>
-              {statusConfig.text}
+            <div className="bg-slate-50 p-3 rounded-xl border mt-1">
+              <p className="text-sm font-medium text-slate-600">{statusConfig.subText}</p>
+              {paymentStatus === "partial" && (
+                <p className="text-xs text-slate-400 mt-1">Shu paytgacha to'landi: <span className="font-bold text-slate-700">{totalPaid.toLocaleString()} so'm</span></p>
+              )}
             </div>
           </div>
 
@@ -164,7 +195,7 @@ export default function Profile() {
             )}
           </div>
 
-          {/* 🔥 YANGI: TO'LOVLAR TARIXI BO'LIMI */}
+          {/* TO'LOVLAR TARIXI */}
           <div className="bg-white rounded-2xl p-5 border shadow-sm">
             <div className="flex items-center gap-3 mb-4 border-b pb-3">
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><History size={20} /></div>
@@ -180,10 +211,10 @@ export default function Profile() {
                   <div key={pay._id} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
                     <div>
                       <p className="font-bold text-slate-800 text-sm">{formatMonthName(pay.month)}</p>
-                      <p className="text-[11px] text-slate-400 font-medium">{pay.groupName} • {pay.paymentType}</p>
+                      <p className="text-[11px] text-slate-400 font-medium">{pay.groupName || "Guruhsiz"} • {pay.paymentType || "Naqd"}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-emerald-600 text-sm">+{Number(pay.amount).toLocaleString()} so'm</p>
+                      <p className="font-bold text-emerald-600 text-sm">+{Number(pay.amount || 0).toLocaleString()} so'm</p>
                       <p className="text-[10px] text-slate-400">{new Date(pay.date).toLocaleDateString("ru-RU")}</p>
                     </div>
                   </div>

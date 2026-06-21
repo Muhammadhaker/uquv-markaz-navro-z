@@ -44,20 +44,31 @@ export default async function handler(req, res) {
       
       const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
 
-      // 1. Joriy oy to'lovini tekshirish
+      // 1. Joriy oy to'lovlarini tekshirish
       const currentMonthPayments = await Payment.find({ studentId: student._id, month: targetMonth });
       
-      const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
-      const actuallyPaid = currentMonthPayments.length > 0;
+      // 🔥 YANGI: Qarzni hisoblash (Oylik to'lov 300,000 deb belgilandi)
+      const COURSE_PRICE = 300000;
+      let totalPaidForMonth = 0;
+      
+      // Bu oyda bir necha marta to'lagan bo'lsa, hammasini qo'shamiz
+      currentMonthPayments.forEach(p => {
+        totalPaidForMonth += Number(p.amount) || 0; 
+      });
 
+      const qarz = COURSE_PRICE - totalPaidForMonth;
+      const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
+
+      // 🔥 YANGI: To'lov holatini 3 ta turga ajratamiz (unpaid, partial, paid, excepted)
       let paymentStatus = "unpaid"; 
-      if (actuallyPaid) {
-        paymentStatus = "paid"; 
-      } else if (isExcepted) {
+      if (isExcepted) {
         paymentStatus = "excepted"; 
+      } else if (qarz <= 0) {
+        paymentStatus = "paid"; // To'liq to'lagan
+      } else if (totalPaidForMonth > 0) {
+        paymentStatus = "partial"; // Chala to'lagan (Bo'lib to'lash)
       }
 
-      // 🔥 YANGI: O'quvchining hamma oylardagi hamma to'lovlarini tariq sifatida tortamiz
       const paymentsHistory = await Payment.find({ studentId: student._id }).sort({ date: -1 });
 
       return res.status(200).json({ 
@@ -65,7 +76,10 @@ export default async function handler(req, res) {
         data: student,
         paymentStatus: paymentStatus, 
         month: targetMonth,
-        paymentsHistory: paymentsHistory // Tarix massivi ketdi
+        coursePrice: COURSE_PRICE, // Frontendga yuboramiz
+        totalPaid: totalPaidForMonth, // Frontendga yuboramiz
+        qarz: qarz > 0 ? qarz : 0, // Frontendga yuboramiz
+        paymentsHistory: paymentsHistory 
       });
     } catch (error) {
       console.error("Profile API xatosi:", error);
