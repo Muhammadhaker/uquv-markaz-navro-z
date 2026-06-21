@@ -95,7 +95,7 @@ export default function Groups() {
     setIsStudentModalOpen(true);
   };
 
-  const allGroups = students.flatMap(s => 
+  const allGroups = students.flatMap(s =>
     s.group ? s.group.split(',').map(g => g.trim()) : []
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
@@ -103,7 +103,7 @@ export default function Groups() {
   const filteredStudents = students.filter((s) => {
     const studentGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
     const matchesGroup = selectedFilterGroup === "Barchasi" || studentGroups.includes(selectedFilterGroup);
-    
+
     const lowerQuery = searchQuery.toLowerCase();
     const matchesSearch = s.name.toLowerCase().includes(lowerQuery) || (s.phone && s.phone.includes(searchQuery));
     return matchesGroup && matchesSearch;
@@ -166,17 +166,20 @@ export default function Groups() {
           </div>
         ) : (
           filteredStudents.map((s) => {
-            const COURSE_PRICE = 300000;
+            // 🔥 YANGI LOGIKA: Nechta fanga borsa, shunchaga ko'paytiriladi
+            const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+            const EXPECTED_TOTAL = Math.max(1, studentGroups.length) * 300000;
+
             const studentPaymentsThisMonth = payments.filter(
               (p) => p.studentId === s._id && p.month === targetMonth
             );
-            
+
             let totalPaid = 0;
             studentPaymentsThisMonth.forEach(p => {
               totalPaid += Number(p.amount) || 0;
             });
 
-            const qarz = COURSE_PRICE - totalPaid;
+            const qarz = EXPECTED_TOTAL - totalPaid;
             const isPaid = qarz <= 0;
             const isPartial = totalPaid > 0 && qarz > 0;
 
@@ -193,20 +196,19 @@ export default function Groups() {
                   <div className="text-xs text-slate-500 mt-0.5">
                     {s.group} • {formatPhoneNumber(s.phone)}
                   </div>
-                  
+
                   <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mt-1">
                     <CalendarDays size={12} />
                     Ro'yxatdan o'tgan: {formatDate(s.addedAt)}
                   </div>
 
                   <div
-                    className={`text-xs font-bold mt-2 inline-block px-2 py-0.5 rounded-md ${
-                      isPaid ? "bg-emerald-50 text-emerald-600" : 
-                      isPartial ? "bg-orange-50 text-orange-600" : 
-                      "bg-rose-50 text-rose-600"
-                    }`}
+                    className={`text-xs font-bold mt-2 inline-block px-2 py-0.5 rounded-md ${isPaid ? "bg-emerald-50 text-emerald-600" :
+                        isPartial ? "bg-orange-50 text-orange-600" :
+                          "bg-rose-50 text-rose-600"
+                      }`}
                   >
-                    {isPaid ? "To'liq to'langan" : isPartial ? `Qarz: ${qarz.toLocaleString()} so'm` : "To'lanmagan"}
+                    {isPaid ? "To'liq to'langan" : qarz > 0 ? `Qarz: ${qarz.toLocaleString()} so'm` : "To'lanmagan"}
                   </div>
                 </div>
                 <div className="flex gap-1">

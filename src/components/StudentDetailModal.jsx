@@ -38,9 +38,20 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const [showHistory, setShowHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
   const [isExcepting, setIsExcepting] = useState(false);
+  const [isSendingWarning, setIsSendingWarning] = useState(false);
 
+  // 5-sana logikasi
   const today = new Date();
-  const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  let year = today.getFullYear();
+  let month = today.getMonth() + 1;
+  if (today.getDate() <= 5) {
+    month -= 1;
+    if (month === 0) {
+      month = 12;
+      year -= 1;
+    }
+  }
+  const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
 
   const studentPayments = payments
     .filter((p) => p.studentId === student._id)
@@ -54,14 +65,55 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   );
 
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-  const isExcepted = student?.exceptionMonths?.includes(currentMonthStr);
+  const isExcepted = student?.exceptionMonths?.includes(targetMonth);
 
-  const hasAnyDebt = studentGroups.some(g => {
-    const COURSE_PRICE = 300000;
-    const groupPayments = studentPayments.filter(p => p.month === currentMonthStr && (p.groupName === g || !p.groupName));
+  // 🔥 QARZNI FANLAR BO'YICHA HISOB-KITOB QILISH
+  const COURSE_PRICE = 300000;
+  const debtDetails = [];
+  let OVERALL_DEBT = 0;
+
+  studentGroups.forEach(g => {
+    const groupPayments = studentPayments.filter(p => p.month === targetMonth && (p.groupName === g || !p.groupName));
     const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    return totalPaid < COURSE_PRICE;
+    const qarz = COURSE_PRICE - totalPaid;
+    if (qarz > 0) {
+      debtDetails.push({ group: g, qarz });
+      OVERALL_DEBT += qarz;
+    }
   });
+
+  const hasAnyDebt = OVERALL_DEBT > 0;
+
+  // 🔥 BOT ORQALI QARZ HAQIDA DETALLI ESLATMA YUBORISH
+  const sendDebtWarning = async () => {
+    if (!student.telegramChatId) return alert("Bu o'quvchi bot orqali ro'yxatdan o'tmagan!");
+    if (!window.confirm(`${student.name} ga ${OVERALL_DEBT.toLocaleString()} so'm qarz haqida eslatma yuborasizmi?`)) return;
+
+    setIsSendingWarning(true);
+
+    // Qaysi fandan qancha qarz ekanligini matnga aylantirish
+    const debtText = debtDetails.map(d => `▪️ *${d.group}:* ${d.qarz.toLocaleString()} so'm`).join("\n");
+
+    const text = `⚠️ *DIQQAT: QARZDORLIK!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Oy:* ${formatMonth(targetMonth)}\n\n📚 *Fanlar bo'yicha qarz:*\n${debtText}\n\n💰 *Jami qarzingiz:* ${OVERALL_DEBT.toLocaleString()} so'm\n\n_Iltimos, to'lovni tezroq amalga oshirishingizni so'raymiz._`;
+
+    try {
+      const res = await fetch("/api/send-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: student.telegramChatId, text }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ Qarz eslatmasi o'quvchiga yuborildi!");
+      } else {
+        alert("Xatolik: " + data.message);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSendingWarning(false);
+    }
+  };
 
   const exportStudentHistory = () => {
     if (studentPayments.length === 0) return alert("Yuklab olish uchun to'lov tarixi yo'q!");
@@ -121,7 +173,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     if (!window.confirm("Bu o'quvchini joriy oy uchun qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?")) return;
     setIsExcepting(true);
     try {
-      const updatedExceptions = [...(student.exceptionMonths || []), currentMonthStr];
+      const updatedExceptions = [...(student.exceptionMonths || []), targetMonth];
       await fetch("/api/students", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -161,13 +213,10 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
           </div>
 
           <div className="mb-6 space-y-2">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va To'lov ({currentMonthStr})</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va To'lov ({targetMonth})</h3>
 
             {studentGroups.length > 0 ? studentGroups.map((g, idx) => {
-              // 🔥 YANGI: To'lovni aniq matematika qilib hisoblaymiz
-              const COURSE_PRICE = 300000;
-              const groupPayments = studentPayments.filter(p => p.month === currentMonthStr && (p.groupName === g || !p.groupName));
-              
+              const groupPayments = studentPayments.filter(p => p.month === targetMonth && (p.groupName === g || !p.groupName));
               const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
               const qarz = COURSE_PRICE - totalPaid;
               
@@ -210,6 +259,17 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               <div className="p-3 bg-slate-50 text-slate-500 rounded-xl text-sm text-center font-medium">Guruhga qo'shilmagan</div>
             )}
           </div>
+
+          {/* 🔥 FAQAT QARZI BOR VA ISTISNO QILINMAGANLARGA KO'RINADI */}
+          {!isExcepted && hasAnyDebt && (
+            <button
+              onClick={sendDebtWarning}
+              disabled={isSendingWarning}
+              className="mb-3 w-full bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl font-bold hover:bg-rose-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+            >
+              <Send size={18} /> {isSendingWarning ? "Yuborilmoqda..." : `Qarz haqida eslatish (${OVERALL_DEBT.toLocaleString()} so'm)`}
+            </button>
+          )}
 
           {hasAnyDebt && !isExcepted && (
             <button

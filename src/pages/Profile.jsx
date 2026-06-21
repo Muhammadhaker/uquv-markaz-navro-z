@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Phone, BookOpen, CreditCard, Loader2, Bug, Clock, History } from "lucide-react";
+import { User, Phone, BookOpen, CreditCard, Loader2, Bug, Clock, History, AlertCircle } from "lucide-react";
 
 export default function Profile() {
   const [profileData, setProfileData] = useState(null);
@@ -98,12 +98,13 @@ export default function Profile() {
   const qarz = profileData?.qarz || 300000;
   const totalPaid = profileData?.totalPaid || 0;
   const coursePrice = profileData?.coursePrice || 300000;
+  const debtDetails = profileData?.debtDetails || []; // Har bir fan bo'yicha hisobot
 
   let statusConfig = {
     iconBg: "bg-rose-100 text-rose-600",
     badgeBg: "bg-rose-500 text-white",
     text: "Qarzdor",
-    subText: `To'lanmagan: ${coursePrice.toLocaleString()} so'm`,
+    subText: `Jami to'lanmagan qarz: ${coursePrice.toLocaleString()} so'm`,
     icon: <CreditCard size={20} />
   };
 
@@ -112,15 +113,15 @@ export default function Profile() {
       iconBg: "bg-emerald-100 text-emerald-600", 
       badgeBg: "bg-emerald-500 text-white", 
       text: "To'langan", 
-      subText: "Siz bu oyni to'liq yopgansiz",
+      subText: "Siz bu oyni to'liq yopgansiz!",
       icon: <CreditCard size={20} /> 
     };
   } else if (paymentStatus === "partial") {
     statusConfig = { 
       iconBg: "bg-orange-100 text-orange-600", 
       badgeBg: "bg-orange-500 text-white", 
-      text: "Chala to'langan", 
-      subText: `Qolgan qarz: ${qarz.toLocaleString()} so'm`,
+      text: "Qisman to'langan", 
+      subText: `Umumiy qolgan qarz: ${qarz.toLocaleString()} so'm`,
       icon: <CreditCard size={20} /> 
     };
   } else if (paymentStatus === "excepted") {
@@ -147,7 +148,8 @@ export default function Profile() {
         </div>
 
         <div className="p-6 -mt-6 relative z-20 space-y-4">
-          {/* TO'LOV HOLATI */}
+          
+          {/* TO'LOV HOLATI (UMUMIY) */}
           <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-50 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -162,12 +164,39 @@ export default function Profile() {
               </div>
             </div>
             <div className="bg-slate-50 p-3 rounded-xl border mt-1">
-              <p className="text-sm font-medium text-slate-600">{statusConfig.subText}</p>
+              <p className="text-sm font-bold text-slate-700">{statusConfig.subText}</p>
               {paymentStatus === "partial" && (
-                <p className="text-xs text-slate-400 mt-1">Shu paytgacha to'landi: <span className="font-bold text-slate-700">{totalPaid.toLocaleString()} so'm</span></p>
+                <p className="text-xs text-slate-500 mt-1">Joriy oy uchun to'landi: <span className="font-bold text-emerald-600">{totalPaid.toLocaleString()} so'm</span></p>
               )}
             </div>
           </div>
+
+          {/* 🔥 YANGI: FANLAR BO'YICHA ANIQ HISOBOT */}
+          {debtDetails.length > 0 && (
+            <div className="bg-white rounded-2xl p-5 border shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><AlertCircle size={20} /></div>
+                <p className="font-bold text-slate-800 text-lg">Fanlar bo'yicha to'lov</p>
+              </div>
+              <div className="space-y-3">
+                {debtDetails.map((d, idx) => (
+                  <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center bg-slate-50 p-3 rounded-xl border border-slate-100 gap-2">
+                    <div>
+                      <p className="font-bold text-slate-700 text-sm">{d.group}</p>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">Shu fandan to'landi: <span className="text-slate-700">{d.paid.toLocaleString()}</span></p>
+                    </div>
+                    <div className="text-right">
+                      {d.isPaid ? (
+                        <span className="text-emerald-600 font-bold text-sm bg-emerald-50 px-2 py-1 rounded-lg">To'langan</span>
+                      ) : (
+                        <span className="text-rose-600 font-bold text-sm bg-rose-50 px-2 py-1 rounded-lg">Qarz: {d.qarz.toLocaleString()}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* TELEFON */}
           <div className="bg-white rounded-2xl p-5 border shadow-sm flex items-center gap-4">
@@ -178,50 +207,41 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* FANLAR */}
-          <div className="bg-white rounded-2xl p-5 border shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><BookOpen size={20} /></div>
-              <p className="font-bold text-slate-800 text-lg">Mening Fanlarim</p>
-            </div>
-            {groups.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {groups.map((g, idx) => (
-                  <span key={idx} className="bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-2 rounded-xl text-sm font-bold">{g}</span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-slate-500 text-sm font-medium">Siz hali birorta guruhga qo'shilmagansiz.</p>
-            )}
-          </div>
-
           {/* TO'LOVLAR TARIXI */}
           <div className="bg-white rounded-2xl p-5 border shadow-sm">
             <div className="flex items-center gap-3 mb-4 border-b pb-3">
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><History size={20} /></div>
               <div>
                 <p className="font-bold text-slate-800 text-lg">To'lovlar tarixi</p>
-                <p className="text-xs text-slate-400">Barcha amalga oshirilgan to'lovlar ro'yxati</p>
+                <p className="text-xs text-slate-400">Barcha davr uchun amalga oshirilgan to'lovlar</p>
               </div>
             </div>
 
             {history.length > 0 ? (
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                 {history.map((pay) => (
-                  <div key={pay._id} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                  <div key={pay._id} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center hover:bg-slate-100 transition-colors">
                     <div>
-                      <p className="font-bold text-slate-800 text-sm">{formatMonthName(pay.month)}</p>
-                      <p className="text-[11px] text-slate-400 font-medium">{pay.groupName || "Guruhsiz"} • {pay.paymentType || "Naqd"}</p>
+                      {/* 🔥 Qaysi oy uchun ekanligi aniq ko'rinadi */}
+                      <p className="font-bold text-indigo-600 text-sm">{formatMonthName(pay.month)} oyi uchun</p>
+                      <p className="text-[11px] text-slate-500 font-medium mt-1">
+                        <span className="bg-indigo-50 px-1.5 py-0.5 rounded text-indigo-700">{pay.groupName || "Guruhsiz"}</span> • {pay.paymentType || "Naqd"}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-emerald-600 text-sm">+{Number(pay.amount || 0).toLocaleString()} so'm</p>
-                      <p className="text-[10px] text-slate-400">{new Date(pay.date).toLocaleDateString("ru-RU")}</p>
+                      <p className="font-bold text-emerald-600 text-[15px]">+{Number(pay.amount || 0).toLocaleString()} <span className="text-xs">so'm</span></p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-1">{new Date(pay.date).toLocaleDateString("ru-RU", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' })}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-400 text-center text-sm py-4">To'lovlar tarixi mavjud emas.</p>
+              <div className="text-center py-6">
+                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <CreditCard className="text-slate-300" size={24} />
+                </div>
+                <p className="text-slate-500 text-sm font-medium">Sizda to'lov tarixi mavjud emas.</p>
+              </div>
             )}
           </div>
 

@@ -43,38 +43,63 @@ export default async function handler(req, res) {
       }
       
       const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
-      
-      // 🔥 YANGI: ID ni xavfsiz formatga o'tkazamiz (MongoDB ObjectId vs String muammosi yechimi)
       const safeId = student._id.toString();
 
-      // 1. Joriy oy to'lovlarini xavfsiz ID orqali tekshirish
+      // 1. Joriy oy to'lovlarini chaqirish
       const currentMonthPayments = await Payment.find({ 
         $or: [ { studentId: student._id }, { studentId: safeId } ],
         month: targetMonth 
       });
       
-      // Qarzni hisoblash (Oylik to'lov 300,000 deb belgilandi)
+      // 🔥 YANGI: O'quvchining fanlari bo'yicha qarzni hisoblash
+      const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
       const COURSE_PRICE = 300000;
-      let totalPaidForMonth = 0;
-      
-      currentMonthPayments.forEach(p => {
-        totalPaidForMonth += Number(p.amount) || 0; 
-      });
+      const EXPECTED_TOTAL = Math.max(1, studentGroups.length) * COURSE_PRICE;
 
-      const qarz = COURSE_PRICE - totalPaidForMonth;
+      const debtDetails = [];
+      let totalPaidForMonth = 0;
+      let overallQarz = 0;
+
+      if (studentGroups.length > 0) {
+        studentGroups.forEach(g => {
+          const groupPayments = currentMonthPayments.filter(p => p.groupName === g || !p.groupName);
+          const paidForGroup = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+          totalPaidForMonth += paidForGroup;
+
+          const qarzForGroup = COURSE_PRICE - paidForGroup;
+          if (qarzForGroup > 0) {
+            overallQarz += qarzForGroup;
+          }
+
+          debtDetails.push({
+            group: g,
+            paid: paidForGroup,
+            qarz: qarzForGroup > 0 ? qarzForGroup : 0,
+            isPaid: qarzForGroup <= 0
+          });
+        });
+      } else {
+         // Guruhsiz bo'lsa
+         currentMonthPayments.forEach(p => {
+           totalPaidForMonth += Number(p.amount) || 0;
+         });
+         overallQarz = EXPECTED_TOTAL - totalPaidForMonth;
+         if (overallQarz < 0) overallQarz = 0;
+      }
+
       const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
 
       // To'lov holatini aniqlash
       let paymentStatus = "unpaid"; 
       if (isExcepted) {
         paymentStatus = "excepted"; 
-      } else if (qarz <= 0) {
+      } else if (overallQarz <= 0) {
         paymentStatus = "paid"; 
       } else if (totalPaidForMonth > 0) {
         paymentStatus = "partial"; 
       }
 
-      // 🔥 YANGI: To'lovlar tarixini ham xavfsiz ID bilan qidiramiz
+      // 🔥 YANGI: To'lovlar tarixini (eski oylarni ham qo'shib) chaqirish
       const paymentsHistory = await Payment.find({ 
         $or: [ { studentId: student._id }, { studentId: safeId } ]
       }).sort({ date: -1 });
@@ -84,9 +109,10 @@ export default async function handler(req, res) {
         data: student,
         paymentStatus: paymentStatus, 
         month: targetMonth,
-        coursePrice: COURSE_PRICE, 
+        coursePrice: EXPECTED_TOTAL, 
         totalPaid: totalPaidForMonth, 
-        qarz: qarz > 0 ? qarz : 0, 
+        qarz: overallQarz, 
+        debtDetails: debtDetails, // O'quvchi har bir fan qarzini ko'rishi uchun
         paymentsHistory: paymentsHistory 
       });
     } catch (error) {
