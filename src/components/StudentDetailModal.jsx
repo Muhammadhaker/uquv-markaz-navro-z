@@ -1,17 +1,6 @@
 import { useState } from "react";
 import {
-  X,
-  Phone,
-  BookOpen,
-  CreditCard,
-  History,
-  CalendarCheck,
-  Download,
-  Send,
-  Search,
-  User,
-  Clock,
-  ShieldAlert,
+  X, Phone, BookOpen, CreditCard, History, Download, Send, User, Clock, ShieldAlert,
 } from "lucide-react";
 import PaymentModal from "./PaymentModal";
 
@@ -40,16 +29,12 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const [isExcepting, setIsExcepting] = useState(false);
   const [isSendingWarning, setIsSendingWarning] = useState(false);
 
-  // 5-sana logikasi
   const today = new Date();
   let year = today.getFullYear();
   let month = today.getMonth() + 1;
   if (today.getDate() <= 5) {
     month -= 1;
-    if (month === 0) {
-      month = 12;
-      year -= 1;
-    }
+    if (month === 0) { month = 12; year -= 1; }
   }
   const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -67,33 +52,51 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
   const isExcepted = student?.exceptionMonths?.includes(targetMonth);
 
-  // 🔥 QARZNI FANLAR BO'YICHA HISOB-KITOB QILISH
-  const COURSE_PRICE = 300000;
+  // 🔥 XAVFSIZ QIDIRUV: Katta-kichik harf va probellarni tekislab, aniq narxni topamiz
+  const getPrice = (groupName) => {
+    if (student.groupsData && Array.isArray(student.groupsData) && student.groupsData.length > 0) {
+      const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
+      if (match && match.price !== undefined) return Number(match.price);
+    }
+    return 300000; // Agar topolmasa yoki kiritilmagan bo'lsa
+  };
+
   const debtDetails = [];
   let OVERALL_DEBT = 0;
 
-  studentGroups.forEach(g => {
-    const groupPayments = studentPayments.filter(p => p.month === targetMonth && (p.groupName === g || !p.groupName));
+  // 🔥 QARZNI HISOBLASH LOGIKASI
+  if (studentGroups.length > 0) {
+    studentGroups.forEach(g => {
+      const COURSE_PRICE = getPrice(g);
+      const groupPayments = studentPayments.filter(p => p.month === targetMonth && (p.groupName === g || !p.groupName));
+      const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const qarz = COURSE_PRICE - totalPaid;
+      
+      if (qarz > 0) {
+        debtDetails.push({ group: g, qarz });
+        OVERALL_DEBT += qarz;
+      }
+    });
+  } else {
+    // Agar o'quvchining umuman guruhi yo'q bo'lsa (pustoy qoldirilgan bo'lsa)
+    const COURSE_PRICE = 300000;
+    const groupPayments = studentPayments.filter(p => p.month === targetMonth);
     const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
     const qarz = COURSE_PRICE - totalPaid;
     if (qarz > 0) {
-      debtDetails.push({ group: g, qarz });
       OVERALL_DEBT += qarz;
     }
-  });
+  }
 
   const hasAnyDebt = OVERALL_DEBT > 0;
 
-  // 🔥 BOT ORQALI QARZ HAQIDA DETALLI ESLATMA YUBORISH
   const sendDebtWarning = async () => {
     if (!student.telegramChatId) return alert("Bu o'quvchi bot orqali ro'yxatdan o'tmagan!");
     if (!window.confirm(`${student.name} ga ${OVERALL_DEBT.toLocaleString()} so'm qarz haqida eslatma yuborasizmi?`)) return;
 
     setIsSendingWarning(true);
 
-    // Qaysi fandan qancha qarz ekanligini matnga aylantirish
     const debtText = debtDetails.map(d => `▪️ *${d.group}:* ${d.qarz.toLocaleString()} so'm`).join("\n");
-
     const text = `⚠️ *DIQQAT: QARZDORLIK!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Oy:* ${formatMonth(targetMonth)}\n\n📚 *Fanlar bo'yicha qarz:*\n${debtText}\n\n💰 *Jami qarzingiz:* ${OVERALL_DEBT.toLocaleString()} so'm\n\n_Iltimos, to'lovni tezroq amalga oshirishingizni so'raymiz._`;
 
     try {
@@ -117,22 +120,10 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
 
   const exportStudentHistory = () => {
     if (studentPayments.length === 0) return alert("Yuklab olish uchun to'lov tarixi yo'q!");
-
-    let table = `\uFEFF<table border="1">
-      <thead>
-        <tr style="background-color: #f3f4f6;">
-          <th>O'quvchi</th><th>Fan/Guruh</th><th>Summa</th><th>To'lov turi</th><th>Oy</th><th>Sana</th>
-        </tr>
-      </thead>
-      <tbody>`;
-
+    let table = `\uFEFF<table border="1"><thead><tr style="background-color: #f3f4f6;"><th>O'quvchi</th><th>Fan/Guruh</th><th>Summa</th><th>To'lov turi</th><th>Oy</th><th>Sana</th></tr></thead><tbody>`;
     studentPayments.forEach((p) => {
-      table += `<tr>
-        <td>${student.name}</td><td>${p.groupName || student.group}</td><td>${p.amount}</td>
-        <td>${p.paymentType}</td><td>${formatMonth(p.month)}</td><td>${new Date(p.date).toLocaleDateString()}</td>
-      </tr>`;
+      table += `<tr><td>${student.name}</td><td>${p.groupName || student.group}</td><td>${p.amount}</td><td>${p.paymentType}</td><td>${formatMonth(p.month)}</td><td>${new Date(p.date).toLocaleDateString()}</td></tr>`;
     });
-
     table += `</tbody></table>`;
     const blob = new Blob([table], { type: "application/vnd.ms-excel;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -155,32 +146,37 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
           body: JSON.stringify({ chatId: student.telegramChatId, text, paymentId: p._id }),
         });
         const data = await res.json();
-
-        if (data.success) {
-          alert("✅ Chek o'quvchiga bot orqali yuborildi!");
-        } else {
-          alert("Chekni yuborishda xatolik yuz berdi.");
-        }
-      } catch (error) {
-        console.error("Bot orqali yuborish xatosi:", error);
-      }
+        if (data.success) alert("✅ Chek o'quvchiga bot orqali yuborildi!");
+        else alert("Chekni yuborishda xatolik yuz berdi.");
+      } catch (error) { console.error("Bot orqali yuborish xatosi:", error); }
     } else {
       window.open(`tg://msg_url?url=${encodeURIComponent(text)}`, "_blank");
     }
   };
 
   const handleException = async () => {
-    if (!window.confirm("Bu o'quvchini joriy oy uchun qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?")) return;
+    const isCurrentlyExcepted = student.exceptionMonths?.includes(targetMonth);
+    const confirmMsg = isCurrentlyExcepted 
+      ? "Bu o'quvchidan istisnoni olib tashlab, yana qarzlar ro'yxatiga qo'shasizmi?"
+      : "Bu o'quvchini joriy oy uchun qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?";
+      
+    if (!window.confirm(confirmMsg)) return;
+
     setIsExcepting(true);
     try {
-      const updatedExceptions = [...(student.exceptionMonths || []), targetMonth];
+      let updatedExceptions;
+      if (isCurrentlyExcepted) {
+         updatedExceptions = (student.exceptionMonths || []).filter(m => m !== targetMonth);
+      } else {
+         updatedExceptions = [...(student.exceptionMonths || []), targetMonth];
+      }
+
       await fetch("/api/students", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: student._id, exceptionMonths: updatedExceptions }),
       });
       onRefresh();
-      onClose();
     } catch (err) {
       console.error(err);
     } finally {
@@ -216,6 +212,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va To'lov ({targetMonth})</h3>
 
             {studentGroups.length > 0 ? studentGroups.map((g, idx) => {
+              const COURSE_PRICE = getPrice(g);
               const groupPayments = studentPayments.filter(p => p.month === targetMonth && (p.groupName === g || !p.groupName));
               const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
               const qarz = COURSE_PRICE - totalPaid;
@@ -226,7 +223,12 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               return (
                 <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 border rounded-xl bg-white shadow-sm gap-3">
                   <div className="font-bold text-slate-700 flex items-center gap-2 text-sm">
-                    <BookOpen size={16} className="text-indigo-500" /> {g}
+                    <BookOpen size={16} className="text-indigo-500 min-w-[16px]" /> 
+                    <div>
+                       {g} <br/>
+                       {/* 🔥 BU YERDA ENDI FANNING NARXI CHIQADI */}
+                       <span className="text-[10px] text-slate-400 font-medium">Narxi: {COURSE_PRICE.toLocaleString()} so'm</span>
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-2">
@@ -260,31 +262,34 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             )}
           </div>
 
-          {/* 🔥 FAQAT QARZI BOR VA ISTISNO QILINMAGANLARGA KO'RINADI */}
           {!isExcepted && hasAnyDebt && (
-            <button
-              onClick={sendDebtWarning}
-              disabled={isSendingWarning}
-              className="mb-3 w-full bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl font-bold hover:bg-rose-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
-            >
-              <Send size={18} /> {isSendingWarning ? "Yuborilmoqda..." : `Qarz haqida eslatish (${OVERALL_DEBT.toLocaleString()} so'm)`}
-            </button>
-          )}
+            <div className="space-y-3 mb-4">
+              <button
+                onClick={sendDebtWarning}
+                disabled={isSendingWarning}
+                className="w-full bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl font-bold hover:bg-rose-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+              >
+                <Send size={18} /> {isSendingWarning ? "Yuborilmoqda..." : `Qarz haqida eslatish (${OVERALL_DEBT.toLocaleString()} so'm)`}
+              </button>
 
-          {hasAnyDebt && !isExcepted && (
-            <button
-              onClick={handleException}
-              disabled={isExcepting}
-              className="mb-4 w-full bg-amber-50 text-amber-600 border border-amber-200 py-2.5 rounded-xl font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
-            >
-              <ShieldAlert size={18} /> {isExcepting ? "Kutib turing..." : "To'lovdan istisno qilish"}
-            </button>
+              <button
+                onClick={handleException}
+                disabled={isExcepting}
+                className="w-full bg-amber-50 text-amber-600 border border-amber-200 py-2.5 rounded-xl font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+              >
+                <ShieldAlert size={18} /> {isExcepting ? "Kutib turing..." : "To'lovdan istisno qilish"}
+              </button>
+            </div>
           )}
 
           {isExcepted && hasAnyDebt && (
-            <div className="mb-4 w-full bg-slate-100 text-slate-500 py-2.5 rounded-xl font-bold text-center text-sm flex items-center justify-center gap-2">
-              <ShieldAlert size={16} /> Bu oy to'lovdan istisno qilingan
-            </div>
+            <button
+              onClick={handleException}
+              disabled={isExcepting}
+              className="mb-4 w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg"
+            >
+              <ShieldAlert size={18} className="text-amber-400" /> {isExcepting ? "Kutib turing..." : "Istisnoni olib tashlash"}
+            </button>
           )}
 
           <div className="mt-auto">

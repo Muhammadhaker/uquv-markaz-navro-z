@@ -7,7 +7,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     parentName: "",
     phone: "+998 ",
     telegramChatId: "",
-    // 🔥 YANGI: Endi guruhlar faqat ismini emas, narxini ham saqlaydi
     groupsData: [], 
   });
   
@@ -16,17 +15,17 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
 
   useEffect(() => {
     if (studentToEdit) {
-      // Tahrirlashda bazadan kelgan eski ma'lumotni to'g'irlaymiz
-      // Agar bazada allaqachon objects bo'lsa (yangi struktura)
       let parsedGroups = [];
-      if (Array.isArray(studentToEdit.groupsData)) {
+      
+      // 🔥 XATONI TO'G'IRLADIK: Endi quti shunchaki borligi emas, ichida narsa borligi ham tekshiriladi!
+      if (Array.isArray(studentToEdit.groupsData) && studentToEdit.groupsData.length > 0) {
         parsedGroups = studentToEdit.groupsData;
       } 
-      // Agar bazada faqatgina string qolgan bo'lsa (eski struktura)
+      // Agar yangi quti bo'sh bo'lsa, eskisini o'qib oladi!
       else if (studentToEdit.group) {
         parsedGroups = studentToEdit.group.split(",").map(g => ({
           name: g.trim(),
-          price: 300000 // eski ro'yxat bo'lsa 300 mingni default qilib olamiz
+          price: 300000
         })).filter(g => g.name);
       }
 
@@ -63,11 +62,10 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const addGroup = () => {
     const trimmed = currentGroupInput.trim();
     if (trimmed) {
-      const alreadyExists = formData.groupsData.some(g => g.name === trimmed);
+      const alreadyExists = formData.groupsData.some(g => g.name.toLowerCase() === trimmed.toLowerCase());
       if (!alreadyExists) {
         setFormData((prev) => ({
           ...prev,
-          // Har bir yangi guruhga standart 300,000 so'm narx beramiz
           groupsData: [...prev.groupsData, { name: trimmed, price: 300000 }],
         }));
       }
@@ -89,11 +87,8 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     }));
   };
 
-  // 🔥 YANGI: Aynan shu fan narxini o'zgartirish
   const handlePriceChange = (groupName, newPriceStr) => {
-    // Probellarni tozalab haqiqiy raqamga o'giramiz
     const rawNumber = Number(newPriceStr.replace(/\D/g, ""));
-    
     setFormData(prev => ({
       ...prev,
       groupsData: prev.groupsData.map(g => 
@@ -112,15 +107,13 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
 
     setLoading(true);
     const method = studentToEdit ? "PUT" : "POST";
-    
-    // API buzilmasligi uchun eski matnli versiyani ham yuboramiz
     const finalGroupString = formData.groupsData.map(g => g.name).join(", "); 
     
     const body = { 
       ...(studentToEdit && { id: studentToEdit._id }),
       ...formData, 
       group: finalGroupString,
-      groupsData: formData.groupsData // Aniq narxlar bilan to'liq obyekt ketadi
+      groupsData: formData.groupsData
     };
 
     try {
@@ -141,7 +134,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             details: `O'quvchi ${studentToEdit ? "tahrirlandi" : "qo'shildi"}: ${formData.name} (Guruhlari: ${finalGroupString})`
           })
         });
-
         onClose();
       }
     } catch (error) {
@@ -198,7 +190,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             />
           </div>
 
-          {/* DYNAMIC GURUH VA NARX QO'SHISH QISMI */}
           <div className="space-y-3 pt-2 border-t pt-4">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Guruhlarni kiriting:</label>
             
@@ -220,7 +211,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
               </button>
             </div>
             
-            {/* Tanlangan guruhlar ro'yxati va Narx belgilash */}
             {formData.groupsData.length > 0 && (
               <div className="space-y-2 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <p className="text-[11px] text-slate-400 font-medium mb-2">Tanlangan guruhlar narxini o'zgartirishingiz mumkin:</p>
