@@ -6,16 +6,18 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
+// 🔥 QOLIP O'ZGARTIRILDI: groupsData qo'shildi va strict: false qilindi
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   parentName: { type: String, required: true },
   phone: { type: String, required: true },
   group: { type: String, required: true },
   telegramChatId: { type: String, default: null },
+  groupsData: { type: Array, default: [] }, // 🔥 YAngi: Narxlar shu yerda saqlanadi
   isNewStudent: { type: Boolean, default: true },
   exceptionMonths: { type: [String], default: [] },
   addedAt: { type: Date, default: Date.now }
-});
+}, { strict: false }); // strict: false qildik, toki kelajakda ham yangi maydonlar bemalol saqlansin
 
 const Student = mongoose.models.Student || mongoose.model('Student', studentSchema, 'students');
 
@@ -55,7 +57,6 @@ export default async function handler(req, res) {
               parse_mode: 'Markdown',
               reply_markup: {
                 keyboard: [
-                  // 🔥 YANGILANISH: URL oxiriga telegramChatId qoshildi
                   [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${newStudent.telegramChatId}` } }],
                   [{ text: "📋 Mening ma'lumotlarim" }]
                 ],
