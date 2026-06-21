@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { CalendarDays, Loader2, Download, Trash2, Clock, Plus, TrendingUp, TrendingDown, Wallet, X, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { CalendarDays, Loader2, Download, Trash2, Plus, TrendingUp, TrendingDown, Wallet, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import AddExpenseModal from "../components/AddExpenseModal"; // 🔥 Yangi komponentni chaqirib oldik
 
 export default function Dashboard() {
   const [payments, setPayments] = useState([]);
@@ -8,9 +9,6 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("income");
 
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-  const [expenseReason, setExpenseReason] = useState("");
-  const [expenseAmount, setExpenseAmount] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -59,28 +57,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleAddExpense = async (e) => {
-    e.preventDefault();
-    const amountNum = Number(expenseAmount.replace(/\D/g, ""));
-    if (!expenseReason || amountNum <= 0) return alert("Ma'lumotlarni to'g'ri kiriting!");
-
-    setIsSubmitting(true);
-    try {
-      const res = await fetch("/api/expenses", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: expenseReason, amount: amountNum, month: selectedMonth, adminName: localStorage.getItem("username") || "Admin" })
-      });
-      if (res.ok) {
-        await fetch("/api/logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminName: localStorage.getItem("username") || "Admin", actionType: "create", details: `Xarajat qo'shildi: ${expenseReason} (${amountNum.toLocaleString()} so'm)` }) });
-        setExpenseReason(""); setExpenseAmount(""); setIsExpenseModalOpen(false); fetchStats();
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const allMonths = [...new Set([currentMonth, ...payments.map((p) => p.month), ...expenses.map((e) => e.month)])].sort().reverse();
   const filteredPayments = payments.filter((p) => p.month === selectedMonth);
   const filteredExpenses = expenses.filter((e) => e.month === selectedMonth);
@@ -101,7 +77,6 @@ export default function Dashboard() {
     return `${names[parseInt(mm) - 1]} ${y}`;
   };
 
-  // 🔥 TARTIBLI EXCEL UCHUN MAXSUS ANDOZA (TEMPLATE)
   const getExcelTemplate = (bodyData) => `
     <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
     <head>
@@ -123,9 +98,7 @@ export default function Dashboard() {
         .text-red { color: #e11d48; }
       </style>
     </head>
-    <body>
-      ${bodyData}
-    </body>
+    <body>${bodyData}</body>
     </html>
   `;
 
@@ -235,7 +208,6 @@ export default function Dashboard() {
   };
 
   const downloadBlob = (content, fileName) => {
-    // UTF-8 BOM qo'shish (Kirill/Lotin harflari buzilmasligi uchun)
     const blob = new Blob(["\uFEFF" + content], { type: "application/vnd.ms-excel;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -416,32 +388,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {isExpenseModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Xarajat qo'shish</h2>
-              <button onClick={() => setIsExpenseModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20} /></button>
-            </div>
-            <form onSubmit={handleAddExpense} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">Nima uchun sarflandi?</label>
-                <input required value={expenseReason} onChange={(e) => setExpenseReason(e.target.value)} className="w-full mt-1 p-3 border rounded-xl outline-none focus:border-rose-500" placeholder="Masalan: Ijara, Svet, Marker..." />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">Summasi</label>
-                <input required value={expenseAmount} onChange={(e) => {
-                  let val = e.target.value.replace(/\D/g, "");
-                  setExpenseAmount(val.replace(/\B(?=(\d{3})+(?!\d))/g, " "));
-                }} className="w-full mt-1 p-3 border rounded-xl outline-none focus:border-rose-500 font-bold" placeholder="100 000" />
-              </div>
-              <button type="submit" disabled={isSubmitting} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
-                {isSubmitting ? "Saqlanmoqda..." : "Xarajatni tasdiqlash"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* 🔥 Modalni chaqirdik */}
+      <AddExpenseModal 
+        isOpen={isExpenseModalOpen} 
+        onClose={() => setIsExpenseModalOpen(false)} 
+        onSuccess={fetchStats} 
+        selectedMonth={selectedMonth} 
+      />
+
     </div>
   );
 }
