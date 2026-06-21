@@ -1,11 +1,31 @@
 import { useState, useEffect } from "react";
-import { User, Phone, BookOpen, CreditCard, Loader2, Bug, Clock, History, AlertCircle } from "lucide-react";
+import { User, Phone, BookOpen, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays } from "lucide-react";
 
 export default function Profile() {
+  // 🔥 Joriy oyni 5-sana qoidasi bilan topib olamiz (Default uchun)
+  const getTargetMonth = () => {
+    const today = new Date();
+    let year = today.getFullYear();
+    let month = today.getMonth() + 1;
+    if (today.getDate() <= 5) {
+      month -= 1;
+      if (month === 0) {
+        month = 12;
+        year -= 1;
+      }
+    }
+    return `${year}-${String(month).padStart(2, "0")}`;
+  };
+
+  const defaultMonthStr = getTargetMonth();
+
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [debugMsg, setDebugMsg] = useState("");
+  
+  // 🔥 YANGI: Default holatda "Barchasi" emas, Joriy oy turadi
+  const [selectedHistoryMonth, setSelectedHistoryMonth] = useState(defaultMonthStr);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -90,15 +110,14 @@ export default function Profile() {
 
   const student = profileData?.data || {};
   const paymentStatus = profileData?.paymentStatus || "unpaid";
-  const month = profileData?.month || "";
-  const groups = student?.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+  const month = profileData?.month || defaultMonthStr;
   const history = profileData?.paymentsHistory || [];
   
   // Moliyaviy ma'lumotlar
-  const qarz = profileData?.qarz || 300000;
+  const qarz = profileData?.qarz || 0;
   const totalPaid = profileData?.totalPaid || 0;
-  const coursePrice = profileData?.coursePrice || 300000;
-  const debtDetails = profileData?.debtDetails || []; // Har bir fan bo'yicha hisobot
+  const coursePrice = profileData?.coursePrice || 0;
+  const debtDetails = profileData?.debtDetails || []; 
 
   let statusConfig = {
     iconBg: "bg-rose-100 text-rose-600",
@@ -134,6 +153,22 @@ export default function Profile() {
     };
   }
 
+  // 🔥 Oylarni shakllantirish va tartiblash
+  let uniqueHistoryMonths = [...new Set(history.map(p => p.month))];
+  
+  // Joriy oyni hamisha ro'yxatda ushlab turamiz, hatto o'quvchi hali to'lamagan bo'lsa ham
+  if (!uniqueHistoryMonths.includes(defaultMonthStr)) {
+    uniqueHistoryMonths.push(defaultMonthStr);
+  }
+  
+  // Oylarni kamayish tartibida (eng yangisi tepada) saralaymiz
+  uniqueHistoryMonths.sort((a, b) => b.localeCompare(a));
+
+  // Tanlangan oy bo'yicha tarixni filtrlash
+  const filteredHistory = selectedHistoryMonth === "all" 
+    ? history 
+    : history.filter(p => p.month === selectedHistoryMonth);
+
   return (
     <div className="min-h-screen bg-slate-50 pb-20 animate-in fade-in duration-300">
       <div className="max-w-md mx-auto min-h-screen bg-white shadow-lg">
@@ -156,7 +191,7 @@ export default function Profile() {
                 <div className={`p-3 rounded-full ${statusConfig.iconBg}`}>{statusConfig.icon}</div>
                 <div>
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">To'lov holati</p>
-                  <p className="font-bold text-slate-800">{formatMonthName(month) || "Joriy oy"}</p>
+                  <p className="font-bold text-slate-800">{formatMonthName(month)}</p>
                 </div>
               </div>
               <div className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-sm ${statusConfig.badgeBg}`}>
@@ -171,7 +206,7 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* 🔥 YANGI: FANLAR BO'YICHA ANIQ HISOBOT */}
+          {/* FANLAR BO'YICHA ANIQ HISOBOT */}
           {debtDetails.length > 0 && (
             <div className="bg-white rounded-2xl p-5 border shadow-sm">
               <div className="flex items-center gap-3 mb-4">
@@ -207,22 +242,43 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* TO'LOVLAR TARIXI */}
+          {/* TO'LOVLAR TARIXI (KALENDAR FILTER BILAN) */}
           <div className="bg-white rounded-2xl p-5 border shadow-sm">
-            <div className="flex items-center gap-3 mb-4 border-b pb-3">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><History size={20} /></div>
-              <div>
-                <p className="font-bold text-slate-800 text-lg">To'lovlar tarixi</p>
-                <p className="text-xs text-slate-400">Barcha davr uchun amalga oshirilgan to'lovlar</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><History size={20} /></div>
+                <div>
+                  <p className="font-bold text-slate-800 text-lg">To'lovlar tarixi</p>
+                  <p className="text-xs text-slate-400">Kerakli oyni tanlang</p>
+                </div>
+              </div>
+              
+              {/* OYNI TANLASH DROPDOWN */}
+              <div className="relative">
+                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500" size={16} />
+                <select 
+                  value={selectedHistoryMonth}
+                  onChange={(e) => setSelectedHistoryMonth(e.target.value)}
+                  className="w-full sm:w-auto pl-9 pr-8 py-2 bg-indigo-50 border border-indigo-100 text-indigo-800 text-sm font-bold rounded-xl outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer appearance-none"
+                >
+                  <option value="all">Barcha oylar</option>
+                  {uniqueHistoryMonths.map(m => (
+                    <option key={m} value={m}>
+                      {formatMonthName(m)} {m === defaultMonthStr ? "(Joriy)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500">
+                  <svg width="10" height="6" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </div>
               </div>
             </div>
 
-            {history.length > 0 ? (
+            {filteredHistory.length > 0 ? (
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                {history.map((pay) => (
+                {filteredHistory.map((pay) => (
                   <div key={pay._id} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center hover:bg-slate-100 transition-colors">
                     <div>
-                      {/* 🔥 Qaysi oy uchun ekanligi aniq ko'rinadi */}
                       <p className="font-bold text-indigo-600 text-sm">{formatMonthName(pay.month)} oyi uchun</p>
                       <p className="text-[11px] text-slate-500 font-medium mt-1">
                         <span className="bg-indigo-50 px-1.5 py-0.5 rounded text-indigo-700">{pay.groupName || "Guruhsiz"}</span> • {pay.paymentType || "Naqd"}
@@ -240,7 +296,7 @@ export default function Profile() {
                 <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-2">
                   <CreditCard className="text-slate-300" size={24} />
                 </div>
-                <p className="text-slate-500 text-sm font-medium">Sizda to'lov tarixi mavjud emas.</p>
+                <p className="text-slate-500 text-sm font-medium">Bu oy uchun to'lov tarixi mavjud emas.</p>
               </div>
             )}
           </div>

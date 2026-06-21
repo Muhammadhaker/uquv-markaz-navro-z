@@ -95,7 +95,7 @@ export default function Groups() {
     setIsStudentModalOpen(true);
   };
 
-  const allGroups = students.flatMap(s =>
+  const allGroups = students.flatMap(s => 
     s.group ? s.group.split(',').map(g => g.trim()) : []
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
@@ -103,11 +103,20 @@ export default function Groups() {
   const filteredStudents = students.filter((s) => {
     const studentGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
     const matchesGroup = selectedFilterGroup === "Barchasi" || studentGroups.includes(selectedFilterGroup);
-
+    
     const lowerQuery = searchQuery.toLowerCase();
     const matchesSearch = s.name.toLowerCase().includes(lowerQuery) || (s.phone && s.phone.includes(searchQuery));
     return matchesGroup && matchesSearch;
   });
+
+  // 🔥 Yordamchi funksiya: Aynan shu o'quvchining fan narxini bazadan oladi
+  const getStudentGroupPrice = (student, groupName) => {
+    if (student.groupsData && Array.isArray(student.groupsData)) {
+      const found = student.groupsData.find(g => g.name === groupName);
+      if (found && found.price !== undefined) return Number(found.price);
+    }
+    return 300000; // Bazada puli yozilmagan bo'lsa 300ming bo'ladi
+  };
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto pb-20">
@@ -166,14 +175,23 @@ export default function Groups() {
           </div>
         ) : (
           filteredStudents.map((s) => {
-            // 🔥 YANGI LOGIKA: Nechta fanga borsa, shunchaga ko'paytiriladi
             const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-            const EXPECTED_TOTAL = Math.max(1, studentGroups.length) * 300000;
+            
+            // 🔥 YANGI LOGIKA: Qarzni 300mingdan emas, kiritilgan puldan hisoblaymiz
+            let EXPECTED_TOTAL = 0;
+            studentGroups.forEach(g => {
+              EXPECTED_TOTAL += getStudentGroupPrice(s, g);
+            });
+
+            // Agar o'quvchida umuman guruh bo'lmasa ham, minimum bitta guruh pulini (300ming) olamiz
+            if (studentGroups.length === 0) {
+                EXPECTED_TOTAL = 300000;
+            }
 
             const studentPaymentsThisMonth = payments.filter(
               (p) => p.studentId === s._id && p.month === targetMonth
             );
-
+            
             let totalPaid = 0;
             studentPaymentsThisMonth.forEach(p => {
               totalPaid += Number(p.amount) || 0;
@@ -196,17 +214,18 @@ export default function Groups() {
                   <div className="text-xs text-slate-500 mt-0.5">
                     {s.group} • {formatPhoneNumber(s.phone)}
                   </div>
-
+                  
                   <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mt-1">
                     <CalendarDays size={12} />
                     Ro'yxatdan o'tgan: {formatDate(s.addedAt)}
                   </div>
 
                   <div
-                    className={`text-xs font-bold mt-2 inline-block px-2 py-0.5 rounded-md ${isPaid ? "bg-emerald-50 text-emerald-600" :
-                        isPartial ? "bg-orange-50 text-orange-600" :
-                          "bg-rose-50 text-rose-600"
-                      }`}
+                    className={`text-xs font-bold mt-2 inline-block px-2 py-0.5 rounded-md ${
+                      isPaid ? "bg-emerald-50 text-emerald-600" : 
+                      isPartial ? "bg-orange-50 text-orange-600" : 
+                      "bg-rose-50 text-rose-600"
+                    }`}
                   >
                     {isPaid ? "To'liq to'langan" : qarz > 0 ? `Qarz: ${qarz.toLocaleString()} so'm` : "To'lanmagan"}
                   </div>

@@ -45,23 +45,33 @@ export default async function handler(req, res) {
       const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
       const safeId = student._id.toString();
 
-      // 1. Joriy oy to'lovlarini chaqirish
+      // 1. Joriy oy to'lovlarini xavfsiz ID orqali tekshirish
       const currentMonthPayments = await Payment.find({ 
         $or: [ { studentId: student._id }, { studentId: safeId } ],
         month: targetMonth 
       });
       
-      // 🔥 YANGI: O'quvchining fanlari bo'yicha qarzni hisoblash
       const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-      const COURSE_PRICE = 300000;
-      const EXPECTED_TOTAL = Math.max(1, studentGroups.length) * COURSE_PRICE;
+      
+      // 🔥 YANGI: Bazadan fan narxini aniq o'qib oladigan funksiya
+      const getPrice = (groupName) => {
+        if (student.groupsData && Array.isArray(student.groupsData)) {
+          const match = student.groupsData.find(x => x.name === groupName);
+          if (match && match.price !== undefined) return Number(match.price);
+        }
+        return 300000; // Eski formatda qolganlar uchun default
+      };
 
       const debtDetails = [];
+      let EXPECTED_TOTAL = 0;
       let totalPaidForMonth = 0;
       let overallQarz = 0;
 
       if (studentGroups.length > 0) {
         studentGroups.forEach(g => {
+          const COURSE_PRICE = getPrice(g); // Har bir fan uchun bazadagi o'z narxini oladi
+          EXPECTED_TOTAL += COURSE_PRICE;
+
           const groupPayments = currentMonthPayments.filter(p => p.groupName === g || !p.groupName);
           const paidForGroup = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
           totalPaidForMonth += paidForGroup;
@@ -75,11 +85,13 @@ export default async function handler(req, res) {
             group: g,
             paid: paidForGroup,
             qarz: qarzForGroup > 0 ? qarzForGroup : 0,
-            isPaid: qarzForGroup <= 0
+            isPaid: qarzForGroup <= 0,
+            coursePrice: COURSE_PRICE // Botda aniq narx ko'rinishi uchun yuboramiz
           });
         });
       } else {
-         // Guruhsiz bo'lsa
+         // Guruhsiz o'quvchi bo'lsa
+         EXPECTED_TOTAL = 300000;
          currentMonthPayments.forEach(p => {
            totalPaidForMonth += Number(p.amount) || 0;
          });
@@ -99,7 +111,6 @@ export default async function handler(req, res) {
         paymentStatus = "partial"; 
       }
 
-      // 🔥 YANGI: To'lovlar tarixini (eski oylarni ham qo'shib) chaqirish
       const paymentsHistory = await Payment.find({ 
         $or: [ { studentId: student._id }, { studentId: safeId } ]
       }).sort({ date: -1 });
@@ -112,7 +123,7 @@ export default async function handler(req, res) {
         coursePrice: EXPECTED_TOTAL, 
         totalPaid: totalPaidForMonth, 
         qarz: overallQarz, 
-        debtDetails: debtDetails, // O'quvchi har bir fan qarzini ko'rishi uchun
+        debtDetails: debtDetails, 
         paymentsHistory: paymentsHistory 
       });
     } catch (error) {
