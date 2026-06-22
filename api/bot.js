@@ -48,7 +48,7 @@ export default async function handler(req, res) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 chat_id: chatId, 
-                photo: "https://uquv-markaz-navroz.vercel.app/banner.jpg", // Tepadagi URL dan rasmni oladi
+                photo: "https://uquv-markaz-navroz.vercel.app/banner.jpg", 
                 caption: captionText, 
                 parse_mode: 'Markdown' 
             })
@@ -88,13 +88,12 @@ export default async function handler(req, res) {
             keyboard = {
                 keyboard: [
                     [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }],
-                    [{ text: "📋 Mening ma'lumotlarim" }]
+                    [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }] // 🔥 MANA SHU YERGA QO'SHILDI
                 ],
                 resize_keyboard: true,
                 is_persistent: true
             };
         } else {
-            // Yangi kelgan o'quvchilar uchun matn G'ulomov Math Group ga o'zgardi
             replyText = `Assalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Quyidagi menyudan kerakli bo'limni tanlang 👇`;
             
             keyboard = {
