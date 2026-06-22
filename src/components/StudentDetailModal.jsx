@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  X, Phone, BookOpen, CreditCard, History, Download, Send, User, Clock, ShieldAlert,
+  X, Phone, BookOpen, CreditCard, History, Download, Send, User, Clock, ShieldAlert, Loader2
 } from "lucide-react";
 import PaymentModal from "./PaymentModal";
 
@@ -31,12 +31,9 @@ const calculateCycles = (addedAtStr) => {
   const today = new Date();
   let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
   
-  // Agar bugungi kun, o'quvchi qo'shilgan kundan hali kichik bo'lsa (sana kelmagan bo'lsa)
   if (today.getDate() < added.getDate()) {
     m--;
   }
-  
-  // O'quvchi har doim kelgan kunidan kamida 1 oy (oldindan) to'lashi shart
   return Math.max(1, m + 1);
 };
 
@@ -47,8 +44,11 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const [isExcepting, setIsExcepting] = useState(false);
   const [isSendingWarning, setIsSendingWarning] = useState(false);
 
+  // 🔥 YANGI: Oyna yopilmasdan turib srazu o'zgarishi uchun mahalliy state
+  const [localException, setLocalException] = useState(student?.exceptionMonths || []);
+
   const today = new Date();
-  const targetMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`; // Faqat istisnolar uchun kerak
+  const targetMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 
   const studentPayments = payments
     .filter((p) => p.studentId === student._id)
@@ -62,9 +62,9 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   );
 
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-  const isExcepted = student?.exceptionMonths?.includes(targetMonth);
-
-  // O'quvchining jami aktiv oylari soni
+  
+  // 🔥 Mahalliy state orqali o'qiymiz
+  const isExcepted = localException.includes(targetMonth);
   const activeCycles = calculateCycles(student.addedAt);
 
   const getPrice = (groupName) => {
@@ -78,11 +78,10 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const debtDetails = [];
   let OVERALL_DEBT = 0;
 
-  // 🔥 Yangi Logika: Barcha vaqt uchun jami kutilayotgan summa - jami to'langan summa
   if (studentGroups.length > 0) {
     studentGroups.forEach(g => {
       const COURSE_PRICE = getPrice(g);
-      const EXPECTED_TOTAL = COURSE_PRICE * activeCycles; // Masalan: 2 oydan beri o'qiydi = 2 * 300ming = 600ming
+      const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
       
       const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
       const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -207,32 +206,36 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   };
 
   const handleException = async () => {
-    const isCurrentlyExcepted = student.exceptionMonths?.includes(targetMonth);
+    const isCurrentlyExcepted = localException.includes(targetMonth);
     const confirmMsg = isCurrentlyExcepted 
       ? "Bu o'quvchidan istisnoni olib tashlab, yana qarzlar ro'yxatiga qo'shasizmi?"
       : "Bu o'quvchini qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?";
       
     if (!window.confirm(confirmMsg)) return;
 
-    setIsExcepting(true);
+    setIsExcepting(true); // 🔥 Loading boshlandi
     try {
       let updatedExceptions;
       if (isCurrentlyExcepted) {
-         updatedExceptions = (student.exceptionMonths || []).filter(m => m !== targetMonth);
+         updatedExceptions = localException.filter(m => m !== targetMonth);
       } else {
-         updatedExceptions = [...(student.exceptionMonths || []), targetMonth];
+         updatedExceptions = [...localException, targetMonth];
       }
 
-      await fetch("/api/students", {
+      const res = await fetch("/api/students", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: student._id, exceptionMonths: updatedExceptions }),
       });
-      onRefresh();
+      
+      if (res.ok) {
+        setLocalException(updatedExceptions); // 🔥 Oyna yopilmasdan darhol o'zgaradi!
+        onRefresh(); // Orqa fondagi jadvalni ham yangilaydi
+      }
     } catch (err) {
       console.error(err);
     } finally {
-      setIsExcepting(false);
+      setIsExcepting(false); // 🔥 Loading to'xtadi
     }
   };
 
@@ -314,22 +317,25 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             )}
           </div>
 
+          {/* 🔥 LOADING HOLATI VA SRAZU YANGILANISH */}
           {!isExcepted && hasAnyDebt && (
             <div className="space-y-3 mb-4">
               <button
                 onClick={sendDebtWarning}
                 disabled={isSendingWarning}
-                className="w-full bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl font-bold hover:bg-rose-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+                className="w-full bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl font-bold hover:bg-rose-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-wait"
               >
-                <Send size={18} /> {isSendingWarning ? "Yuborilmoqda..." : `Qarz haqida eslatish (${OVERALL_DEBT.toLocaleString()} so'm)`}
+                {isSendingWarning ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                {isSendingWarning ? "Yuborilmoqda..." : `Qarz haqida eslatish (${OVERALL_DEBT.toLocaleString()} so'm)`}
               </button>
 
               <button
                 onClick={handleException}
                 disabled={isExcepting}
-                className="w-full bg-amber-50 text-amber-600 border border-amber-200 py-2.5 rounded-xl font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+                className="w-full bg-amber-50 text-amber-600 border border-amber-200 py-2.5 rounded-xl font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-wait"
               >
-                <ShieldAlert size={18} /> {isExcepting ? "Kutib turing..." : "To'lovdan istisno qilish"}
+                {isExcepting ? <Loader2 size={18} className="animate-spin" /> : <ShieldAlert size={18} />}
+                {isExcepting ? "Kutib turing..." : "To'lovdan istisno qilish"}
               </button>
             </div>
           )}
@@ -338,9 +344,10 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             <button
               onClick={handleException}
               disabled={isExcepting}
-              className="mb-4 w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg"
+              className="mb-4 w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait shadow-lg"
             >
-              <ShieldAlert size={18} className="text-amber-400" /> {isExcepting ? "Kutib turing..." : "Istisnoni olib tashlash"}
+              {isExcepting ? <Loader2 size={18} className="animate-spin text-amber-400" /> : <ShieldAlert size={18} className="text-amber-400" />}
+              {isExcepting ? "Kutib turing..." : "Istisnoni olib tashlash"}
             </button>
           )}
 
