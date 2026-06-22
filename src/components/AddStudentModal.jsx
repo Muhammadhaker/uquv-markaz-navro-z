@@ -2,12 +2,25 @@ import { useState, useEffect } from "react";
 import { X, Plus, DollarSign } from "lucide-react";
 
 export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
+  // 🔥 Xavfsiz sana formatlovchi funksiya
+  const getSafeDate = (dateStr) => {
+    try {
+      if (!dateStr) return new Date().toISOString().split("T")[0];
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return new Date().toISOString().split("T")[0];
+      return d.toISOString().split("T")[0];
+    } catch (e) {
+      return new Date().toISOString().split("T")[0];
+    }
+  };
+
   const [formData, setFormData] = useState({
     name: "",
     parentName: "",
     phone: "+998 ",
     telegramChatId: "",
-    groupsData: [], 
+    groupsData: [],
+    addedAt: getSafeDate(), // 🔥 YANGI: Sana qo'shildi (Odatiy holatda bugun)
   });
   
   const [currentGroupInput, setCurrentGroupInput] = useState("");
@@ -17,11 +30,9 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     if (studentToEdit) {
       let parsedGroups = [];
       
-      // 🔥 XATONI TO'G'IRLADIK: Endi quti shunchaki borligi emas, ichida narsa borligi ham tekshiriladi!
       if (Array.isArray(studentToEdit.groupsData) && studentToEdit.groupsData.length > 0) {
         parsedGroups = studentToEdit.groupsData;
       } 
-      // Agar yangi quti bo'sh bo'lsa, eskisini o'qib oladi!
       else if (studentToEdit.group) {
         parsedGroups = studentToEdit.group.split(",").map(g => ({
           name: g.trim(),
@@ -35,6 +46,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         phone: studentToEdit.phone || "",
         telegramChatId: studentToEdit.telegramChatId || "",
         groupsData: parsedGroups,
+        addedAt: getSafeDate(studentToEdit.addedAt), // 🔥 Tahrirlashda eski sanani olib keladi
       });
     } else {
       setFormData({
@@ -43,6 +55,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         phone: "+998 ",
         telegramChatId: "",
         groupsData: [],
+        addedAt: getSafeDate(), // Yangi qo'shishda bugungi sana
       });
     }
     setCurrentGroupInput(""); 
@@ -179,15 +192,30 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             maxLength={17}
           />
 
-          <div>
-            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Telegram Chat ID (Ixtiyoriy):</label>
-            <input
-              type="text"
-              className="w-full mt-1 p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
-              placeholder="Masalan: 2025338995"
-              value={formData.telegramChatId}
-              onChange={(e) => setFormData({ ...formData, telegramChatId: e.target.value.replace(/\D/g, "") })}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            {/* Telegram ID kiritish qismi */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Telegram ID (Ixtiyoriy):</label>
+              <input
+                type="text"
+                className="w-full mt-1 p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+                placeholder="2025338995"
+                value={formData.telegramChatId}
+                onChange={(e) => setFormData({ ...formData, telegramChatId: e.target.value.replace(/\D/g, "") })}
+              />
+            </div>
+
+            {/* 🔥 YANGI: Qachon qo'shilganini tanlash (Kalendar) */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Qo'shilgan sana:</label>
+              <input
+                type="date"
+                required
+                className="w-full mt-1 p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+                value={formData.addedAt}
+                onChange={(e) => setFormData({ ...formData, addedAt: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="space-y-3 pt-2 border-t pt-4">
