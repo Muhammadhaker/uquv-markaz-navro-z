@@ -22,6 +22,24 @@ const formatMonth = (m) => {
   return `${names[parseInt(mm) - 1]} ${y}`;
 };
 
+// 🔥 TIZIMNING YURAGI: Necha oy (sikl) o'tganini hisoblaydi
+const calculateCycles = (addedAtStr) => {
+  if (!addedAtStr) return 1;
+  const added = new Date(addedAtStr);
+  if (isNaN(added.getTime())) return 1;
+  
+  const today = new Date();
+  let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
+  
+  // Agar bugungi kun, o'quvchi qo'shilgan kundan hali kichik bo'lsa (sana kelmagan bo'lsa)
+  if (today.getDate() < added.getDate()) {
+    m--;
+  }
+  
+  // O'quvchi har doim kelgan kunidan kamida 1 oy (oldindan) to'lashi shart
+  return Math.max(1, m + 1);
+};
+
 export default function StudentDetailModal({ student, payments, onClose, onRefresh }) {
   const [payGroup, setPayGroup] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -30,13 +48,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const [isSendingWarning, setIsSendingWarning] = useState(false);
 
   const today = new Date();
-  let year = today.getFullYear();
-  let month = today.getMonth() + 1;
-  if (today.getDate() <= 5) {
-    month -= 1;
-    if (month === 0) { month = 12; year -= 1; }
-  }
-  const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
+  const targetMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`; // Faqat istisnolar uchun kerak
 
   const studentPayments = payments
     .filter((p) => p.studentId === student._id)
@@ -52,6 +64,9 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
   const isExcepted = student?.exceptionMonths?.includes(targetMonth);
 
+  // O'quvchining jami aktiv oylari soni
+  const activeCycles = calculateCycles(student.addedAt);
+
   const getPrice = (groupName) => {
     if (student.groupsData && Array.isArray(student.groupsData) && student.groupsData.length > 0) {
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
@@ -63,12 +78,16 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const debtDetails = [];
   let OVERALL_DEBT = 0;
 
+  // 🔥 Yangi Logika: Barcha vaqt uchun jami kutilayotgan summa - jami to'langan summa
   if (studentGroups.length > 0) {
     studentGroups.forEach(g => {
       const COURSE_PRICE = getPrice(g);
-      const groupPayments = studentPayments.filter(p => p.month === targetMonth && (p.groupName === g || !p.groupName));
+      const EXPECTED_TOTAL = COURSE_PRICE * activeCycles; // Masalan: 2 oydan beri o'qiydi = 2 * 300ming = 600ming
+      
+      const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
       const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      const qarz = COURSE_PRICE - totalPaid;
+      
+      const qarz = EXPECTED_TOTAL - totalPaid;
       
       if (qarz > 0) {
         debtDetails.push({ group: g, qarz });
@@ -77,9 +96,9 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     });
   } else {
     const COURSE_PRICE = 300000;
-    const groupPayments = studentPayments.filter(p => p.month === targetMonth);
-    const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    const qarz = COURSE_PRICE - totalPaid;
+    const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
+    const totalPaid = studentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const qarz = EXPECTED_TOTAL - totalPaid;
     if (qarz > 0) {
       OVERALL_DEBT += qarz;
     }
@@ -94,7 +113,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     setIsSendingWarning(true);
 
     const debtText = debtDetails.map(d => `▪️ *${d.group}:* ${d.qarz.toLocaleString()} so'm`).join("\n");
-    const text = `⚠️ *DIQQAT: QARZDORLIK!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Oy:* ${formatMonth(targetMonth)}\n\n📚 *Fanlar bo'yicha qarz:*\n${debtText}\n\n💰 *Jami qarzingiz:* ${OVERALL_DEBT.toLocaleString()} so'm\n\n_Iltimos, to'lovni tezroq amalga oshirishingizni so'raymiz._`;
+    const text = `⚠️ *DIQQAT: QARZDORLIK!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Holat:* ${activeCycles} oylik davr uchun\n\n📚 *Fanlar bo'yicha jami qarz:*\n${debtText}\n\n💰 *Jami qarzingiz:* ${OVERALL_DEBT.toLocaleString()} so'm\n\n_Iltimos, to'lovni tezroq amalga oshirishingizni so'raymiz._`;
 
     try {
       const res = await fetch("/api/send-message", {
@@ -115,7 +134,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     }
   };
 
-  // 🔥 YANGI: O'quvchi tarixi uchun ham Chiroyli va Raqamlari ajratilgan Excel
   const exportStudentHistory = () => {
     if (studentPayments.length === 0) return alert("Yuklab olish uchun to'lov tarixi yo'q!");
 
@@ -170,7 +188,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   };
 
   const shareReceipt = async (p) => {
-    const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${student.name}\n📚 *Fan:* ${p.groupName || student.group}\n💰 *Summa:* ${Number(p.amount).toLocaleString()} so'm\n💳 *Turi:* ${p.paymentType}\n📅 *Oy:* ${formatMonth(p.month)}\n\n✅ _To'lov qabul qilindi!_`;
+    const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${student.name}\n📚 *Fan:* ${p.groupName || student.group}\n💰 *Summa:* ${Number(p.amount).toLocaleString()} so'm\n💳 *Turi:* ${p.paymentType}\n📅 *To'lov vaqti:* ${new Date(p.date).toLocaleString("ru-RU")}\n\n✅ _To'lov qabul qilindi!_`;
 
     if (student.telegramChatId) {
       try {
@@ -192,7 +210,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     const isCurrentlyExcepted = student.exceptionMonths?.includes(targetMonth);
     const confirmMsg = isCurrentlyExcepted 
       ? "Bu o'quvchidan istisnoni olib tashlab, yana qarzlar ro'yxatiga qo'shasizmi?"
-      : "Bu o'quvchini joriy oy uchun qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?";
+      : "Bu o'quvchini qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?";
       
     if (!window.confirm(confirmMsg)) return;
 
@@ -238,18 +256,19 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             </div>
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
               <Clock size={18} className="text-emerald-500 min-w-[18px]" />
-              Qo'shilgan: {student.addedAt ? new Date(student.addedAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Mavjud emas"}
+              Qo'shilgan: {student.addedAt ? new Date(student.addedAt).toLocaleDateString("ru-RU") : "Noma'lum"}
             </div>
           </div>
 
           <div className="mb-6 space-y-2">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va To'lov ({targetMonth})</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va Jami To'lov ({activeCycles} oylik davr)</h3>
 
             {studentGroups.length > 0 ? studentGroups.map((g, idx) => {
               const COURSE_PRICE = getPrice(g);
-              const groupPayments = studentPayments.filter(p => p.month === targetMonth && (p.groupName === g || !p.groupName));
+              const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
+              const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
               const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-              const qarz = COURSE_PRICE - totalPaid;
+              const qarz = EXPECTED_TOTAL - totalPaid;
               
               const isGroupPaid = qarz <= 0;
               const isPartial = totalPaid > 0 && qarz > 0;
@@ -260,7 +279,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                     <BookOpen size={16} className="text-indigo-500 min-w-[16px]" /> 
                     <div>
                        {g} <br/>
-                       <span className="text-[10px] text-slate-400 font-medium">Narxi: {COURSE_PRICE.toLocaleString()} so'm</span>
+                       <span className="text-[10px] text-slate-400 font-medium">Jami to'lashi kerak: {EXPECTED_TOTAL.toLocaleString()} so'm</span>
                     </div>
                   </div>
                   
@@ -358,7 +377,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                     <div className="flex justify-between items-center text-sm mb-1.5">
                       <span className="font-bold text-slate-800">{formatMonth(p.month)}</span>
                       <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                        {Number(p.amount).toLocaleString("ru-RU")} {/* Bunga ham qo'shib qo'yildi */}
+                        {Number(p.amount).toLocaleString("ru-RU")}
                       </span>
                     </div>
                     <div className="text-xs text-slate-500 font-medium mb-2 flex items-center gap-1">

@@ -19,6 +19,21 @@ const formatDate = (dateString) => {
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 };
 
+// 🔥 TIZIMNING YURAGI: O'quvchining qancha oydan beri o'qiyotganini hisoblaydi
+const calculateCycles = (addedAtStr) => {
+  if (!addedAtStr) return 1;
+  const added = new Date(addedAtStr);
+  if (isNaN(added.getTime())) return 1;
+  
+  const today = new Date();
+  let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
+  
+  if (today.getDate() < added.getDate()) {
+    m--;
+  }
+  return Math.max(1, m + 1);
+};
+
 export default function Groups() {
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -28,14 +43,6 @@ export default function Groups() {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentToEdit, setStudentToEdit] = useState(null);
-
-  const today = new Date();
-  const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const lastMonthStr = today.getMonth() === 0
-    ? `${today.getFullYear() - 1}-12`
-    : `${today.getFullYear()}-${String(today.getMonth()).padStart(2, "0")}`;
-
-  const targetMonth = today.getDate() <= 5 ? lastMonthStr : currentMonthStr;
 
   const fetchData = async () => {
     setLoading(true);
@@ -109,13 +116,12 @@ export default function Groups() {
     return matchesGroup && matchesSearch;
   });
 
-  // 🔥 Yordamchi funksiya: Aynan shu o'quvchining fan narxini bazadan oladi
   const getStudentGroupPrice = (student, groupName) => {
     if (student.groupsData && Array.isArray(student.groupsData)) {
-      const found = student.groupsData.find(g => g.name === groupName);
+      const found = student.groupsData.find(g => g.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
       if (found && found.price !== undefined) return Number(found.price);
     }
-    return 300000; // Bazada puli yozilmagan bo'lsa 300ming bo'ladi
+    return 300000;
   };
 
   return (
@@ -176,24 +182,22 @@ export default function Groups() {
         ) : (
           filteredStudents.map((s) => {
             const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+            const activeCycles = calculateCycles(s.addedAt);
             
-            // 🔥 YANGI LOGIKA: Qarzni 300mingdan emas, kiritilgan puldan hisoblaymiz
+            // 🔥 YANGLANGAN LOGIKA: Barcha vaqt uchun kutilayotgan summa
             let EXPECTED_TOTAL = 0;
             studentGroups.forEach(g => {
-              EXPECTED_TOTAL += getStudentGroupPrice(s, g);
+              EXPECTED_TOTAL += getStudentGroupPrice(s, g) * activeCycles;
             });
 
-            // Agar o'quvchida umuman guruh bo'lmasa ham, minimum bitta guruh pulini (300ming) olamiz
             if (studentGroups.length === 0) {
-                EXPECTED_TOTAL = 300000;
+                EXPECTED_TOTAL = 300000 * activeCycles;
             }
 
-            const studentPaymentsThisMonth = payments.filter(
-              (p) => p.studentId === s._id && p.month === targetMonth
-            );
-            
+            // O'quvchining barcha vaqt uchun qilgan to'lovlari (all-time history)
+            const studentPaymentsAllTime = payments.filter((p) => p.studentId === s._id);
             let totalPaid = 0;
-            studentPaymentsThisMonth.forEach(p => {
+            studentPaymentsAllTime.forEach(p => {
               totalPaid += Number(p.amount) || 0;
             });
 
@@ -217,7 +221,7 @@ export default function Groups() {
                   
                   <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mt-1">
                     <CalendarDays size={12} />
-                    Ro'yxatdan o'tgan: {formatDate(s.addedAt)}
+                    Ro'yxatdan o'tgan: {formatDate(s.addedAt)} ({activeCycles} oylik)
                   </div>
 
                   <div
@@ -227,7 +231,7 @@ export default function Groups() {
                       "bg-rose-50 text-rose-600"
                     }`}
                   >
-                    {isPaid ? "To'liq to'langan" : qarz > 0 ? `Qarz: ${qarz.toLocaleString()} so'm` : "To'lanmagan"}
+                    {isPaid ? "To'liq to'langan" : qarz > 0 ? `Umumiy Qarz: ${qarz.toLocaleString()} so'm` : "To'lanmagan"}
                   </div>
                 </div>
                 <div className="flex gap-1">
