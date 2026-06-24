@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { User, Phone, BookOpen, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays } from "lucide-react";
+import { User, Phone, BookOpen, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function Profile() {
-  // 🔥 Joriy oyni 5-sana qoidasi bilan topib olamiz (Default uchun)
   const getTargetMonth = () => {
     const today = new Date();
     let year = today.getFullYear();
@@ -23,8 +23,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [debugMsg, setDebugMsg] = useState("");
-  
-  // 🔥 YANGI: Default holatda "Barchasi" emas, Joriy oy turadi
+  const [showQR, setShowQR] = useState(false); // QR oyna holati
   const [selectedHistoryMonth, setSelectedHistoryMonth] = useState(defaultMonthStr);
 
   useEffect(() => {
@@ -113,7 +112,6 @@ export default function Profile() {
   const month = profileData?.month || defaultMonthStr;
   const history = profileData?.paymentsHistory || [];
   
-  // Moliyaviy ma'lumotlar
   const qarz = profileData?.qarz || 0;
   const totalPaid = profileData?.totalPaid || 0;
   const coursePrice = profileData?.coursePrice || 0;
@@ -128,50 +126,22 @@ export default function Profile() {
   };
 
   if (paymentStatus === "paid") {
-    statusConfig = { 
-      iconBg: "bg-emerald-100 text-emerald-600", 
-      badgeBg: "bg-emerald-500 text-white", 
-      text: "To'langan", 
-      subText: "Siz bu oyni to'liq yopgansiz!",
-      icon: <CreditCard size={20} /> 
-    };
+    statusConfig = { iconBg: "bg-emerald-100 text-emerald-600", badgeBg: "bg-emerald-500 text-white", text: "To'langan", subText: "Siz bu oyni to'liq yopgansiz!", icon: <CreditCard size={20} /> };
   } else if (paymentStatus === "partial") {
-    statusConfig = { 
-      iconBg: "bg-orange-100 text-orange-600", 
-      badgeBg: "bg-orange-500 text-white", 
-      text: "Qisman to'langan", 
-      subText: `Umumiy qolgan qarz: ${qarz.toLocaleString()} so'm`,
-      icon: <CreditCard size={20} /> 
-    };
+    statusConfig = { iconBg: "bg-orange-100 text-orange-600", badgeBg: "bg-orange-500 text-white", text: "Qisman to'langan", subText: `Umumiy qolgan qarz: ${qarz.toLocaleString()} so'm`, icon: <CreditCard size={20} /> };
   } else if (paymentStatus === "excepted") {
-    statusConfig = { 
-      iconBg: "bg-amber-100 text-amber-600", 
-      badgeBg: "bg-amber-500 text-white", 
-      text: "Istisno", 
-      subText: "Bu oy uchun ruxsat berilgan",
-      icon: <Clock size={20} /> 
-    };
+    statusConfig = { iconBg: "bg-amber-100 text-amber-600", badgeBg: "bg-amber-500 text-white", text: "Istisno", subText: "Bu oy uchun ruxsat berilgan", icon: <Clock size={20} /> };
   }
 
-  // 🔥 Oylarni shakllantirish va tartiblash
   let uniqueHistoryMonths = [...new Set(history.map(p => p.month))];
-  
-  // Joriy oyni hamisha ro'yxatda ushlab turamiz, hatto o'quvchi hali to'lamagan bo'lsa ham
-  if (!uniqueHistoryMonths.includes(defaultMonthStr)) {
-    uniqueHistoryMonths.push(defaultMonthStr);
-  }
-  
-  // Oylarni kamayish tartibida (eng yangisi tepada) saralaymiz
+  if (!uniqueHistoryMonths.includes(defaultMonthStr)) uniqueHistoryMonths.push(defaultMonthStr);
   uniqueHistoryMonths.sort((a, b) => b.localeCompare(a));
 
-  // Tanlangan oy bo'yicha tarixni filtrlash
-  const filteredHistory = selectedHistoryMonth === "all" 
-    ? history 
-    : history.filter(p => p.month === selectedHistoryMonth);
+  const filteredHistory = selectedHistoryMonth === "all" ? history : history.filter(p => p.month === selectedHistoryMonth);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 animate-in fade-in duration-300">
-      <div className="max-w-md mx-auto min-h-screen bg-white shadow-lg">
+      <div className="max-w-md mx-auto min-h-screen bg-white shadow-lg relative">
         <div className="bg-indigo-600 px-6 py-10 text-center rounded-b-[3rem] relative overflow-hidden">
           <div className="relative z-10">
             <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-white/40 shadow-xl">
@@ -184,7 +154,31 @@ export default function Profile() {
 
         <div className="p-6 -mt-6 relative z-20 space-y-4">
           
-          {/* TO'LOV HOLATI (UMUMIY) */}
+          {/* 🔥 QR-KOD TUGMASI (O'quvchi o'z kodini ko'rishi uchun) */}
+          <button 
+            onClick={() => setShowQR(!showQR)}
+            className="w-full bg-slate-800 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between hover:bg-slate-900 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl"><QrCode size={20} /></div>
+              <div className="text-left">
+                <p className="font-bold">Mening QR-kodim</p>
+                <p className="text-[11px] text-slate-300">Davomat uchun ko'rsating</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg">{showQR ? "Yopish" : "Ochish"}</span>
+          </button>
+
+          {/* QR Kod Oynasi */}
+          {showQR && (
+            <div className="bg-white p-6 rounded-2xl border shadow-sm flex flex-col items-center justify-center animate-in zoom-in duration-200">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 mb-3">
+                <QRCodeSVG value={student._id} size={180} level="H" />
+              </div>
+              <p className="text-xs text-slate-400 font-medium text-center">Ushbu kodni darsga kirishda<br/>o'qituvchiga ko'rsating</p>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl p-5 shadow-lg border border-slate-50 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -206,7 +200,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* FANLAR BO'YICHA ANIQ HISOBOT */}
           {debtDetails.length > 0 && (
             <div className="bg-white rounded-2xl p-5 border shadow-sm">
               <div className="flex items-center gap-3 mb-4">
@@ -233,7 +226,6 @@ export default function Profile() {
             </div>
           )}
 
-          {/* TELEFON */}
           <div className="bg-white rounded-2xl p-5 border shadow-sm flex items-center gap-4">
             <div className="p-3 bg-slate-50 text-slate-500 rounded-xl"><Phone size={20} /></div>
             <div>
@@ -242,7 +234,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* TO'LOVLAR TARIXI (KALENDAR FILTER BILAN) */}
           <div className="bg-white rounded-2xl p-5 border shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b pb-4">
               <div className="flex items-center gap-3">
@@ -252,8 +243,6 @@ export default function Profile() {
                   <p className="text-xs text-slate-400">Kerakli oyni tanlang</p>
                 </div>
               </div>
-              
-              {/* OYNI TANLASH DROPDOWN */}
               <div className="relative">
                 <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500" size={16} />
                 <select 

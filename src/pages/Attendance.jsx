@@ -1,18 +1,20 @@
 import { useState, useEffect } from "react";
-import { Save, Loader2, Search } from "lucide-react";
+import { Save, Loader2, Search, QrCode } from "lucide-react";
+import AttendanceScanner from "../components/AttendanceScanner";
 
 export default function Attendance() {
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]); 
   const [selectedGroup, setSelectedGroup] = useState("");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [attendanceRecords, setAttendanceRecords] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ type: "", text: "" });
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // 🔥 YANGI: Kamera holati
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -22,18 +24,14 @@ export default function Attendance() {
         const data = await res.json();
         if (data && data.success && Array.isArray(data.data)) {
           setStudents(data.data);
-          
-          // YANGILANGAN QISM: Guruhlarni vergul bo'yicha ajratib, toza ro'yxat tuzish
-          const allIndividualGroups = data.data.flatMap((s) =>
-            s.group ? s.group.split(",").map((g) => g.trim()) : []
-          );
+          const allIndividualGroups = data.data.flatMap((s) => s.group ? s.group.split(",").map((g) => g.trim()) : []);
           const uniqueGroups = [...new Set(allIndividualGroups)].filter(Boolean);
           
           setGroups(uniqueGroups);
           if (uniqueGroups.length > 0) setSelectedGroup(uniqueGroups[0]);
         }
       } catch (error) {
-        console.error("O'quvchilarni yuklashda xatolik:", error);
+        console.error("Xatolik:", error);
       } finally {
         setLoading(false);
       }
@@ -46,21 +44,17 @@ export default function Attendance() {
     const fetchAttendance = async () => {
       setLoading(true);
       try {
-        const res = await fetch(
-          `/api/attendance?groupName=${selectedGroup}&date=${selectedDate}`
-        );
+        const res = await fetch(`/api/attendance?groupName=${selectedGroup}&date=${selectedDate}`);
         const result = await res.json();
         if (result?.success && Array.isArray(result.data?.records)) {
           const mapped = {};
-          result.data.records.forEach((r) => {
-            mapped[r.studentId] = r.status;
-          });
+          result.data.records.forEach((r) => { mapped[r.studentId] = r.status; });
           setAttendanceRecords(mapped);
         } else {
           setAttendanceRecords({});
         }
       } catch (error) {
-        console.error("Davomatni yuklashda xatolik:", error);
+        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -68,22 +62,17 @@ export default function Attendance() {
     fetchAttendance();
   }, [selectedGroup, selectedDate]);
 
-  // YANGILANGAN QISM: O'quvchi guruhlari ichida qidirilayotgan guruh borligini tekshirish
   const currentGroupStudents = students.filter((s) => {
     if (!selectedGroup) return false;
     const studentGroups = s.group ? s.group.split(",").map((g) => g.trim()) : [];
-    
     const matchesGroup = studentGroups.includes(selectedGroup);
     const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase());
-    
     return matchesGroup && matchesSearch;
   });
 
   const markAllPresent = () => {
     const newRecords = { ...attendanceRecords };
-    currentGroupStudents.forEach((s) => {
-      newRecords[s._id] = "keldi";
-    });
+    currentGroupStudents.forEach((s) => { newRecords[s._id] = "keldi"; });
     setAttendanceRecords(newRecords);
   };
 
@@ -101,9 +90,7 @@ export default function Attendance() {
         })),
       };
       const res = await fetch("/api/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       if (res.ok) setStatus({ type: "success", text: "Davomat saqlandi!" });
       setTimeout(() => setStatus({ type: "", text: "" }), 3000);
@@ -116,6 +103,26 @@ export default function Attendance() {
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24">
+      
+      {/* 🔥 QR SKANER TUGMASI VA OYNASI */}
+      <div className="mb-6">
+        <button 
+          onClick={() => setShowScanner(!showScanner)}
+          className={`w-full p-4 rounded-2xl shadow-sm border font-bold flex items-center justify-center gap-2 transition-all ${
+            showScanner ? "bg-slate-800 text-white border-slate-800" : "bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50"
+          }`}
+        >
+          <QrCode size={20} />
+          {showScanner ? "Kamerani yopish" : "QR-Kod orqali davomat olish"}
+        </button>
+
+        {showScanner && (
+          <div className="mt-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <AttendanceScanner />
+          </div>
+        )}
+      </div>
+
       <div className="bg-white p-4 rounded-2xl border mb-6 shadow-sm space-y-4">
         <div className="flex flex-wrap gap-4">
           <select
@@ -123,11 +130,7 @@ export default function Attendance() {
             onChange={(e) => setSelectedGroup(e.target.value)}
             className="p-3 border rounded-xl font-bold bg-slate-50 flex-1 cursor-pointer outline-none focus:border-indigo-500"
           >
-            {groups.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
+            {groups.map((g) => (<option key={g} value={g}>{g}</option>))}
           </select>
           <input
             type="date"
@@ -156,23 +159,21 @@ export default function Attendance() {
 
       <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
         {currentGroupStudents.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 font-medium">
-            Tanlangan guruhda o'quvchi topilmadi.
-          </div>
+          <div className="p-8 text-center text-slate-500 font-medium">Tanlangan guruhda o'quvchi topilmadi.</div>
         ) : (
           currentGroupStudents.map((s) => (
-            <div key={s._id} className="p-4 border-b flex justify-between items-center hover:bg-slate-50 transition-colors">
+            <div key={s._id} className="p-4 border-b flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:bg-slate-50 transition-colors">
               <span className="font-bold text-slate-700">{s.name}</span>
-              <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+              <div className="flex bg-slate-100 p-1 rounded-xl gap-1 w-full sm:w-auto">
                 <button
                   onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: "keldi"})}
-                  className={`px-6 py-2 rounded-lg font-bold transition-all ${attendanceRecords[s._id] === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                  className={`flex-1 sm:flex-none px-6 py-2 rounded-lg font-bold transition-all ${attendanceRecords[s._id] === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
                 >
                   Keldi
                 </button>
                 <button
                   onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: "kelmadi"})}
-                  className={`px-6 py-2 rounded-lg font-bold transition-all ${attendanceRecords[s._id] === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                  className={`flex-1 sm:flex-none px-6 py-2 rounded-lg font-bold transition-all ${attendanceRecords[s._id] === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
                 >
                   Kelmadi
                 </button>
@@ -182,7 +183,7 @@ export default function Attendance() {
         )}
       </div>
 
-      <div className="fixed bottom-6 right-6 flex items-center gap-3">
+      <div className="fixed bottom-6 right-6 flex items-center gap-3 z-40">
         {status.text && (
           <div className={`px-4 py-2 rounded-xl font-bold text-sm shadow-sm ${status.type === "success" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
             {status.text}
