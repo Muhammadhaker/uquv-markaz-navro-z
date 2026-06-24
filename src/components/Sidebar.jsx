@@ -1,9 +1,9 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, CalendarCheck, UserCheck, X, Menu, History, Printer, Download } from "lucide-react";
+import { LayoutDashboard, Users, CalendarCheck, UserCheck, X, History, Printer, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 
-export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
+// 🔥 DIQQAT: isOpen va setIsOpen props orqali keladi
+export default function Sidebar({ isOpen, setIsOpen }) {
   const role = localStorage.getItem("userRole");
   
   // PWA Ilova o'rnatish so'rovini ushlab turuvchi state
@@ -50,7 +50,7 @@ export default function Sidebar() {
       document.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [setIsOpen]);
 
   // 🔥 Ilovani yuklash funksiyasi
   const handleInstallClick = async () => {
@@ -63,7 +63,7 @@ export default function Sidebar() {
     } else {
       alert(
         "📥 ILONVANI O'RNATISH QO'LLANMASI:\n\n" +
-        "🤖 Android uchun: Brauzerning o'ng yuqori burchagidagi (⋮) uchta nuqtani bosing va «Uy ekraniga qo'shish» (Add to Home screen) tugmasini tanlang.\n\n" +
+        "🤖 Android uchun: Brauzerning o'ng yuqori burchagidagi (⋮) uchta nuqtani bosing va «Bosh ekranga qo'shish» tugmasini tanlang.\n\n" +
         "🍎 iPhone uchun: Pastdagi o'rtada turgan ulashish (Share) tugmasini bosing va pastga tushib «Ekranga qo'shish» (Add to Home Screen) tugmasini tanlang."
       );
     }
@@ -73,10 +73,7 @@ export default function Sidebar() {
   const navItems = [
     { to: "/dashboard", label: "Umumiy statistika", icon: LayoutDashboard, show: role === "super_admin" },
     { to: "/groups", label: "Guruhlar va To'lov", icon: Users, show: role === "super_admin" },
-    
-    // Oddiy admin faqat davomatni ko'radi
-    { to: "/attendance", label: "Davomat", icon: CalendarCheck, show: true },
-    
+    { to: "/attendance", label: "Davomat", icon: CalendarCheck, show: true }, // Buni hamma ko'radi
     { to: "/badges", label: "Bejiklar chiqarish", icon: Printer, show: role === "super_admin" },
     { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === "super_admin" },
     { to: "/logs", label: "Harakatlar tarixi", icon: History, show: role === "super_admin" },
@@ -84,10 +81,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <button className="md:hidden p-4 text-slate-800 fixed top-0 left-0 z-50" onClick={() => setIsOpen(true)}>
-        <Menu size={24} />
-      </button>
-
+      {/* Qora ekran (Mobil uchun) */}
       {isOpen && (
         <div className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={() => setIsOpen(false)} />
       )}
@@ -101,7 +95,7 @@ export default function Sidebar() {
           <button className="md:hidden" onClick={() => setIsOpen(false)}><X size={24} /></button>
         </div>
 
-        {/* O'rta qism: Menyular (Skarol bo'ladigan joy) */}
+        {/* O'rta qism: Menyular */}
         <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
           {navItems.map((item) => item.show && (
             <NavLink
@@ -116,7 +110,7 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {/* 🔥 Pastki qism: Yuklash tugmasi (Hech qachon yo'qolmaydi) */}
+        {/* 🔥 Pastki qism: Yuklash tugmasi */}
         <div className="flex-shrink-0 p-4 border-t border-slate-800 bg-slate-900">
           <button
             onClick={handleInstallClick}
