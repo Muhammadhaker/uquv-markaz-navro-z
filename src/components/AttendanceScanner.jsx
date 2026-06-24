@@ -12,22 +12,20 @@ export default function AttendanceScanner() {
   const startCamera = async () => {
     setStatus({ type: "", text: "" });
     try {
-      // Html5Qrcode klassidan foydalanamiz (Xunuk dizaynni o'chirib tashlaydi)
       const html5QrCode = new Html5Qrcode("reader");
       scannerRef.current = html5QrCode;
 
       await html5QrCode.start(
-        { facingMode: "environment" }, // Orqa kamerani ochadi
+        { facingMode: "environment" }, 
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
-          // Kod o'qilganda qayta-qayta yozvorolmasligi uchun kamerani pauza qilamiz
           if (scannerRef.current && scannerRef.current.getState() === 2) {
              scannerRef.current.pause(true);
           }
           await markAttendanceViaQR(decodedText);
         },
         (errorMessage) => {
-          // Kod qidirilayotgan paytdagi xatolar e'tiborga olinmaydi
+          // Xatolar e'tiborga olinmaydi
         }
       );
       setIsCameraOpen(true);
@@ -51,7 +49,6 @@ export default function AttendanceScanner() {
     }
   };
 
-  // Oyna yopilganda kamerani ham xavfsiz o'chirish
   useEffect(() => {
     return () => {
       if (scannerRef.current && scannerRef.current.isScanning) {
@@ -66,7 +63,8 @@ export default function AttendanceScanner() {
     setStatus({ type: "", text: "" });
 
     try {
-      const res = await fetch("/api/attendance/scan", {
+      // 🔥 MANZIL TO'G'RILANDI: endi to'g'ridan-to'g'ri /api/scan ga boradi
+      const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -87,10 +85,9 @@ export default function AttendanceScanner() {
       setStatus({ type: "error", text: "❌ Server bilan bog'lanishda xato." });
     } finally {
       setLoading(false);
-      // 🔥 2 soniyadan so'ng ekranni tozalab, kamerani KEYINGI O'QUVCHI UCHUN davom ettiramiz
       setTimeout(() => {
         setStatus({ type: "", text: "" });
-        if (scannerRef.current && scannerRef.current.getState() === 3) { // 3 = PAUSED holati
+        if (scannerRef.current && scannerRef.current.getState() === 3) {
            scannerRef.current.resume();
         }
       }, 2000);
@@ -102,10 +99,8 @@ export default function AttendanceScanner() {
       <h2 className="text-2xl font-bold text-slate-800">QR-Davomat</h2>
       <p className="text-sm text-slate-500 -mt-4">O'quvchi bejigidagi kodni kameraga tuting</p>
       
-      {/* Kamera ekrani mana shu ramka ichida ochiladi */}
       <div className="relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-white shadow-xl min-h-[300px] flex items-center justify-center">
         
-        {/* 🔥 BIZNING SHAXSIY "TUGMA" DIZAYNIMIZ */}
         {!isCameraOpen && !loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 z-10 p-6">
              <Camera size={48} className="text-indigo-300 mb-4" />
@@ -124,7 +119,6 @@ export default function AttendanceScanner() {
         <div id="reader" className="w-full"></div>
       </div>
 
-      {/* Kamera ochiq paytida uni yopish tugmasi */}
       {isCameraOpen && (
          <button 
            onClick={stopCamera}
