@@ -7,14 +7,19 @@ export default function Header() {
 
   return (
     <header className="bg-white shadow-sm px-4 md:px-8 py-4 flex justify-between items-center border-b h-16">
-      <h2 className="font-bold text-slate-700 hidden md:block">
-        Bosh Admin Paneli
+      
+      {/* 🔥 CHAP TOMON: CRM TIZIMI yozuvi */}
+      <h1 className="font-black text-slate-800 text-lg tracking-wider hidden md:block">
+        CRM TIZIMI
+      </h1>
+      
+      {/* Bu qism telefonda ham ko'rinishi uchun kichikroq o'lchamda */}
+      <h2 className="font-bold text-slate-700 md:hidden">
+         Bosh Admin
       </h2>
       
-      {/* ml-auto orqali hamma elementlar o'ng tomonga taqaladi. pl-12 telefon menyusi tugmasiga joy tashlaydi */}
-      <div className="flex items-center gap-3 sm:gap-4 ml-auto pl-12 md:pl-0">
+      <div className="flex items-center gap-3 sm:gap-4 ml-auto">
         
-        {/* 🔥 YASHRINISH OLIB TASHALDI: Endi telefonda ham doim ko'rinadi */}
         <span className="font-bold text-slate-700 text-sm sm:text-base sm:font-medium sm:text-slate-600 truncate max-w-[120px] sm:max-w-none">
           {username}
         </span>
@@ -23,6 +28,12 @@ export default function Header() {
 
         <button
           onClick={() => {
+            // 🔥 BU YERGA O'RNATISH TUGMASI QO'SHILDI
+            const deferredPrompt = window.deferredPrompt; 
+            if (deferredPrompt) {
+              deferredPrompt.prompt();
+            }
+            
             localStorage.clear();
             navigate("/login");
           }}
