@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Loader2, UserPlus, Pencil, Trash2, Filter, CalendarDays } from "lucide-react";
+import { Search, Loader2, UserPlus, Pencil, Trash2, Filter, CalendarDays, Users } from "lucide-react"; // 🔥 Users ikonkasini qo'shdim
 import AddStudentModal from "../components/AddStudentModal";
 import StudentDetailModal from "../components/StudentDetailModal";
 
@@ -127,18 +127,48 @@ export default function Groups() {
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto pb-20">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">O'quvchilar</h1>
+        <h1 className="text-2xl font-bold text-slate-800">O'quvchilar jadvali</h1>
         <button
           onClick={() => {
             setStudentToEdit(null);
             setIsStudentModalOpen(true);
           }}
-          className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+          className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-md"
         >
           <UserPlus size={20} /> Yangi o'quvchi
         </button>
       </div>
 
+      {/* 🔥 YANGI QISM: TEZKOR STATISTIKA KARTALARI */}
+      {!loading && students.length > 0 && (
+        <div className="flex gap-4 mb-6 overflow-x-auto pb-2 custom-scrollbar">
+          {/* Jami o'quvchilar (Asosiy karta) */}
+          <div className="min-w-[150px] bg-indigo-600 text-white p-4 rounded-2xl shadow-sm flex-shrink-0 relative overflow-hidden">
+            <Users className="absolute -right-2 -bottom-2 text-indigo-500 opacity-50" size={64} />
+            <div className="text-indigo-200 text-[10px] font-bold uppercase tracking-wider mb-1 relative z-10">Jami O'quvchilar</div>
+            <div className="text-3xl font-black relative z-10">{students.length} <span className="text-sm font-medium opacity-80">ta</span></div>
+          </div>
+
+          {/* Har bir guruh uchun hisoblagich */}
+          {uniqueGroups.filter(g => g !== "Barchasi").map(group => {
+            const count = students.filter(s => {
+              const sGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
+              return sGroups.includes(group);
+            }).length;
+
+            return (
+              <div key={group} className="min-w-[140px] bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex-shrink-0">
+                <div className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 truncate" title={group}>
+                  {group}
+                </div>
+                <div className="text-2xl font-black text-slate-700">{count} <span className="text-xs font-medium text-slate-400">ta</span></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Qidiruv va Filtr */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -184,7 +214,7 @@ export default function Groups() {
             const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
             const activeCycles = calculateCycles(s.addedAt);
             
-            // 🔥 YANGLANGAN LOGIKA: Barcha vaqt uchun kutilayotgan summa
+            // Barcha vaqt uchun kutilayotgan summa
             let EXPECTED_TOTAL = 0;
             studentGroups.forEach(g => {
               EXPECTED_TOTAL += getStudentGroupPrice(s, g) * activeCycles;
@@ -225,7 +255,7 @@ export default function Groups() {
                   </div>
 
                   <div
-                    className={`text-xs font-bold mt-2 inline-block px-2 py-0.5 rounded-md ${
+                    className={`text-xs font-bold mt-2 inline-block px-2.5 py-1 rounded-md ${
                       isPaid ? "bg-emerald-50 text-emerald-600" : 
                       isPartial ? "bg-orange-50 text-orange-600" : 
                       "bg-rose-50 text-rose-600"
@@ -274,6 +304,24 @@ export default function Groups() {
           onRefresh={fetchData}
         />
       )}
+
+      {/* 🔥 Scrollbar dizayni uchun CSS */}
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9; 
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1; 
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8; 
+        }
+      `}</style>
     </div>
   );
 }
