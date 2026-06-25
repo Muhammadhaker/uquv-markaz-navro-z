@@ -78,16 +78,59 @@ export default async function handler(req, res) {
     }
   }
 
-  // 2. YANGI ADMIN QO'SHISH — POST (action: 'create')
-  if (req.method === 'POST' && req.body.action === 'create') {
-    const { username, password, role } = req.body;
+// 1. TIZIMGA KIRISH (LOGIN) — POST
+  if (req.method === 'POST' && req.body.action !== 'create') {
+    const { username, password } = req.body;
     try {
-      const exists = await User.findOne({ username });
-      if (exists) {
-        return res.status(400).json({ success: false, message: "Bunday loginli admin allaqachon mavjud!" });
+      const user = await User.findOne({ username, password });
+      
+      if (user) {
+        // 🔥 QURILMA MODELINI ANIQLASH (Model nomi bilan birga)
+        const userAgent = req.headers['user-agent'] || '';
+        let deviceName = 'Noma\'lum qurilma';
+
+        // iPhone modellarini aniqlash
+        if (/iPhone/i.test(userAgent)) {
+            deviceName = 'iPhone';
+        } 
+        // Samsung modellarini aniqlash
+        else if (/Samsung|SM-[A-Z0-9]+/i.test(userAgent)) {
+            deviceName = userAgent.match(/SM-[A-Z0-9]+/i)?.[0] || 'Samsung Device';
+        }
+        // Xiaomi modellarini aniqlash
+        else if (/Redmi|Mi|Xiaomi/i.test(userAgent)) {
+            deviceName = userAgent.match(/(Redmi|Mi|Xiaomi) [A-Z0-9]+/i)?.[0] || 'Xiaomi Device';
+        }
+        // Windows/Mac/Linux kompyuterlar
+        else if (/Windows NT/i.test(userAgent)) deviceName = 'Windows PC';
+        else if (/Macintosh/i.test(userAgent)) deviceName = 'MacBook / Mac';
+        else if (/Android/i.test(userAgent)) {
+            // Android qurilmalar uchun umumiy modelni izlash
+            const match = userAgent.match(/\(([^)]+)\)/);
+            deviceName = match ? match[1].split(';')[1]?.trim() || 'Android Device' : 'Android Device';
+        }
+
+        // 🔥 Tarixga yangi kirishni qo'shamiz
+        const newLogin = {
+          device: deviceName,
+          time: new Date()
+        };
+
+        if (!user.loginHistory) user.loginHistory = [];
+        
+        // Yangi kirishni ro'yxat boshiga qo'shamiz
+        user.loginHistory.unshift(newLogin);
+        
+        // Oxirgi 5 ta tarixni olib qolamiz
+        if (user.loginHistory.length > 5) {
+          user.loginHistory = user.loginHistory.slice(0, 5);
+        }
+
+        await user.save();
+
+        return res.status(200).json({ success: true, role: user.role, username: user.username });
       }
-      const newUser = await User.create({ username, password, role });
-      return res.status(201).json({ success: true, data: newUser });
+      return res.status(401).json({ success: false, message: "Login yoki parol xato!" });
     } catch (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
