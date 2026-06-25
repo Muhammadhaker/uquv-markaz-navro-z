@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 // 🔥 DIQQAT: isOpen va setIsOpen props orqali keladi
 export default function Sidebar({ isOpen, setIsOpen }) {
   const role = localStorage.getItem("userRole");
-  
+
   // PWA Ilova o'rnatish so'rovini ushlab turuvchi state
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
@@ -24,7 +24,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     const handleTouchEnd = (e) => {
       touchEndX = e.changedTouches[0].screenX;
       touchEndY = e.changedTouches[0].screenY;
-      
+
       const xDiff = touchEndX - touchStartX;
       const yDiff = touchEndY - touchStartY;
 
@@ -36,7 +36,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchend', handleTouchEnd);
-    
+
     // Brauzer ilova o'rnatishga tayyorligini eshitib turish
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
@@ -72,8 +72,10 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   // 🔥 Rollarga qarab menyularni ajratish
   const navItems = [
     { to: "/dashboard", label: "Umumiy statistika", icon: LayoutDashboard, show: role === "super_admin" },
-    { to: "/groups", label: "Guruhlar va To'lov", icon: Users, show: role === "super_admin" },
-    { to: "/attendance", label: "Davomat", icon: CalendarCheck, show: true }, // Buni hamma ko'radi
+
+    // 🔥 BU YERDA O'ZGARTIRISH: 'admin' yoki 'super_admin' bo'lsa ko'rinadi
+    { to: "/groups", label: "Guruhlar va To'lov", icon: Users, show: role === "super_admin" || role === "admin" },
+
     { to: "/badges", label: "Bejiklar chiqarish", icon: Printer, show: role === "super_admin" },
     { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === "super_admin" },
     { to: "/logs", label: "Harakatlar tarixi", icon: History, show: role === "super_admin" },
@@ -88,7 +90,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
       {/* Yon menyu asosiy konteyneri */}
       <div className={`${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:static inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 transition-transform duration-300 z-50 flex flex-col shadow-2xl`}>
-        
+
         {/* Tepa qism: Logo */}
         <div className="h-20 flex-shrink-0 flex items-center justify-between px-6 border-b border-slate-800">
           <span className="text-white font-bold tracking-wider">CRM TIZIMI</span>
