@@ -22,7 +22,7 @@ export default function PrintBadges() {
   }, []);
 
   const handlePrint = () => {
-    window.print(); // Browserning pechat qilish oynasini ochadi
+    window.print(); 
   };
 
   if (loading) {
@@ -70,7 +70,8 @@ export default function PrintBadges() {
             {/* Bejikning asosiy qismi (QR kod va Ism) */}
             <div className="badge-body">
               <div className="qr-container">
-                <QRCodeSVG value={student._id} size={110} level="H" />
+                {/* 🔥 BOT MANZILI TO'G'RI VA ANIQ QO'YILDI */}
+                <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={110} level="H" />
               </div>
               
               <div className="student-info">
@@ -91,7 +92,6 @@ export default function PrintBadges() {
 
       {/* 🔥 PRINT PARAMETRLARI UCHUN CSS STYLES */}
       <style jsx>{`
-        /* Standart sahifa ko'rinishi */
         .badge-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(9cm, 1fr));
@@ -102,7 +102,7 @@ export default function PrintBadges() {
         .badge-card {
           width: 9cm;
           height: 6cm;
-          border: 1px dashed #cbd5e1; /* Kesib olish oson bo'lishi uchun uzuq chiziq */
+          border: 1px dashed #cbd5e1; 
           border-radius: 8px;
           background-color: #ffffff;
           box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -163,7 +163,6 @@ export default function PrintBadges() {
           font-weight: 600;
         }
 
-        /* 🖨️ PRINTERGA CHIQARISh SOZLAMALARI (ENG ASOSIY JOYI) */
         @media print {
           body {
             background: white;
@@ -171,14 +170,12 @@ export default function PrintBadges() {
             padding: 0;
             margin: 0;
           }
-          /* Ortiqcha narsalarni butunlay yashiramiz */
           .no-print, navigation, sidebar, header, footer, button {
             display: none !important;
           }
-          /* A4 sahifa setkasi */
           .badge-grid {
             display: grid;
-            grid-template-columns: repeat(2, 9cm); /* A4 eniga roppa-rosa 2 ta bejik tushadi */
+            grid-template-columns: repeat(2, 9cm); 
             gap: 10px;
             padding: 0;
             margin: 0;
@@ -186,12 +183,11 @@ export default function PrintBadges() {
           }
           .badge-card {
             box-shadow: none !important;
-            border: 1px solid #000000 !important; /* Printerda aniq chiqishi uchun qora chiziq */
+            border: 1px solid #000000 !important; 
             background-color: white !important;
-            -webkit-print-color-adjust: exact; /* Rangli fonlar printerda chiqishi uchun */
+            -webkit-print-color-adjust: exact; 
             print-color-adjust: exact;
           }
-          /* Sahifa chetidan chiqib ketmasligi uchun */
           @page {
             size: A4;
             margin: 1cm;

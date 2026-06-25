@@ -6,18 +6,18 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// 🔥 QOLIP O'ZGARTIRILDI: groupsData qo'shildi va strict: false qilindi
+// 🔥 O'ZGARTIRILDI: phone endi majburiy emas.
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   parentName: { type: String, required: true },
-  phone: { type: String, required: true },
+  phone: { type: String, default: "Kiritilmagan" }, 
   group: { type: String, required: true },
   telegramChatId: { type: String, default: null },
-  groupsData: { type: Array, default: [] }, // 🔥 YAngi: Narxlar shu yerda saqlanadi
+  groupsData: { type: Array, default: [] },
   isNewStudent: { type: Boolean, default: true },
   exceptionMonths: { type: [String], default: [] },
   addedAt: { type: Date, default: Date.now }
-}, { strict: false }); // strict: false qildik, toki kelajakda ham yangi maydonlar bemalol saqlansin
+}, { strict: false }); 
 
 const Student = mongoose.models.Student || mongoose.model('Student', studentSchema, 'students');
 
@@ -27,7 +27,6 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const { telegramChatId } = req.query;
-      
       if (telegramChatId) {
         const student = await Student.findOne({ 
             $or: [
@@ -46,7 +45,8 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const newStudent = await Student.create(req.body);
 
-      if (newStudent.telegramChatId) {
+      // Agar formadan to'g'ridan-to'g'ri TG ID kiritilgan bo'lsa xabar boradi
+      if (newStudent.telegramChatId && newStudent.telegramChatId.trim() !== "") {
         try {
           await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
@@ -86,7 +86,6 @@ export default async function handler(req, res) {
     res.status(405).json({ message: "Metod ruxsat etilmagan" });
     
   } catch (error) {
-    console.error("API XATOSI:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 }

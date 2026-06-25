@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { X, Plus, DollarSign } from "lucide-react";
 
 export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
-  // 🔥 Xavfsiz sana formatlovchi funksiya
   const getSafeDate = (dateStr) => {
     try {
       if (!dateStr) return new Date().toISOString().split("T")[0];
@@ -18,9 +17,8 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     name: "",
     parentName: "",
     phone: "+998 ",
-    telegramChatId: "",
     groupsData: [],
-    addedAt: getSafeDate(), // 🔥 YANGI: Sana qo'shildi (Odatiy holatda bugun)
+    addedAt: getSafeDate(),
   });
   
   const [currentGroupInput, setCurrentGroupInput] = useState("");
@@ -29,34 +27,22 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   useEffect(() => {
     if (studentToEdit) {
       let parsedGroups = [];
-      
       if (Array.isArray(studentToEdit.groupsData) && studentToEdit.groupsData.length > 0) {
         parsedGroups = studentToEdit.groupsData;
-      } 
-      else if (studentToEdit.group) {
+      } else if (studentToEdit.group) {
         parsedGroups = studentToEdit.group.split(",").map(g => ({
-          name: g.trim(),
-          price: 300000
+          name: g.trim(), price: 300000
         })).filter(g => g.name);
       }
-
       setFormData({
         name: studentToEdit.name || "",
         parentName: studentToEdit.parentName || "",
-        phone: studentToEdit.phone || "",
-        telegramChatId: studentToEdit.telegramChatId || "",
+        phone: studentToEdit.phone || "+998 ",
         groupsData: parsedGroups,
-        addedAt: getSafeDate(studentToEdit.addedAt), // 🔥 Tahrirlashda eski sanani olib keladi
+        addedAt: getSafeDate(studentToEdit.addedAt),
       });
     } else {
-      setFormData({
-        name: "",
-        parentName: "",
-        phone: "+998 ",
-        telegramChatId: "",
-        groupsData: [],
-        addedAt: getSafeDate(), // Yangi qo'shishda bugungi sana
-      });
+      setFormData({ name: "", parentName: "", phone: "+998 ", groupsData: [], addedAt: getSafeDate() });
     }
     setCurrentGroupInput(""); 
   }, [studentToEdit, isOpen]);
@@ -77,9 +63,8 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     if (trimmed) {
       const alreadyExists = formData.groupsData.some(g => g.name.toLowerCase() === trimmed.toLowerCase());
       if (!alreadyExists) {
-        setFormData((prev) => ({
-          ...prev,
-          groupsData: [...prev.groupsData, { name: trimmed, price: 300000 }],
+        setFormData(prev => ({
+          ...prev, groupsData: [...prev.groupsData, { name: trimmed, price: 300000 }],
         }));
       }
     }
@@ -94,17 +79,15 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   };
 
   const removeGroup = (groupNameToRemove) => {
-    setFormData((prev) => ({
-      ...prev,
-      groupsData: prev.groupsData.filter((g) => g.name !== groupNameToRemove),
+    setFormData(prev => ({
+      ...prev, groupsData: prev.groupsData.filter((g) => g.name !== groupNameToRemove),
     }));
   };
 
   const handlePriceChange = (groupName, newPriceStr) => {
     const rawNumber = Number(newPriceStr.replace(/\D/g, ""));
     setFormData(prev => ({
-      ...prev,
-      groupsData: prev.groupsData.map(g => 
+      ...prev, groupsData: prev.groupsData.map(g => 
         g.name === groupName ? { ...g, price: rawNumber } : g
       )
     }));
@@ -122,9 +105,14 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     const method = studentToEdit ? "PUT" : "POST";
     const finalGroupString = formData.groupsData.map(g => g.name).join(", "); 
     
+    // 🔥 TELEFON MAJBURIY EMAS: Agar bo'sh qoldirsa "Kiritilmagan" deb saqlaydi
+    let finalPhone = formData.phone.trim();
+    if (finalPhone === "+998") finalPhone = "Kiritilmagan";
+
     const body = { 
       ...(studentToEdit && { id: studentToEdit._id }),
       ...formData, 
+      phone: finalPhone,
       group: finalGroupString,
       groupsData: formData.groupsData
     };
@@ -150,7 +138,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         onClose();
       }
     } catch (error) {
-      console.error(error);
       alert("Saqlashda xatolik yuz berdi");
     } finally {
       setLoading(false);
@@ -179,33 +166,17 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
             placeholder="Ota-ona F.I.SH"
             value={formData.parentName}
-            onChange={(e) =>
-              setFormData({ ...formData, parentName: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
           />
           <input
-            required
             className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
-            placeholder="+998 99 123 45 67"
+            placeholder="Telefon (ixtiyoriy)"
             value={formData.phone}
             onChange={handlePhoneChange}
             maxLength={17}
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Telegram ID kiritish qismi */}
-            <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Telegram ID (Ixtiyoriy):</label>
-              <input
-                type="text"
-                className="w-full mt-1 p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
-                placeholder="2025338995"
-                value={formData.telegramChatId}
-                onChange={(e) => setFormData({ ...formData, telegramChatId: e.target.value.replace(/\D/g, "") })}
-              />
-            </div>
-
-            {/* 🔥 YANGI: Qachon qo'shilganini tanlash (Kalendar) */}
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Qo'shilgan sana:</label>
               <input
@@ -244,14 +215,12 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
                 <p className="text-[11px] text-slate-400 font-medium mb-2">Tanlangan guruhlar narxini o'zgartirishingiz mumkin:</p>
                 {formData.groupsData.map((g, index) => (
                   <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-white p-2 border rounded-lg shadow-sm">
-                    
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <button type="button" onClick={() => removeGroup(g.name)} className="text-rose-400 hover:text-rose-600 transition-colors p-1">
                         <X size={16} />
                       </button>
                       <span className="text-sm font-bold text-slate-700 truncate">{g.name}</span>
                     </div>
-
                     <div className="flex items-center relative w-full sm:w-auto mt-2 sm:mt-0">
                       <input 
                         type="text" 
@@ -262,7 +231,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
                       />
                       <DollarSign size={14} className="absolute right-2 text-emerald-600/50 pointer-events-none" />
                     </div>
-
                   </div>
                 ))}
               </div>
@@ -270,18 +238,8 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors"
-            >
-              Bekor qilish
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-indigo-600 font-bold text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-70 flex justify-center items-center"
-            >
+            <button type="button" onClick={onClose} className="w-full py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors">Bekor qilish</button>
+            <button type="submit" disabled={loading} className="w-full py-3 bg-indigo-600 font-bold text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-70 flex justify-center items-center">
               {loading ? "Saqlanmoqda..." : "Saqlash"}
             </button>
           </div>

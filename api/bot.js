@@ -27,8 +27,13 @@ export default async function handler(req, res) {
 
     await connectDB();
     
-    // SUPER QIDIRUV
-    const existingStudent = await Student.findOne({ 
+    // 🔥 1. QR koddan kelgan YASHIRIN ID ni tutib olish
+    let payload = null;
+    if (text.startsWith('/start ')) {
+        payload = text.split(' ')[1]; // "/start 64b2c..." -> ID ni oladi
+    }
+
+    let existingStudent = await Student.findOne({ 
         $or: [
             { telegramChatId: chatId },
             { telegramChatId: String(chatId) },
@@ -36,13 +41,36 @@ export default async function handler(req, res) {
         ] 
     });
 
-    // 1-QISM: ℹ️ O'QUV MARKAZ HAQIDA TUGMASI (RASM BILAN)
+    // 🔥 2. AGAR FOYDALANUVCHI QR KOD O'QITIB KIRSA
+    if (payload) {
+        try {
+            // Shu yashirin ID ga ega o'quvchini qidiradi
+            const studentToLink = await Student.findById(payload);
+            if (studentToLink) {
+                // Topilsa, shu odamning Telegram IDsini profilga bog'lab qo'yadi!
+                studentToLink.telegramChatId = String(chatId);
+                await studentToLink.save();
+                existingStudent = studentToLink; 
+                
+                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: `✅ *Profil muvaffaqiyatli ulandi!*\n\nTabriklaymiz, *${existingStudent.name}*, ma'lumotlaringizni endi shu yerdan kuzatib borishingiz mumkin.`,
+                        parse_mode: 'Markdown'
+                    })
+                });
+            }
+        } catch (error) {
+            console.log("Xato QR kod formati", error);
+        }
+    }
+
+    // 3-QISM: ℹ️ O'QUV MARKAZ HAQIDA TUGMASI
     if (text === "ℹ️ O'quv markaz haqida") {
-        
-        // Rasm ostidagi chiroyli yozuv
         const captionText = `📐 *Matematika fanidan tajribali va A+ sertifikatlangan ustoz Gʻulomov Navro'z*\n\n🌟 _Biz bilan orzuingiz roʻyobga chiqadi!_\n\n✅ Prezident maktablariga tayyorlov\n✅ Al-Xorazmiy maktablariga tayyorlov\n✅ Ixtisoslashtirilgan maktablarga tayyorlov\n✅ DTM va xalqaro sertifikat imtihonlariga tayyorlov\n\n🏆 *Natijalarimiz:*\n👨‍🎓 6 nafar Al-Xorazmiy maktabi oʻquvchisi\n🏅 15+ nafar xalqaro sertifikat sohiblari\n💯 100+ nafar ixtisoslashtirilgan maktab oʻquvchilari\n\n📍 *Manzil:* Kattaqoʻrgʻon tumani, Kadan chorrahasi, Ziyo Nur oʻquv markazi, “Gʻulomov Math Group” xonasi\n\n📞 *Murojaat uchun:* +998 93 271 70 79\n\n🔥 *QABUL OCHIQ!*\n\n_SIZDAN HARAKAT — BIZDAN NATIJA!_`;
         
-        // Telegram API orqali rasmni yuborish
         await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -56,7 +84,7 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    // 2-QISM: 📋 MENING MA'LUMOTLARIM TUGMASI
+    // 4-QISM: 📋 MENING MA'LUMOTLARIM TUGMASI
     if (text === "📋 Mening ma'lumotlarim") {
         if (existingStudent) {
             const regDate = formatDate(existingStudent.addedAt);
@@ -77,8 +105,8 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    // 3-QISM: /start BUYRUG'I
-    if (text === '/start') {
+    // 5-QISM: /start BUYRUG'I
+    if (text === '/start' || text.startsWith('/start ')) {
         let replyText = "";
         let keyboard = {};
 
@@ -88,13 +116,13 @@ export default async function handler(req, res) {
             keyboard = {
                 keyboard: [
                     [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }],
-                    [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }] // 🔥 MANA SHU YERGA QO'SHILDI
+                    [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }]
                 ],
                 resize_keyboard: true,
                 is_persistent: true
             };
         } else {
-            replyText = `Assalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Quyidagi menyudan kerakli bo'limni tanlang 👇`;
+            replyText = `Assalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Profilingizni ulash uchun bejigingizdagi QR kodni kameraga tuting yoki pastdan ro'yxatdan o'ting 👇`;
             
             keyboard = {
                 keyboard: [
