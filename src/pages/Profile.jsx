@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Phone, BookOpen, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays, QrCode } from "lucide-react";
+import { User, Phone, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays, QrCode, MoreVertical, LogOut, Users, ChevronRight } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 export default function Profile() {
@@ -9,21 +9,22 @@ export default function Profile() {
     let month = today.getMonth() + 1;
     if (today.getDate() <= 5) {
       month -= 1;
-      if (month === 0) {
-        month = 12;
-        year -= 1;
-      }
+      if (month === 0) { month = 12; year -= 1; }
     }
     return `${year}-${String(month).padStart(2, "0")}`;
   };
 
   const defaultMonthStr = getTargetMonth();
 
-  const [profileData, setProfileData] = useState(null);
+  // 🔥 YANGI HOLATLAR (STATE)
+  const [studentsList, setStudentsList] = useState([]); // Barcha bolalar ro'yxati
+  const [selectedIdx, setSelectedIdx] = useState(null); // Qaysi bolani ko'ryapti
+  const [showMenu, setShowMenu] = useState(false); // Burchakdagi menyu
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [debugMsg, setDebugMsg] = useState("");
-  const [showQR, setShowQR] = useState(false); // QR oyna holati
+  const [showQR, setShowQR] = useState(false); 
   const [selectedHistoryMonth, setSelectedHistoryMonth] = useState(defaultMonthStr);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function Profile() {
       if (!currentChatId) {
         setLoading(false);
         setError(true);
-        setDebugMsg("Telegram ID topilmadi. Ssilka yoki WebApp orqali muammo bor.");
+        setDebugMsg("Telegram ID topilmadi.");
         return;
       }
 
@@ -63,8 +64,12 @@ export default function Profile() {
         }
 
         const data = await res.json();
-        if (data.success) {
-          setProfileData(data);
+        if (data.success && data.students.length > 0) {
+          setStudentsList(data.students);
+          // Agar faqat 1 ta bola bo'lsa, to'g'ridan-to'g'ri uning profiliga kiradi
+          if (data.students.length === 1) {
+            setSelectedIdx(0);
+          }
         } else {
           setDebugMsg(`Baza topmadi: ${data.message}`);
           setError(true);
@@ -80,6 +85,43 @@ export default function Profile() {
     fetchProfile();
   }, []);
 
+  // 🔥 PROFILNI UZISH FUNKSIYASI
+  const handleDisconnect = async () => {
+    if (!window.confirm("Haqiqatan ham bu profilni hisobingizdan uzib tashlamoqchimisiz?")) return;
+    
+    const currentStudent = studentsList[selectedIdx];
+    setLoading(true);
+    setShowMenu(false);
+
+    try {
+      const res = await fetch('/api/student-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disconnect', studentId: currentStudent.data._id })
+      });
+      const result = await res.json();
+      
+      if (result.success) {
+        // Muvaffaqiyatli uzilsa, shu bolani ro'yxatdan olib tashlaymiz
+        const newList = studentsList.filter((_, idx) => idx !== selectedIdx);
+        setStudentsList(newList);
+        
+        if (newList.length === 1) setSelectedIdx(0);
+        else if (newList.length > 1) setSelectedIdx(null); // Tanlash ekraniga qaytadi
+        else {
+          setError(true); // Agar umuman bola qolmasa, xato ekrani chiqadi
+          setDebugMsg("Sizda ulangan profillar qolmadi.");
+        }
+      } else {
+        alert("Xatolik: " + result.message);
+      }
+    } catch (error) {
+      alert("Internet xatosi!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatMonthName = (m) => {
     if (!m) return "";
     const [y, mm] = m.split("-");
@@ -88,14 +130,10 @@ export default function Profile() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-indigo-600" size={40} />
-      </div>
-    );
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" size={40} /></div>;
   }
 
-  if (error || !profileData) {
+  if (error || studentsList.length === 0) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 w-full max-w-sm">
@@ -107,15 +145,57 @@ export default function Profile() {
     );
   }
 
-  const student = profileData?.data || {};
-  const paymentStatus = profileData?.paymentStatus || "unpaid";
-  const month = profileData?.month || defaultMonthStr;
-  const history = profileData?.paymentsHistory || [];
+  // ==========================================
+  // 🔥 1. PROFIL TANLASH EKRANI (KIRISH QISMI)
+  // ==========================================
+  if (selectedIdx === null) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col p-6 animate-in fade-in duration-300">
+        <div className="text-center mt-10 mb-8">
+          <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Users size={40} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800">Qaysi profilga kirasiz?</h2>
+          <p className="text-slate-500 text-sm mt-2">Sizning hisobingizga {studentsList.length} ta o'quvchi ulangan</p>
+        </div>
+
+        <div className="space-y-4 max-w-md mx-auto w-full">
+          {studentsList.map((st, idx) => (
+            <button 
+              key={st.data._id} 
+              onClick={() => setSelectedIdx(idx)}
+              className="w-full bg-white p-5 rounded-2xl shadow-sm border border-slate-100 text-left flex items-center gap-4 hover:border-indigo-300 hover:shadow-md transition-all active:scale-[0.98]"
+            >
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <User size={24} />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <h3 className="font-bold text-lg text-slate-800 truncate">{st.data.name}</h3>
+                <p className="text-sm text-slate-500 truncate">{st.data.group || "Guruhsiz"}</p>
+              </div>
+              <div className="text-slate-300">
+                <ChevronRight size={24} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 🔥 2. ASOSIY PROFIL EKRANI (TANLANGANDAN SO'NG)
+  // ==========================================
+  const currentProfile = studentsList[selectedIdx];
+  const student = currentProfile.data;
+  const paymentStatus = currentProfile.paymentStatus;
+  const month = currentProfile.month;
+  const history = currentProfile.paymentsHistory;
   
-  const qarz = profileData?.qarz || 0;
-  const totalPaid = profileData?.totalPaid || 0;
-  const coursePrice = profileData?.coursePrice || 0;
-  const debtDetails = profileData?.debtDetails || []; 
+  const qarz = currentProfile.qarz;
+  const totalPaid = currentProfile.totalPaid;
+  const coursePrice = currentProfile.coursePrice;
+  const debtDetails = currentProfile.debtDetails; 
 
   let statusConfig = {
     iconBg: "bg-rose-100 text-rose-600",
@@ -136,14 +216,47 @@ export default function Profile() {
   let uniqueHistoryMonths = [...new Set(history.map(p => p.month))];
   if (!uniqueHistoryMonths.includes(defaultMonthStr)) uniqueHistoryMonths.push(defaultMonthStr);
   uniqueHistoryMonths.sort((a, b) => b.localeCompare(a));
-
   const filteredHistory = selectedHistoryMonth === "all" ? history : history.filter(p => p.month === selectedHistoryMonth);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 animate-in fade-in duration-300">
       <div className="max-w-md mx-auto min-h-screen bg-white shadow-lg relative">
-        <div className="bg-indigo-600 px-6 py-10 text-center rounded-b-[3rem] relative overflow-hidden">
-          <div className="relative z-10">
+        
+        <div className="bg-indigo-600 px-6 py-10 text-center rounded-b-[3rem] relative overflow-visible">
+          
+          {/* 🔥 BURCHAKDAGI MENYU (ALMASHTIRISH / UZISH) */}
+          <div className="absolute top-4 right-4 z-50">
+            <button 
+              onClick={() => setShowMenu(!showMenu)} 
+              className="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-colors"
+            >
+              <MoreVertical size={20} />
+            </button>
+            
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)}></div>
+                <div className="absolute top-12 right-0 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+                  {studentsList.length > 1 && (
+                    <button 
+                      onClick={() => { setSelectedIdx(null); setShowMenu(false); }}
+                      className="w-full text-left px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 border-b flex items-center gap-3"
+                    >
+                      <Users size={16} className="text-indigo-500" /> Boshqa profilga o'tish
+                    </button>
+                  )}
+                  <button 
+                    onClick={handleDisconnect}
+                    className="w-full text-left px-4 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-3"
+                  >
+                    <LogOut size={16} /> Profilni uzib tashlash
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="relative z-10 mt-2">
             <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-white/40 shadow-xl">
               <User size={36} className="text-white" />
             </div>
@@ -154,11 +267,7 @@ export default function Profile() {
 
         <div className="p-6 -mt-6 relative z-20 space-y-4">
           
-          {/* 🔥 QR-KOD TUGMASI (O'quvchi o'z kodini ko'rishi uchun) */}
-          <button 
-            onClick={() => setShowQR(!showQR)}
-            className="w-full bg-slate-800 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between hover:bg-slate-900 transition-colors"
-          >
+          <button onClick={() => setShowQR(!showQR)} className="w-full bg-slate-800 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between hover:bg-slate-900 transition-colors">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-xl"><QrCode size={20} /></div>
               <div className="text-left">
@@ -169,7 +278,6 @@ export default function Profile() {
             <span className="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg">{showQR ? "Yopish" : "Ochish"}</span>
           </button>
 
-          {/* QR Kod Oynasi */}
           {showQR && (
             <div className="bg-white p-6 rounded-2xl border shadow-sm flex flex-col items-center justify-center animate-in zoom-in duration-200">
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 mb-3">

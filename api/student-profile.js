@@ -15,18 +15,34 @@ export default async function handler(req, res) {
 
   await connectDB();
 
+  // 🔥 1. PROFILNI UZIB TASHLASH (DISCONNECT)
+  if (req.method === 'POST') {
+    try {
+      const { action, studentId } = req.body;
+      if (action === 'disconnect') {
+        // Shu o'quvchidan telegramChatId ni o'chirib tashlaymiz (null qilamiz)
+        await Student.findByIdAndUpdate(studentId, { $set: { telegramChatId: null } });
+        return res.status(200).json({ success: true, message: "Profil hisobdan uzildi!" });
+      }
+    } catch (err) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  // 🔥 2. BARCHA ULANGAN PROFILLARNI OLIB KELISH
   if (req.method === 'GET') {
     try {
       const { chatId } = req.query;
       
-      const student = await Student.findOne({ 
+      // Bitta odamga ulangan BARCHA o'quvchilarni topamiz (find ishlatildi)
+      const students = await Student.find({ 
         $or: [
           { telegramChatId: Number(chatId) },
           { telegramChatId: String(chatId) }
         ]
       });
 
-      if (!student) {
+      if (!students || students.length === 0) {
         return res.status(404).json({ success: false, message: "O'quvchi topilmadi" });
       }
 
@@ -43,88 +59,93 @@ export default async function handler(req, res) {
       }
       
       const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
-      const safeId = student._id.toString();
 
-      // 1. Joriy oy to'lovlarini xavfsiz ID orqali tekshirish
-      const currentMonthPayments = await Payment.find({ 
-        $or: [ { studentId: student._id }, { studentId: safeId } ],
-        month: targetMonth 
-      });
-      
-      const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-      
-      // 🔥 YANGI: Bazadan fan narxini aniq o'qib oladigan funksiya
-      const getPrice = (groupName) => {
-        if (student.groupsData && Array.isArray(student.groupsData)) {
-          const match = student.groupsData.find(x => x.name === groupName);
-          if (match && match.price !== undefined) return Number(match.price);
-        }
-        return 300000; // Eski formatda qolganlar uchun default
-      };
+      // Barcha o'quvchilarning to'lov holatini bittama-bitta hisoblab chiqamiz
+      const enrichedStudents = await Promise.all(students.map(async (student) => {
+        const safeId = student._id.toString();
 
-      const debtDetails = [];
-      let EXPECTED_TOTAL = 0;
-      let totalPaidForMonth = 0;
-      let overallQarz = 0;
-
-      if (studentGroups.length > 0) {
-        studentGroups.forEach(g => {
-          const COURSE_PRICE = getPrice(g); // Har bir fan uchun bazadagi o'z narxini oladi
-          EXPECTED_TOTAL += COURSE_PRICE;
-
-          const groupPayments = currentMonthPayments.filter(p => p.groupName === g || !p.groupName);
-          const paidForGroup = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-          totalPaidForMonth += paidForGroup;
-
-          const qarzForGroup = COURSE_PRICE - paidForGroup;
-          if (qarzForGroup > 0) {
-            overallQarz += qarzForGroup;
-          }
-
-          debtDetails.push({
-            group: g,
-            paid: paidForGroup,
-            qarz: qarzForGroup > 0 ? qarzForGroup : 0,
-            isPaid: qarzForGroup <= 0,
-            coursePrice: COURSE_PRICE // Botda aniq narx ko'rinishi uchun yuboramiz
-          });
+        const currentMonthPayments = await Payment.find({ 
+          $or: [ { studentId: student._id }, { studentId: safeId } ],
+          month: targetMonth 
         });
-      } else {
-         // Guruhsiz o'quvchi bo'lsa
-         EXPECTED_TOTAL = 300000;
-         currentMonthPayments.forEach(p => {
-           totalPaidForMonth += Number(p.amount) || 0;
-         });
-         overallQarz = EXPECTED_TOTAL - totalPaidForMonth;
-         if (overallQarz < 0) overallQarz = 0;
-      }
+        
+        const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+        
+        const getPrice = (groupName) => {
+          if (student.groupsData && Array.isArray(student.groupsData)) {
+            const match = student.groupsData.find(x => x.name === groupName);
+            if (match && match.price !== undefined) return Number(match.price);
+          }
+          return 300000;
+        };
 
-      const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
+        const debtDetails = [];
+        let EXPECTED_TOTAL = 0;
+        let totalPaidForMonth = 0;
+        let overallQarz = 0;
 
-      // To'lov holatini aniqlash
-      let paymentStatus = "unpaid"; 
-      if (isExcepted) {
-        paymentStatus = "excepted"; 
-      } else if (overallQarz <= 0) {
-        paymentStatus = "paid"; 
-      } else if (totalPaidForMonth > 0) {
-        paymentStatus = "partial"; 
-      }
+        if (studentGroups.length > 0) {
+          studentGroups.forEach(g => {
+            const COURSE_PRICE = getPrice(g); 
+            EXPECTED_TOTAL += COURSE_PRICE;
 
-      const paymentsHistory = await Payment.find({ 
-        $or: [ { studentId: student._id }, { studentId: safeId } ]
-      }).sort({ date: -1 });
+            const groupPayments = currentMonthPayments.filter(p => p.groupName === g || !p.groupName);
+            const paidForGroup = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+            totalPaidForMonth += paidForGroup;
+
+            const qarzForGroup = COURSE_PRICE - paidForGroup;
+            if (qarzForGroup > 0) {
+              overallQarz += qarzForGroup;
+            }
+
+            debtDetails.push({
+              group: g,
+              paid: paidForGroup,
+              qarz: qarzForGroup > 0 ? qarzForGroup : 0,
+              isPaid: qarzForGroup <= 0,
+              coursePrice: COURSE_PRICE 
+            });
+          });
+        } else {
+           EXPECTED_TOTAL = 300000;
+           currentMonthPayments.forEach(p => {
+             totalPaidForMonth += Number(p.amount) || 0;
+           });
+           overallQarz = EXPECTED_TOTAL - totalPaidForMonth;
+           if (overallQarz < 0) overallQarz = 0;
+        }
+
+        const isExcepted = student.exceptionMonths && student.exceptionMonths.includes(targetMonth);
+
+        let paymentStatus = "unpaid"; 
+        if (isExcepted) {
+          paymentStatus = "excepted"; 
+        } else if (overallQarz <= 0) {
+          paymentStatus = "paid"; 
+        } else if (totalPaidForMonth > 0) {
+          paymentStatus = "partial"; 
+        }
+
+        const paymentsHistory = await Payment.find({ 
+          $or: [ { studentId: student._id }, { studentId: safeId } ]
+        }).sort({ date: -1 });
+
+        // Har bir o'quvchining shaxsiy hisoboti
+        return {
+          data: student,
+          paymentStatus: paymentStatus, 
+          month: targetMonth,
+          coursePrice: EXPECTED_TOTAL, 
+          totalPaid: totalPaidForMonth, 
+          qarz: overallQarz, 
+          debtDetails: debtDetails, 
+          paymentsHistory: paymentsHistory 
+        };
+      }));
 
       return res.status(200).json({ 
         success: true, 
-        data: student,
-        paymentStatus: paymentStatus, 
-        month: targetMonth,
-        coursePrice: EXPECTED_TOTAL, 
-        totalPaid: totalPaidForMonth, 
-        qarz: overallQarz, 
-        debtDetails: debtDetails, 
-        paymentsHistory: paymentsHistory 
+        students: enrichedStudents // Endi ro'yxat (massiv) qaytaradi!
       });
     } catch (error) {
       console.error("Profile API xatosi:", error);

@@ -23,17 +23,18 @@ export default async function handler(req, res) {
 
     const chatId = message.chat.id;
     const text = message.text;
-    const firstName = message.from.first_name || "O'quvchi";
+    const firstName = message.from.first_name || "Mijoz";
 
     await connectDB();
     
-    // 🔥 1. QR koddan kelgan YASHIRIN ID ni tutib olish
+    // QR koddan kelgan YASHIRIN ID ni tutib olish
     let payload = null;
     if (text.startsWith('/start ')) {
-        payload = text.split(' ')[1]; // "/start 64b2c..." -> ID ni oladi
+        payload = text.split(' ')[1];
     }
 
-    let existingStudent = await Student.findOne({ 
+    // 🔥 O'ZGARTIRISH: findOne o'rniga find() ishlatdik. Barcha ulangan profillarni topadi!
+    let existingStudents = await Student.find({ 
         $or: [
             { telegramChatId: chatId },
             { telegramChatId: String(chatId) },
@@ -41,33 +42,47 @@ export default async function handler(req, res) {
         ] 
     });
 
-    // 🔥 2. AGAR FOYDALANUVCHI QR KOD O'QITIB KIRSA
+    // 1-QISM: YANGI QR KOD O'QITILGANDA
     if (payload) {
         try {
-            // Shu yashirin ID ga ega o'quvchini qidiradi
             const studentToLink = await Student.findById(payload);
             if (studentToLink) {
-                // Topilsa, shu odamning Telegram IDsini profilga bog'lab qo'yadi!
-                studentToLink.telegramChatId = String(chatId);
-                await studentToLink.save();
-                existingStudent = studentToLink; 
+                // Tekshiramiz: Bu o'quvchi avval aynan shu odamga ulanganmi?
+                const isAlreadyLinked = existingStudents.some(s => String(s._id) === String(studentToLink._id));
                 
-                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: chatId,
-                        text: `✅ *Profil muvaffaqiyatli ulandi!*\n\nTabriklaymiz, *${existingStudent.name}*, ma'lumotlaringizni endi shu yerdan kuzatib borishingiz mumkin.`,
-                        parse_mode: 'Markdown'
-                    })
-                });
+                if (!isAlreadyLinked) {
+                    studentToLink.telegramChatId = String(chatId);
+                    await studentToLink.save();
+                    
+                    existingStudents.push(studentToLink); // Yangi o'quvchini ro'yxatga qo'shamiz
+                    
+                    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: chatId,
+                            text: `✅ *Yangi profil ulandi!*\n\nTabriklaymiz, *${studentToLink.name}* ham sizning hisobingizga qo'shildi. Endi siz ${existingStudents.length} ta o'quvchini nazorat qilasiz.`,
+                            parse_mode: 'Markdown'
+                        })
+                    });
+                } else {
+                    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: chatId,
+                            text: `⚠️ *Bu profil allaqachon sizga ulangan!* (${studentToLink.name})`,
+                            parse_mode: 'Markdown'
+                        })
+                    });
+                }
             }
         } catch (error) {
             console.log("Xato QR kod formati", error);
         }
     }
 
-    // 3-QISM: ℹ️ O'QUV MARKAZ HAQIDA TUGMASI
+    // 2-QISM: O'QUV MARKAZ HAQIDA TUGMASI
     if (text === "ℹ️ O'quv markaz haqida") {
         const captionText = `📐 *Matematika fanidan tajribali va A+ sertifikatlangan ustoz Gʻulomov Navro'z*\n\n🌟 _Biz bilan orzuingiz roʻyobga chiqadi!_\n\n✅ Prezident maktablariga tayyorlov\n✅ Al-Xorazmiy maktablariga tayyorlov\n✅ Ixtisoslashtirilgan maktablarga tayyorlov\n✅ DTM va xalqaro sertifikat imtihonlariga tayyorlov\n\n🏆 *Natijalarimiz:*\n👨‍🎓 6 nafar Al-Xorazmiy maktabi oʻquvchisi\n🏅 15+ nafar xalqaro sertifikat sohiblari\n💯 100+ nafar ixtisoslashtirilgan maktab oʻquvchilari\n\n📍 *Manzil:* Kattaqoʻrgʻon tumani, Kadan chorrahasi, Ziyo Nur oʻquv markazi, “Gʻulomov Math Group” xonasi\n\n📞 *Murojaat uchun:* +998 93 271 70 79\n\n🔥 *QABUL OCHIQ!*\n\n_SIZDAN HARAKAT — BIZDAN NATIJA!_`;
         
@@ -84,12 +99,19 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    // 4-QISM: 📋 MENING MA'LUMOTLARIM TUGMASI
+    // 3-QISM: MENING MA'LUMOTLARIM TUGMASI (RO'YXAT)
     if (text === "📋 Mening ma'lumotlarim") {
-        if (existingStudent) {
-            const regDate = formatDate(existingStudent.addedAt);
-            const msg = `👤 *Sizning profilingiz:*\n\n🎓 *Ism:* ${existingStudent.name}\n📚 *Fanlar:* ${existingStudent.group}\n📱 *Telefon:* ${existingStudent.phone}\n🗓 *Ro'yxatdan o'tgan sana:* ${regDate}\n\n_To'lov holatini ko'rish uchun pastdagi "👤 Shaxsiy Kabinet" tugmasini bosing!_`;
+        if (existingStudents.length > 0) {
+            // 🔥 Hamma bolalarni bittama-bitta ro'yxat qilib yozadi
+            let msg = `👥 *Sizning hisobingizdagi o'quvchilar (${existingStudents.length} ta):*\n\n`;
             
+            existingStudents.forEach((st, index) => {
+                const regDate = formatDate(st.addedAt);
+                msg += `*${index + 1}. Ism:* ${st.name}\n📚 *Fanlar:* ${st.group || 'Guruhsiz'}\n📱 *Telefon:* ${st.phone}\n🗓 *Qo'shilgan sana:* ${regDate}\n\n`;
+            });
+            
+            msg += `_To'lovlarni ko'rish va hisoblarni boshqarish uchun pastdagi "👤 Shaxsiy Kabinet" tugmasini bosing!_`;
+
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -99,19 +121,19 @@ export default async function handler(req, res) {
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: "Siz hali ro'yxatdan o'tmagansiz. /start buyrug'ini bosing." })
+                body: JSON.stringify({ chat_id: chatId, text: "Siz hali ro'yxatdan o'tmagansiz. Iltimos, bejikingizdagi QR kodni o'qiting." })
             });
         }
         return res.status(200).send('OK');
     }
 
-    // 5-QISM: /start BUYRUG'I
+    // 4-QISM: /start BUYRUG'I
     if (text === '/start' || text.startsWith('/start ')) {
         let replyText = "";
         let keyboard = {};
 
-        if (existingStudent) {
-            replyText = `Assalomu alaykum, *${existingStudent.name}*! 🎓\n\nPastki menyudan kerakli bo'limni tanlang 👇`;
+        if (existingStudents.length > 0) {
+            replyText = `Assalomu alaykum! 🎓\n\nSizning hisobingizga *${existingStudents.length} ta o'quvchi* ulangan. Pastki menyudan kerakli bo'limni tanlang 👇`;
             
             keyboard = {
                 keyboard: [
