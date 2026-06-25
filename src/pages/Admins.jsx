@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   UserPlus, Shield, ShieldAlert, Trash2, Key, Loader2, X, User,
-  Smartphone, Monitor, Clock
+  Smartphone, Monitor, Clock, History
 } from "lucide-react";
 
 export default function Admins() {
@@ -69,35 +69,52 @@ export default function Admins() {
     fetchAdmins();
   };
 
-  // 🔥 Vaqtni chiroyli ko'rsatish funksiyasi
   const formatTime = (dateStr) => {
-    if (!dateStr) return "Hali kirmagan";
+    if (!dateStr) return "";
     const d = new Date(dateStr);
     return d.toLocaleString("ru-RU", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
   };
 
-  // 🔥 Qurilmaga qarab rang va belgi chiqarish funksiyasi
+  // Qurilmaga qarab rang va belgi chiqarish funksiyasi
   const renderDeviceBadge = (deviceStr) => {
     if (!deviceStr) return null;
-    
     let IconComponent = Monitor;
     let colorClass = "text-slate-600 bg-slate-100 border-slate-200";
 
     if (deviceStr.includes("iPhone") || deviceStr.includes("Apple") || deviceStr.includes("Mac")) {
       IconComponent = Smartphone;
-      colorClass = "text-slate-700 bg-slate-100 border-slate-300"; // iPhone/Mac rangi
+      colorClass = "text-slate-700 bg-slate-100 border-slate-300";
     } else if (deviceStr.includes("Android")) {
       IconComponent = Smartphone;
-      colorClass = "text-emerald-700 bg-emerald-50 border-emerald-200"; // Android Yashil
+      colorClass = "text-emerald-700 bg-emerald-50 border-emerald-200";
     } else if (deviceStr.includes("Windows")) {
       IconComponent = Monitor;
-      colorClass = "text-blue-700 bg-blue-50 border-blue-200"; // Windows Moviy
+      colorClass = "text-blue-700 bg-blue-50 border-blue-200";
     }
 
     return (
-      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 w-fit mt-1.5 shadow-sm ${colorClass}`}>
+      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 w-fit shadow-sm ${colorClass}`}>
         <IconComponent size={12} /> {deviceStr}
       </span>
+    );
+  };
+
+  // 🔥 Tarixni chiroyli qilib pastma-past chiqarish funksiyasi
+  const renderLoginHistory = (historyArr) => {
+    if (!historyArr || historyArr.length === 0) {
+      return <span className="text-xs text-slate-400 font-medium italic">Hali tizimga kirmagan</span>;
+    }
+    return (
+      <div className="flex flex-col gap-2 mt-1">
+        {historyArr.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-2 border-l-2 border-indigo-200 pl-2">
+            <span className="text-[11px] font-bold text-slate-500 min-w-[110px]">
+              {formatTime(item.time)}
+            </span>
+            {renderDeviceBadge(item.device)}
+          </div>
+        ))}
+      </div>
     );
   };
 
@@ -107,7 +124,7 @@ export default function Admins() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Tizim Xodimlari</h1>
           <p className="text-slate-500 text-sm">
-            Adminlar va ularning faolligi
+            Adminlar va ularning kirish tarixi (Oxirgi 5 ta)
           </p>
         </div>
         <button
@@ -130,52 +147,46 @@ export default function Admins() {
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
                 <tr>
                   <th className="px-6 py-4">Admin</th>
-                  <th className="px-6 py-4">Parol</th>
-                  <th className="px-6 py-4">Rol</th>
-                  <th className="px-6 py-4">Oxirgi kirish (Qurilma)</th>
+                  <th className="px-6 py-4">Parol / Rol</th>
+                  <th className="px-6 py-4">Kirishlar tarixi</th>
                   <th className="px-6 py-4 text-right">Amallar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {admins.map((a) => (
-                  <tr key={a._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-bold text-slate-800">
+                  <tr key={a._id} className="hover:bg-slate-50 transition-colors align-top">
+                    <td className="px-6 py-4 font-bold text-slate-800 pt-5">
                       <div className="flex items-center gap-2">
                         <User size={16} className="text-slate-400" />
                         {a.username}
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-slate-500 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Key size={14} className="text-slate-400" />
-                        {a.password}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 w-fit ${
-                          a.role === "super_admin"
-                            ? "bg-purple-50 text-purple-700"
-                            : "bg-blue-50 text-blue-700"
-                        }`}
-                      >
-                        {a.role === "super_admin" ? (
-                          <><ShieldAlert size={12} /> SUPER ADMIN</>
-                        ) : (
-                          <><Shield size={12} /> ADMIN</>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                          <Clock size={14} className="text-slate-400"/> 
-                          {formatTime(a.lastLogin)}
+                    <td className="px-6 py-4 pt-5">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 font-mono text-slate-500 text-sm">
+                          <Key size={14} className="text-slate-400" />
+                          {a.password}
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 w-fit ${
+                            a.role === "super_admin"
+                              ? "bg-purple-50 text-purple-700"
+                              : "bg-blue-50 text-blue-700"
+                          }`}
+                        >
+                          {a.role === "super_admin" ? (
+                            <><ShieldAlert size={12} /> SUPER ADMIN</>
+                          ) : (
+                            <><Shield size={12} /> ADMIN</>
+                          )}
                         </span>
-                        {renderDeviceBadge(a.lastDevice)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-3">
+                      {/* 🔥 SHU YERDA TARIX CHIQADI */}
+                      {renderLoginHistory(a.loginHistory)}
+                    </td>
+                    <td className="px-6 py-4 text-right pt-5">
                       {a.username !== "Navroz" && (
                         <button
                           onClick={() => handleDeleteAdmin(a._id, a.username)}
@@ -195,16 +206,29 @@ export default function Admins() {
           {/* TELEFON UCHUN KARTOCHKA */}
           <div className="md:hidden space-y-4">
             {admins.map((a) => (
-              <div key={a._id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
+              <div key={a._id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-4">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                       <User size={18} className="text-indigo-500" />
                       {a.username}
                     </h3>
-                    <div className="flex items-center gap-2 text-slate-500 font-mono text-sm mt-1">
+                    <div className="flex items-center gap-2 text-slate-500 font-mono text-sm mt-1 mb-2">
                       <Key size={14} /> {a.password}
                     </div>
+                    <span
+                      className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 w-fit ${
+                        a.role === "super_admin"
+                          ? "bg-purple-50 text-purple-700"
+                          : "bg-blue-50 text-blue-700"
+                      }`}
+                    >
+                      {a.role === "super_admin" ? (
+                        <><ShieldAlert size={12} /> SUPER ADMIN</>
+                      ) : (
+                        <><Shield size={12} /> ADMIN</>
+                      )}
+                    </span>
                   </div>
                   {a.username !== "Navroz" && (
                     <button
@@ -216,42 +240,20 @@ export default function Admins() {
                   )}
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Ruxsat darajasi:</p>
-                    <span
-                      className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 w-fit ${
-                        a.role === "super_admin"
-                          ? "bg-purple-50 text-purple-700"
-                          : "bg-blue-50 text-blue-700"
-                      }`}
-                    >
-                      {a.role === "super_admin" ? (
-                        <><ShieldAlert size={12} /> SUPER</>
-                      ) : (
-                        <><Shield size={12} /> ADMIN</>
-                      )}
-                    </span>
-                  </div>
-                  
-                  <div className="text-right">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Oxirgi kirish:</p>
-                    <div className="flex flex-col items-end">
-                      <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                        {formatTime(a.lastLogin)}
-                      </span>
-                      {renderDeviceBadge(a.lastDevice)}
-                    </div>
-                  </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <History size={12}/> Kirishlar tarixi:
+                  </p>
+                  {/* 🔥 TELEFONDA HAM TARIX CHIQADI */}
+                  {renderLoginHistory(a.loginHistory)}
                 </div>
-
               </div>
             ))}
           </div>
         </>
       )}
 
-      {/* YANGI XODIM QO'SHISH MODALI */}
+      {/* YANGI XODIM QO'SHISH MODALI (O'ZGARMADI) */}
       {isOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center z-[60] p-4">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 animate-in zoom-in duration-200 shadow-2xl">

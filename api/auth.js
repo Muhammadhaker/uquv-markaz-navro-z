@@ -5,13 +5,12 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// 🔥 YANGI QO'SHILDI: lastLogin va lastDevice
+// 🔥 YANGILANISH: lastLogin o'rniga loginHistory (tarix ro'yxati) qo'shildi
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['super_admin', 'admin'], default: 'admin' },
-  lastLogin: { type: Date, default: null }, 
-  lastDevice: { type: String, default: null }, 
+  loginHistory: { type: Array, default: [] }, // <-- Barcha kirishlar shu yerga yig'iladi
   addedAt: { type: Date, default: Date.now }
 });
 
@@ -43,7 +42,7 @@ export default async function handler(req, res) {
       const user = await User.findOne({ username, password });
       
       if (user) {
-        // 🔥 QURILMANI ANIQLASH LOGIKASI (User-Agent)
+        // QURILMANI ANIQLASH
         const userAgent = req.headers['user-agent'] || '';
         let deviceName = 'Noma\'lum qurilma';
 
@@ -53,9 +52,22 @@ export default async function handler(req, res) {
         else if (/macintosh|mac os/i.test(userAgent)) deviceName = 'MacBook / Apple';
         else if (/linux/i.test(userAgent)) deviceName = 'Linux PC';
 
-        // Oxirgi kirish vaqti va qurilmani yangilaymiz
-        user.lastLogin = new Date();
-        user.lastDevice = deviceName;
+        // 🔥 Tarixga yangi kirishni qo'shamiz
+        const newLogin = {
+          device: deviceName,
+          time: new Date()
+        };
+
+        if (!user.loginHistory) user.loginHistory = [];
+        
+        // Yangi kirishni ro'yxat boshiga qo'shamiz
+        user.loginHistory.unshift(newLogin);
+        
+        // Baza to'lib ketmasligi uchun faqat eng oxirgi 5 ta tarixni olib qolamiz
+        if (user.loginHistory.length > 5) {
+          user.loginHistory = user.loginHistory.slice(0, 5);
+        }
+
         await user.save();
 
         return res.status(200).json({ success: true, role: user.role, username: user.username });
