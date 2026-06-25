@@ -3,6 +3,7 @@ import {
   X, Phone, BookOpen, CreditCard, History, Download, Send, User, Clock, ShieldAlert, Loader2
 } from "lucide-react";
 import PaymentModal from "./PaymentModal";
+import { QRCodeSVG } from "qrcode.react"; // <--- Buni qo'shing
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
@@ -27,10 +28,10 @@ const calculateCycles = (addedAtStr) => {
   if (!addedAtStr) return 1;
   const added = new Date(addedAtStr);
   if (isNaN(added.getTime())) return 1;
-  
+
   const today = new Date();
   let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
-  
+
   if (today.getDate() < added.getDate()) {
     m--;
   }
@@ -62,7 +63,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   );
 
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-  
+  const [showQR, setShowQR] = useState(false); // <--- Buni qo'shishni unutmang
   // 🔥 Mahalliy state orqali o'qiymiz
   const isExcepted = localException.includes(targetMonth);
   const activeCycles = calculateCycles(student.addedAt);
@@ -72,7 +73,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
       if (match && match.price !== undefined) return Number(match.price);
     }
-    return 300000; 
+    return 300000;
   };
 
   const debtDetails = [];
@@ -82,12 +83,12 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     studentGroups.forEach(g => {
       const COURSE_PRICE = getPrice(g);
       const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
-      
+
       const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
       const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      
+
       const qarz = EXPECTED_TOTAL - totalPaid;
-      
+
       if (qarz > 0) {
         debtDetails.push({ group: g, qarz });
         OVERALL_DEBT += qarz;
@@ -207,19 +208,19 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
 
   const handleException = async () => {
     const isCurrentlyExcepted = localException.includes(targetMonth);
-    const confirmMsg = isCurrentlyExcepted 
+    const confirmMsg = isCurrentlyExcepted
       ? "Bu o'quvchidan istisnoni olib tashlab, yana qarzlar ro'yxatiga qo'shasizmi?"
       : "Bu o'quvchini qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?";
-      
+
     if (!window.confirm(confirmMsg)) return;
 
     setIsExcepting(true); // 🔥 Loading boshlandi
     try {
       let updatedExceptions;
       if (isCurrentlyExcepted) {
-         updatedExceptions = localException.filter(m => m !== targetMonth);
+        updatedExceptions = localException.filter(m => m !== targetMonth);
       } else {
-         updatedExceptions = [...localException, targetMonth];
+        updatedExceptions = [...localException, targetMonth];
       }
 
       const res = await fetch("/api/students", {
@@ -227,7 +228,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: student._id, exceptionMonths: updatedExceptions }),
       });
-      
+
       if (res.ok) {
         setLocalException(updatedExceptions); // 🔥 Oyna yopilmasdan darhol o'zgaradi!
         onRefresh(); // Orqa fondagi jadvalni ham yangilaydi
@@ -244,6 +245,31 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[95vh] flex flex-col">
           <div className="flex justify-between items-center mb-6">
+            {/* 🔥 QR Kod tugmasi va Modal */}
+            <button
+              onClick={() => setShowQR(true)}
+              className="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 flex justify-center items-center gap-2 transition-colors mb-4"
+            >
+              <QrCode size={18} /> QR-kodni ko'rish
+            </button>
+
+            {showQR && (
+              <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
+                <div className="bg-white p-8 rounded-3xl text-center shadow-2xl relative">
+                  <button
+                    onClick={() => setShowQR(false)}
+                    className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full"
+                  >
+                    <X size={20} />
+                  </button>
+                  <h3 className="font-bold text-lg mb-4 text-slate-800">{student.name}</h3>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <QRCodeSVG value={student._id} size={220} level="H" />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-4 font-medium">Ushbu kodni skanerlang</p>
+                </div>
+              </div>
+            )}
             <h2 className="text-xl font-bold text-slate-800">{student.name}</h2>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full">
               <X size={20} />
@@ -272,20 +298,20 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
               const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
               const qarz = EXPECTED_TOTAL - totalPaid;
-              
+
               const isGroupPaid = qarz <= 0;
               const isPartial = totalPaid > 0 && qarz > 0;
 
               return (
                 <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 border rounded-xl bg-white shadow-sm gap-3">
                   <div className="font-bold text-slate-700 flex items-center gap-2 text-sm">
-                    <BookOpen size={16} className="text-indigo-500 min-w-[16px]" /> 
+                    <BookOpen size={16} className="text-indigo-500 min-w-[16px]" />
                     <div>
-                       {g} <br/>
-                       <span className="text-[10px] text-slate-400 font-medium">Jami to'lashi kerak: {EXPECTED_TOTAL.toLocaleString()} so'm</span>
+                      {g} <br />
+                      <span className="text-[10px] text-slate-400 font-medium">Jami to'lashi kerak: {EXPECTED_TOTAL.toLocaleString()} so'm</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     {isGroupPaid ? (
                       <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold w-full text-center sm:w-auto">
