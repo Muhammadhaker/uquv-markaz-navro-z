@@ -5,11 +5,13 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// User sxemasi
+// 🔥 YANGI QO'SHILDI: lastLogin va lastDevice
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['super_admin', 'admin'], default: 'admin' },
+  lastLogin: { type: Date, default: null }, 
+  lastDevice: { type: String, default: null }, 
   addedAt: { type: Date, default: Date.now }
 });
 
@@ -21,7 +23,6 @@ export default async function handler(req, res) {
   // DOIMIY ADMINLARNI TEKSHIRISH VA AVTOMAT YARATISH
   try {
     const defaultUsers = [
-      // YANGILANGAN SUPER ADMIN
       { username: "Navroz", password: "Navroz", role: "super_admin" },
       { username: "muhammad", password: "kaneki235", role: "admin" }
     ];
@@ -40,7 +41,23 @@ export default async function handler(req, res) {
     const { username, password } = req.body;
     try {
       const user = await User.findOne({ username, password });
+      
       if (user) {
+        // 🔥 QURILMANI ANIQLASH LOGIKASI (User-Agent)
+        const userAgent = req.headers['user-agent'] || '';
+        let deviceName = 'Noma\'lum qurilma';
+
+        if (/iphone|ipad|ipod/i.test(userAgent)) deviceName = 'iPhone / iOS';
+        else if (/android/i.test(userAgent)) deviceName = 'Android';
+        else if (/windows/i.test(userAgent)) deviceName = 'Windows PC';
+        else if (/macintosh|mac os/i.test(userAgent)) deviceName = 'MacBook / Apple';
+        else if (/linux/i.test(userAgent)) deviceName = 'Linux PC';
+
+        // Oxirgi kirish vaqti va qurilmani yangilaymiz
+        user.lastLogin = new Date();
+        user.lastDevice = deviceName;
+        await user.save();
+
         return res.status(200).json({ success: true, role: user.role, username: user.username });
       }
       return res.status(401).json({ success: false, message: "Login yoki parol xato!" });
@@ -78,7 +95,6 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     const { id } = req.body;
     try {
-      // Navroz'ni o'chirib bo'lmasligi uchun himoya (YANGILANDI)
       const userToDelete = await User.findById(id);
       if (userToDelete && userToDelete.username === "Navroz") {
         return res.status(400).json({ success: false, message: "Asosiy Super Adminni o'chirib bo'lmaydi!" });

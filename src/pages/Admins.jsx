@@ -1,13 +1,7 @@
 import { useState, useEffect } from "react";
 import {
-  UserPlus,
-  Shield,
-  ShieldAlert,
-  Trash2,
-  Key,
-  Loader2,
-  X,
-  User
+  UserPlus, Shield, ShieldAlert, Trash2, Key, Loader2, X, User,
+  Smartphone, Monitor, Clock
 } from "lucide-react";
 
 export default function Admins() {
@@ -65,7 +59,7 @@ export default function Admins() {
   };
 
   const handleDeleteAdmin = async (id, name) => {
-    if (name === "Navro'z") return alert("Super Adminni o'chirib bo'lmaydi!");
+    if (name === "Navroz") return alert("Super Adminni o'chirib bo'lmaydi!");
     if (!window.confirm(`${name} ni o'chirmoqchimisiz?`)) return;
     await fetch("/api/auth", {
       method: "DELETE",
@@ -75,13 +69,45 @@ export default function Admins() {
     fetchAdmins();
   };
 
+  // 🔥 Vaqtni chiroyli ko'rsatish funksiyasi
+  const formatTime = (dateStr) => {
+    if (!dateStr) return "Hali kirmagan";
+    const d = new Date(dateStr);
+    return d.toLocaleString("ru-RU", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+  };
+
+  // 🔥 Qurilmaga qarab rang va belgi chiqarish funksiyasi
+  const renderDeviceBadge = (deviceStr) => {
+    if (!deviceStr) return null;
+    
+    let IconComponent = Monitor;
+    let colorClass = "text-slate-600 bg-slate-100 border-slate-200";
+
+    if (deviceStr.includes("iPhone") || deviceStr.includes("Apple") || deviceStr.includes("Mac")) {
+      IconComponent = Smartphone;
+      colorClass = "text-slate-700 bg-slate-100 border-slate-300"; // iPhone/Mac rangi
+    } else if (deviceStr.includes("Android")) {
+      IconComponent = Smartphone;
+      colorClass = "text-emerald-700 bg-emerald-50 border-emerald-200"; // Android Yashil
+    } else if (deviceStr.includes("Windows")) {
+      IconComponent = Monitor;
+      colorClass = "text-blue-700 bg-blue-50 border-blue-200"; // Windows Moviy
+    }
+
+    return (
+      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 w-fit mt-1.5 shadow-sm ${colorClass}`}>
+        <IconComponent size={12} /> {deviceStr}
+      </span>
+    );
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Tizim Xodimlari</h1>
           <p className="text-slate-500 text-sm">
-            Adminlar va ruxsatnomalar boshqaruvi
+            Adminlar va ularning faolligi
           </p>
         </div>
         <button
@@ -98,7 +124,7 @@ export default function Admins() {
         </div>
       ) : (
         <>
-          {/* DESKTOP UCHUN JADVAL (TABLE) KO'RINISHI */}
+          {/* DESKTOP UCHUN JADVAL */}
           <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -106,6 +132,7 @@ export default function Admins() {
                   <th className="px-6 py-4">Admin</th>
                   <th className="px-6 py-4">Parol</th>
                   <th className="px-6 py-4">Rol</th>
+                  <th className="px-6 py-4">Oxirgi kirish (Qurilma)</th>
                   <th className="px-6 py-4 text-right">Amallar</th>
                 </tr>
               </thead>
@@ -139,8 +166,17 @@ export default function Admins() {
                         )}
                       </span>
                     </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                          <Clock size={14} className="text-slate-400"/> 
+                          {formatTime(a.lastLogin)}
+                        </span>
+                        {renderDeviceBadge(a.lastDevice)}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-right">
-                      {a.username !== "Navro'z" && (
+                      {a.username !== "Navroz" && (
                         <button
                           onClick={() => handleDeleteAdmin(a._id, a.username)}
                           className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors"
@@ -156,7 +192,7 @@ export default function Admins() {
             </table>
           </div>
 
-          {/* TELEFON UCHUN KARTOCHKA (CARD) KO'RINISHI */}
+          {/* TELEFON UCHUN KARTOCHKA */}
           <div className="md:hidden space-y-4">
             {admins.map((a) => (
               <div key={a._id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
@@ -170,7 +206,7 @@ export default function Admins() {
                       <Key size={14} /> {a.password}
                     </div>
                   </div>
-                  {a.username !== "Navro'z" && (
+                  {a.username !== "Navroz" && (
                     <button
                       onClick={() => handleDeleteAdmin(a._id, a.username)}
                       className="text-rose-500 bg-rose-50 p-2.5 rounded-xl hover:bg-rose-100 transition-colors"
@@ -180,24 +216,35 @@ export default function Admins() {
                   )}
                 </div>
                 
-                <div className="pt-2 border-t border-slate-50 flex justify-between items-center">
-                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-                    Ruxsat darajasi:
-                  </span>
-                  <span
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${
-                      a.role === "super_admin"
-                        ? "bg-purple-50 text-purple-700"
-                        : "bg-blue-50 text-blue-700"
-                    }`}
-                  >
-                    {a.role === "super_admin" ? (
-                      <><ShieldAlert size={14} /> SUPER ADMIN</>
-                    ) : (
-                      <><Shield size={14} /> ADMIN</>
-                    )}
-                  </span>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Ruxsat darajasi:</p>
+                    <span
+                      className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 w-fit ${
+                        a.role === "super_admin"
+                          ? "bg-purple-50 text-purple-700"
+                          : "bg-blue-50 text-blue-700"
+                      }`}
+                    >
+                      {a.role === "super_admin" ? (
+                        <><ShieldAlert size={12} /> SUPER</>
+                      ) : (
+                        <><Shield size={12} /> ADMIN</>
+                      )}
+                    </span>
+                  </div>
+                  
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Oxirgi kirish:</p>
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        {formatTime(a.lastLogin)}
+                      </span>
+                      {renderDeviceBadge(a.lastDevice)}
+                    </div>
+                  </div>
                 </div>
+
               </div>
             ))}
           </div>
@@ -264,11 +311,7 @@ export default function Admins() {
                 disabled={submitting}
                 className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 mt-2 disabled:opacity-70 flex justify-center"
               >
-                {submitting ? (
-                  <Loader2 className="animate-spin" size={24} />
-                ) : (
-                  "Saqlash"
-                )}
+                {submitting ? <Loader2 className="animate-spin" size={24} /> : "Saqlash"}
               </button>
             </form>
           </div>
