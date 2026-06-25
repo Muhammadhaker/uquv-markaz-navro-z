@@ -72,10 +72,14 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   // 🔥 Rollarga qarab menyularni ajratish
   const navItems = [
     { to: "/dashboard", label: "Umumiy statistika", icon: LayoutDashboard, show: role === "super_admin" },
-
-    // 🔥 BU YERDA O'ZGARTIRISH: 'admin' yoki 'super_admin' bo'lsa ko'rinadi
+    
+    // Guruhlar va To'lov: ham admin, ham super_admin ko'radi
     { to: "/groups", label: "Guruhlar va To'lov", icon: Users, show: role === "super_admin" || role === "admin" },
-
+    
+    // Davomat: BARCHA ko'radi (show: true)
+    { to: "/attendance", label: "Davomat", icon: CalendarCheck, show: true },
+    
+    // Qolganlari faqat super_admin uchun
     { to: "/badges", label: "Bejiklar chiqarish", icon: Printer, show: role === "super_admin" },
     { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === "super_admin" },
     { to: "/logs", label: "Harakatlar tarixi", icon: History, show: role === "super_admin" },
