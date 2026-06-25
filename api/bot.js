@@ -5,7 +5,16 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
+// 🔥 MUHIM O'ZGARISH: Mongoose qolipini to'liq yozdik, endi u ma'lumotni hech qachon rad etmaydi!
+const studentSchema = new mongoose.Schema({
+  name: String,
+  telegramChatId: String,
+  phone: String,
+  group: String,
+  addedAt: Date
+}, { strict: false });
+
+const Student = mongoose.models.Student || mongoose.model('Student', studentSchema, 'students');
 
 const formatDate = (dateString) => {
   if (!dateString) return "Noma'lum";
@@ -30,19 +39,8 @@ export default async function handler(req, res) {
     // 1. QR koddan kelgan YASHIRIN ID ni tutib olish
     let payload = null;
     if (text.startsWith('/start ')) {
-        payload = text.split(' ')[1];
+        payload = text.split(' ')[1].trim();
     }
-
-    // 🔥 SHU TELEGRAMGA ULANGAN BARCHA O'QUVCHILARNI TOPAMIZ
-    const linkedStudents = await Student.find({ 
-        $or: [
-            { telegramChatId: chatId },
-            { telegramChatId: String(chatId) },
-            { telegramChatId: Number(chatId) }
-        ] 
-    });
-    
-    let existingStudent = linkedStudents.length > 0 ? linkedStudents[0] : null;
 
     // 🔥 2. AGAR FOYDALANUVCHI QR KOD O'QITIB KIRSA
     if (payload) {
@@ -50,11 +48,13 @@ export default async function handler(req, res) {
             const studentToLink = await Student.findById(payload);
             if (studentToLink) {
                 
-                // ESKILARINI UZMAYMIZ! Shunchaki bunisini ham shu telegramga ulaymiz:
-                studentToLink.telegramChatId = String(chatId);
-                await studentToLink.save();
+                // 100% ISHLAYDIGAN SAQLASH USULI (Ustidan yozish):
+                await Student.updateOne(
+                    { _id: payload },
+                    { $set: { telegramChatId: String(chatId) } }
+                );
                 
-                // Endi jami nechta bo'lganini sanaymiz
+                // Saqlangandan keyin shu Telegramga ulangan jami o'quvchilarni sanaymiz
                 const totalLinked = await Student.countDocuments({ 
                     $or: [
                         { telegramChatId: chatId },
@@ -63,14 +63,12 @@ export default async function handler(req, res) {
                     ] 
                 });
 
-                existingStudent = studentToLink; 
-                
                 await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         chat_id: chatId,
-                        text: `✅ *Yangi profil ulandi!*\n\nTabriklaymiz, *${existingStudent.name}* ham sizning hisobingizga qo'shildi. Endi siz ${totalLinked} ta o'quvchini nazorat qilasiz.`,
+                        text: `✅ *Yangi profil ulandi!*\n\nTabriklaymiz, *${studentToLink.name}* ham sizning hisobingizga qo'shildi. Endi siz ${totalLinked} ta o'quvchini nazorat qilasiz.`,
                         parse_mode: 'Markdown',
                         reply_markup: {
                             keyboard: [
@@ -89,7 +87,18 @@ export default async function handler(req, res) {
         }
     }
 
-    // 3-QISM: ℹ️ O'QUV MARKAZ HAQIDA TUGMASI
+    // =========================================================
+    // ODDIY KOMANDALAR UCHUN (QR kodsiz, menyudan bosganda)
+    // =========================================================
+
+    const linkedStudents = await Student.find({ 
+        $or: [
+            { telegramChatId: chatId },
+            { telegramChatId: String(chatId) },
+            { telegramChatId: Number(chatId) }
+        ] 
+    });
+    
     if (text === "ℹ️ O'quv markaz haqida") {
         const captionText = `📐 *Matematika fanidan tajribali va A+ sertifikatlangan ustoz Gʻulomov Navro'z*\n\n🌟 _Biz bilan orzuingiz roʻyobga chiqadi!_\n\n✅ Prezident maktablariga tayyorlov\n✅ Al-Xorazmiy maktablariga tayyorlov\n✅ Ixtisoslashtirilgan maktablarga tayyorlov\n✅ DTM va xalqaro sertifikat imtihonlariga tayyorlov\n\n🏆 *Natijalarimiz:*\n👨‍🎓 6 nafar Al-Xorazmiy maktabi oʻquvchisi\n🏅 15+ nafar xalqaro sertifikat sohiblari\n💯 100+ nafar ixtisoslashtirilgan maktab oʻquvchilari\n\n📍 *Manzil:* Kattaqoʻrgʻon tumani, Kadan chorrahasi, Ziyo Nur oʻquv markazi, “Gʻulomov Math Group” xonasi\n\n📞 *Murojaat uchun:* +998 93 271 70 79\n\n🔥 *QABUL OCHIQ!*\n\n_SIZDAN HARAKAT — BIZDAN NATIJA!_`;
         
@@ -106,14 +115,12 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    // 4-QISM: 📋 MENING MA'LUMOTLARIM TUGMASI
     if (text === "📋 Mening ma'lumotlarim") {
         if (linkedStudents.length > 0) {
-            // 🔥 BIR NECHTA O'QUVCHI BO'LSA, RO'YXAT QILIB CHIQARADI
             let msg = `👥 *Sizning hisobingizdagi o'quvchilar (${linkedStudents.length} ta):*\n\n`;
             linkedStudents.forEach((st, idx) => {
                 const regDate = formatDate(st.addedAt);
-                msg += `${idx + 1}. *Ism:* ${st.name}\n📚 *Fanlar:* ${st.group}\n📱 *Telefon:* ${st.phone}\n🗓 *Qo'shilgan sana:* ${regDate}\n\n`;
+                msg += `${idx + 1}. *Ism:* ${st.name}\n📚 *Fanlar:* ${st.group || 'Guruhsiz'}\n📱 *Telefon:* ${st.phone || 'Kiritilmagan'}\n🗓 *Qo'shilgan sana:* ${regDate}\n\n`;
             });
             msg += `_To'lovlarni ko'rish va hisoblarni boshqarish uchun pastdagi "👤 Shaxsiy Kabinet" tugmasini bosing!_`;
             
@@ -132,7 +139,6 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    // 5-QISM: /start BUYRUG'I
     if (text === '/start') {
         let replyText = "";
         let keyboard = {};
@@ -176,4 +182,4 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).send('OK');
-}
+}bu
