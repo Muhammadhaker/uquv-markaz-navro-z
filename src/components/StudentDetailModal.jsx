@@ -1,8 +1,8 @@
 import { useState } from "react";
 import {
-  X, Phone, BookOpen, CreditCard, History, Download, Send, User, Clock, ShieldAlert, Loader2, QrCode
+  X, Phone, BookOpen, CreditCard, History, Download, Send, User, Clock, ShieldAlert, Loader2, QrCode, Printer
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react"; // 🔥 QR kutubxona to'g'ri chaqirildi
+import { QRCodeSVG } from "qrcode.react";
 import PaymentModal from "./PaymentModal";
 
 const formatPhoneNumber = (phone) => {
@@ -43,7 +43,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const [historySearch, setHistorySearch] = useState("");
   const [isExcepting, setIsExcepting] = useState(false);
   const [isSendingWarning, setIsSendingWarning] = useState(false);
-  const [showQR, setShowQR] = useState(false); // 🔥 QR Modal holati
+  const [showQR, setShowQR] = useState(false);
   const [localException, setLocalException] = useState(student?.exceptionMonths || []);
 
   const today = new Date();
@@ -237,6 +237,58 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     }
   };
 
+  // 🔥 QR KODNI CHOP ETISH FUNKSIYASI (BEJIK SHAKLIDA)
+  const handlePrintQR = () => {
+    const qrElement = document.getElementById("qr-print-area");
+    if (!qrElement) return;
+    
+    const printWindow = window.open('', '_blank', 'width=800,height=800');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${student.name} - QR Kod</title>
+          <style>
+            body { 
+              font-family: 'Segoe UI', Arial, sans-serif; 
+              display: flex; 
+              justify-content: center; 
+              align-items: center; 
+              height: 100vh; 
+              margin: 0; 
+              background-color: #fff;
+            }
+            .badge { 
+              text-align: center; 
+              border: 3px dashed #cbd5e1; 
+              padding: 40px; 
+              border-radius: 24px; 
+              width: 320px;
+            }
+            h2 { margin: 0 0 24px 0; color: #1e293b; font-size: 26px; }
+            .qr-code { margin: 0 auto; display: flex; justify-content: center; }
+            .footer { margin-top: 24px; font-size: 16px; color: #64748b; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+          </style>
+        </head>
+        <body>
+          <div class="badge">
+            <h2>${student.name}</h2>
+            <div class="qr-code">${qrElement.innerHTML}</div>
+            <div class="footer">G'ulomov Math Group</div>
+          </div>
+          <script>
+            window.onload = () => { 
+              setTimeout(() => {
+                window.print(); 
+                window.close(); 
+              }, 300);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <>
       <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
@@ -250,7 +302,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
 
           <div className="overflow-y-auto pr-2 pb-4 custom-scrollbar">
             
-            {/* 🔥 YANQGI: QR KOD KO'RISH TUGMASI */}
             <button 
               onClick={() => setShowQR(true)}
               className="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 flex justify-center items-center gap-2 transition-colors mb-4"
@@ -409,19 +460,32 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         </div>
       </div>
 
-      {/* 🔥 QR KOD MODAL OYNASI */}
+      {/* 🔥 QR KOD MODAL OYNASI VA CHOP ETISH TUGMASI */}
       {showQR && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] animate-in fade-in duration-200">
           <div className="bg-white p-8 rounded-3xl text-center shadow-2xl relative w-full max-w-sm">
+            
+            {/* Chop etish tugmasi - Chap burchakda akkuratniy */}
+            <button 
+              onClick={handlePrintQR}
+              className="absolute top-4 left-4 p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full transition-colors flex items-center justify-center"
+              title="QR kodni chop etish"
+            >
+              <Printer size={20} />
+            </button>
+
+            {/* Yopish tugmasi - O'ng burchakda */}
             <button 
               onClick={() => setShowQR(false)} 
               className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-rose-100 hover:text-rose-600 rounded-full transition-colors text-slate-500"
             >
               <X size={20} />
             </button>
-            <h3 className="font-bold text-xl mb-6 text-slate-800">{student.name}</h3>
             
-            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 inline-block shadow-inner">
+            <h3 className="font-bold text-xl mb-6 text-slate-800 mt-2">{student.name}</h3>
+            
+            {/* id="qr-print-area" chop etish funksiyasi uchun kerak */}
+            <div id="qr-print-area" className="p-6 bg-slate-50 rounded-3xl border border-slate-200 inline-block shadow-inner">
                <QRCodeSVG value={student._id} size={220} level="H" />
             </div>
             
