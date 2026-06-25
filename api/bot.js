@@ -21,34 +21,45 @@ export default async function handler(req, res) {
 
     if (!message || !message.text) return res.status(200).send('OK');
 
-    const chatId = message.chat.id;
+    const chatId = String(message.chat.id); // 🔥 ID doim matn bo'lishi kerak
     const text = message.text;
     const firstName = message.from.first_name || "O'quvchi";
 
-    await connectDB();
-    
+    try {
+        await connectDB();
+    } catch (error) {
+        console.error("MongoDB ulanishda xato:", error);
+        return res.status(200).send('OK');
+    }
+
     // 1. QR koddan kelgan YASHIRIN ID ni tutib olish
     let payload = null;
     if (text.startsWith('/start ')) {
-        payload = text.split(' ')[1];
+        payload = text.split(' ')[1].trim();
     }
 
-    // 🔥 2. AGAR FOYDALANUVCHI QR KOD O'QITIB KIRSA (MUHIM QISM SHU YERDA TO'G'RILANDI)
+    // 🔥 2. AGAR FOYDALANUVCHI QR KOD O'QITIB KIRSA
     if (payload) {
         try {
-            const studentToLink = await Student.findById(payload);
+            let studentToLink = null;
+            
+            // Xatolik bermasligi uchun ID formatini tekshiramiz
+            if (mongoose.Types.ObjectId.isValid(payload)) {
+                studentToLink = await Student.findById(payload);
+            } else {
+                studentToLink = await Student.findOne({ _id: payload });
+            }
+
             if (studentToLink) {
-                
-                // Mongoose aldamasligi uchun to'g'ridan-to'g'ri bazaga kuch bilan yozamiz:
-                await Student.findByIdAndUpdate(payload, { telegramChatId: String(chatId) });
+                // Xavfsiz tarzda telegramChatId ni yangilash
+                await Student.updateOne(
+                    { _id: studentToLink._id },
+                    { $set: { telegramChatId: chatId } }
+                );
                 
                 // Endi shu paytgacha ushbu Telegramga ulangan jami o'quvchilarni sanaymiz
                 const totalLinked = await Student.countDocuments({ 
-                    $or: [
-                        { telegramChatId: chatId },
-                        { telegramChatId: String(chatId) },
-                        { telegramChatId: Number(chatId) }
-                    ] 
+                    $or: [ { telegramChatId: chatId }, { telegramChatId: Number(chatId) } ] 
                 });
 
                 await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -69,6 +80,13 @@ export default async function handler(req, res) {
                     })
                 });
                 return res.status(200).send('OK'); 
+            } else {
+                // Agar baza ichidan topilmasa bot indamay qolmasligi uchun:
+                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: chatId, text: "❌ Kechirasiz, bunday o'quvchi bazadan topilmadi. Boshqa QR kod skaner qiling." })
+                });
             }
         } catch (error) {
             console.log("Xato QR kod formati", error);
@@ -81,11 +99,7 @@ export default async function handler(req, res) {
 
     // Shu telegramga ulangan BARCHA o'quvchilarni topamiz
     const linkedStudents = await Student.find({ 
-        $or: [
-            { telegramChatId: chatId },
-            { telegramChatId: String(chatId) },
-            { telegramChatId: Number(chatId) }
-        ] 
+        $or: [ { telegramChatId: chatId }, { telegramChatId: Number(chatId) } ] 
     });
     
     // 3-QISM: ℹ️ O'QUV MARKAZ HAQIDA TUGMASI
@@ -111,7 +125,7 @@ export default async function handler(req, res) {
             let msg = `👥 *Sizning hisobingizdagi o'quvchilar (${linkedStudents.length} ta):*\n\n`;
             linkedStudents.forEach((st, idx) => {
                 const regDate = formatDate(st.addedAt);
-                msg += `${idx + 1}. *Ism:* ${st.name}\n📚 *Fanlar:* ${st.group}\n📱 *Telefon:* ${st.phone}\n🗓 *Qo'shilgan sana:* ${regDate}\n\n`;
+                msg += `${idx + 1}. *Ism:* ${st.name}\n📚 *Fanlar:* ${st.group || 'Guruhsiz'}\n📱 *Telefon:* ${st.phone || 'Kiritilmagan'}\n🗓 *Qo'shilgan sana:* ${regDate}\n\n`;
             });
             msg += `_To'lovlarni ko'rish va hisoblarni boshqarish uchun pastdagi "👤 Shaxsiy Kabinet" tugmasini bosing!_`;
             

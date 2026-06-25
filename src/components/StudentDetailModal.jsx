@@ -1,9 +1,9 @@
 import { useState } from "react";
 import {
-  X, Phone, BookOpen, CreditCard, History, Download, Send, User, Clock, ShieldAlert, Loader2
+  X, Phone, BookOpen, CreditCard, History, Download, Send, User, Clock, ShieldAlert, Loader2, QrCode
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react"; // 🔥 QR kutubxona to'g'ri chaqirildi
 import PaymentModal from "./PaymentModal";
-import { QRCodeSVG } from "qrcode.react"; // <--- Buni qo'shing
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
@@ -23,15 +23,14 @@ const formatMonth = (m) => {
   return `${names[parseInt(mm) - 1]} ${y}`;
 };
 
-// 🔥 TIZIMNING YURAGI: Necha oy (sikl) o'tganini hisoblaydi
 const calculateCycles = (addedAtStr) => {
   if (!addedAtStr) return 1;
   const added = new Date(addedAtStr);
   if (isNaN(added.getTime())) return 1;
-
+  
   const today = new Date();
   let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
-
+  
   if (today.getDate() < added.getDate()) {
     m--;
   }
@@ -44,8 +43,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const [historySearch, setHistorySearch] = useState("");
   const [isExcepting, setIsExcepting] = useState(false);
   const [isSendingWarning, setIsSendingWarning] = useState(false);
-
-  // 🔥 YANGI: Oyna yopilmasdan turib srazu o'zgarishi uchun mahalliy state
+  const [showQR, setShowQR] = useState(false); // 🔥 QR Modal holati
   const [localException, setLocalException] = useState(student?.exceptionMonths || []);
 
   const today = new Date();
@@ -63,8 +61,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   );
 
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-  const [showQR, setShowQR] = useState(false); // <--- Buni qo'shishni unutmang
-  // 🔥 Mahalliy state orqali o'qiymiz
+  
   const isExcepted = localException.includes(targetMonth);
   const activeCycles = calculateCycles(student.addedAt);
 
@@ -73,7 +70,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
       if (match && match.price !== undefined) return Number(match.price);
     }
-    return 300000;
+    return 300000; 
   };
 
   const debtDetails = [];
@@ -83,12 +80,12 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     studentGroups.forEach(g => {
       const COURSE_PRICE = getPrice(g);
       const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
-
+      
       const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
       const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
+      
       const qarz = EXPECTED_TOTAL - totalPaid;
-
+      
       if (qarz > 0) {
         debtDetails.push({ group: g, qarz });
         OVERALL_DEBT += qarz;
@@ -208,19 +205,19 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
 
   const handleException = async () => {
     const isCurrentlyExcepted = localException.includes(targetMonth);
-    const confirmMsg = isCurrentlyExcepted
+    const confirmMsg = isCurrentlyExcepted 
       ? "Bu o'quvchidan istisnoni olib tashlab, yana qarzlar ro'yxatiga qo'shasizmi?"
       : "Bu o'quvchini qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?";
-
+      
     if (!window.confirm(confirmMsg)) return;
 
-    setIsExcepting(true); // 🔥 Loading boshlandi
+    setIsExcepting(true);
     try {
       let updatedExceptions;
       if (isCurrentlyExcepted) {
-        updatedExceptions = localException.filter(m => m !== targetMonth);
+         updatedExceptions = localException.filter(m => m !== targetMonth);
       } else {
-        updatedExceptions = [...localException, targetMonth];
+         updatedExceptions = [...localException, targetMonth];
       }
 
       const res = await fetch("/api/students", {
@@ -228,210 +225,210 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: student._id, exceptionMonths: updatedExceptions }),
       });
-
+      
       if (res.ok) {
-        setLocalException(updatedExceptions); // 🔥 Oyna yopilmasdan darhol o'zgaradi!
-        onRefresh(); // Orqa fondagi jadvalni ham yangilaydi
+        setLocalException(updatedExceptions);
+        onRefresh();
       }
     } catch (err) {
       console.error(err);
     } finally {
-      setIsExcepting(false); // 🔥 Loading to'xtadi
+      setIsExcepting(false); 
     }
   };
 
   return (
     <>
       <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[95vh] flex flex-col">
+        <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[95vh] flex flex-col relative overflow-hidden">
           <div className="flex justify-between items-center mb-6">
-            {/* 🔥 QR Kod tugmasi va Modal */}
-            <button
-              onClick={() => setShowQR(true)}
-              className="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 flex justify-center items-center gap-2 transition-colors mb-4"
-            >
-              <QrCode size={18} /> QR-kodni ko'rish
-            </button>
-
-            {showQR && (
-              <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
-                <div className="bg-white p-8 rounded-3xl text-center shadow-2xl relative">
-                  <button
-                    onClick={() => setShowQR(false)}
-                    className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full"
-                  >
-                    <X size={20} />
-                  </button>
-                  <h3 className="font-bold text-lg mb-4 text-slate-800">{student.name}</h3>
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <QRCodeSVG value={student._id} size={220} level="H" />
-                  </div>
-                  <p className="text-xs text-slate-400 mt-4 font-medium">Ushbu kodni skanerlang</p>
-                </div>
-              </div>
-            )}
             <h2 className="text-xl font-bold text-slate-800">{student.name}</h2>
-            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full">
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
               <X size={20} />
             </button>
           </div>
 
-          <div className="space-y-3 mb-4">
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
-              <User size={18} className="text-indigo-500" /> {student.parentName || "Ota-ona ismi yo'q"}
+          <div className="overflow-y-auto pr-2 pb-4 custom-scrollbar">
+            
+            {/* 🔥 YANQGI: QR KOD KO'RISH TUGMASI */}
+            <button 
+              onClick={() => setShowQR(true)}
+              className="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 flex justify-center items-center gap-2 transition-colors mb-4"
+            >
+              <QrCode size={18} /> QR-kodni ko'rish
+            </button>
+
+            <div className="space-y-3 mb-4">
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
+                <User size={18} className="text-indigo-500" /> {student.parentName || "Ota-ona ismi yo'q"}
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
+                <Phone size={18} className="text-indigo-500" /> {formatPhoneNumber(student.phone)}
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
+                <Clock size={18} className="text-emerald-500 min-w-[18px]" />
+                Qo'shilgan: {student.addedAt ? new Date(student.addedAt).toLocaleDateString("ru-RU") : "Noma'lum"}
+              </div>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
-              <Phone size={18} className="text-indigo-500" /> {formatPhoneNumber(student.phone)}
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl font-medium text-slate-700 text-sm">
-              <Clock size={18} className="text-emerald-500 min-w-[18px]" />
-              Qo'shilgan: {student.addedAt ? new Date(student.addedAt).toLocaleDateString("ru-RU") : "Noma'lum"}
-            </div>
-          </div>
 
-          <div className="mb-6 space-y-2">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va Jami To'lov ({activeCycles} oylik davr)</h3>
+            <div className="mb-6 space-y-2">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va Jami To'lov ({activeCycles} oylik davr)</h3>
 
-            {studentGroups.length > 0 ? studentGroups.map((g, idx) => {
-              const COURSE_PRICE = getPrice(g);
-              const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
-              const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
-              const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-              const qarz = EXPECTED_TOTAL - totalPaid;
+              {studentGroups.length > 0 ? studentGroups.map((g, idx) => {
+                const COURSE_PRICE = getPrice(g);
+                const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
+                const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
+                const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+                const qarz = EXPECTED_TOTAL - totalPaid;
+                
+                const isGroupPaid = qarz <= 0;
+                const isPartial = totalPaid > 0 && qarz > 0;
 
-              const isGroupPaid = qarz <= 0;
-              const isPartial = totalPaid > 0 && qarz > 0;
+                return (
+                  <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 border rounded-xl bg-white shadow-sm gap-3">
+                    <div className="font-bold text-slate-700 flex items-center gap-2 text-sm">
+                      <BookOpen size={16} className="text-indigo-500 min-w-[16px]" /> 
+                      <div>
+                         {g} <br/>
+                         <span className="text-[10px] text-slate-400 font-medium">Jami to'lashi kerak: {EXPECTED_TOTAL.toLocaleString()} so'm</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {isGroupPaid ? (
+                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold w-full text-center sm:w-auto">To'langan</span>
+                      ) : isPartial ? (
+                        <span className="bg-orange-100 text-orange-700 px-2 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap">Qarz: {qarz.toLocaleString()}</span>
+                      ) : (
+                        <span className="bg-rose-100 text-rose-700 px-2 py-1.5 rounded-lg text-xs font-bold">To'lanmagan</span>
+                      )}
 
-              return (
-                <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 border rounded-xl bg-white shadow-sm gap-3">
-                  <div className="font-bold text-slate-700 flex items-center gap-2 text-sm">
-                    <BookOpen size={16} className="text-indigo-500 min-w-[16px]" />
-                    <div>
-                      {g} <br />
-                      <span className="text-[10px] text-slate-400 font-medium">Jami to'lashi kerak: {EXPECTED_TOTAL.toLocaleString()} so'm</span>
+                      {!isGroupPaid && (
+                        <button
+                          onClick={() => setPayGroup(g)}
+                          className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1 justify-center whitespace-nowrap"
+                        >
+                          <CreditCard size={14} /> To'lash
+                        </button>
+                      )}
                     </div>
                   </div>
+                );
+              }) : (
+                <div className="p-3 bg-slate-50 text-slate-500 rounded-xl text-sm text-center font-medium">Guruhga qo'shilmagan</div>
+              )}
+            </div>
 
-                  <div className="flex items-center gap-2">
-                    {isGroupPaid ? (
-                      <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold w-full text-center sm:w-auto">
-                        To'langan
-                      </span>
-                    ) : isPartial ? (
-                      <span className="bg-orange-100 text-orange-700 px-2 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap">
-                        Qarz: {qarz.toLocaleString()}
-                      </span>
-                    ) : (
-                      <span className="bg-rose-100 text-rose-700 px-2 py-1.5 rounded-lg text-xs font-bold">
-                        To'lanmagan
-                      </span>
-                    )}
+            {!isExcepted && hasAnyDebt && (
+              <div className="space-y-3 mb-4">
+                <button
+                  onClick={sendDebtWarning}
+                  disabled={isSendingWarning}
+                  className="w-full bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl font-bold hover:bg-rose-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-wait"
+                >
+                  {isSendingWarning ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                  {isSendingWarning ? "Yuborilmoqda..." : `Qarz haqida eslatish (${OVERALL_DEBT.toLocaleString()} so'm)`}
+                </button>
 
-                    {!isGroupPaid && (
-                      <button
-                        onClick={() => setPayGroup(g)}
-                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1 justify-center whitespace-nowrap"
-                      >
-                        <CreditCard size={14} /> To'lash
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            }) : (
-              <div className="p-3 bg-slate-50 text-slate-500 rounded-xl text-sm text-center font-medium">Guruhga qo'shilmagan</div>
+                <button
+                  onClick={handleException}
+                  disabled={isExcepting}
+                  className="w-full bg-amber-50 text-amber-600 border border-amber-200 py-2.5 rounded-xl font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-wait"
+                >
+                  {isExcepting ? <Loader2 size={18} className="animate-spin" /> : <ShieldAlert size={18} />}
+                  {isExcepting ? "Kutib turing..." : "To'lovdan istisno qilish"}
+                </button>
+              </div>
             )}
-          </div>
 
-          {/* 🔥 LOADING HOLATI VA SRAZU YANGILANISH */}
-          {!isExcepted && hasAnyDebt && (
-            <div className="space-y-3 mb-4">
-              <button
-                onClick={sendDebtWarning}
-                disabled={isSendingWarning}
-                className="w-full bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl font-bold hover:bg-rose-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-wait"
-              >
-                {isSendingWarning ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                {isSendingWarning ? "Yuborilmoqda..." : `Qarz haqida eslatish (${OVERALL_DEBT.toLocaleString()} so'm)`}
-              </button>
-
+            {isExcepted && hasAnyDebt && (
               <button
                 onClick={handleException}
                 disabled={isExcepting}
-                className="w-full bg-amber-50 text-amber-600 border border-amber-200 py-2.5 rounded-xl font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-wait"
+                className="mb-4 w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait shadow-lg"
               >
-                {isExcepting ? <Loader2 size={18} className="animate-spin" /> : <ShieldAlert size={18} />}
-                {isExcepting ? "Kutib turing..." : "To'lovdan istisno qilish"}
+                {isExcepting ? <Loader2 size={18} className="animate-spin text-amber-400" /> : <ShieldAlert size={18} className="text-amber-400" />}
+                {isExcepting ? "Kutib turing..." : "Istisnoni olib tashlash"}
+              </button>
+            )}
+
+            <div>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 flex justify-center items-center gap-2 transition-colors"
+              >
+                <History size={18} /> Tarixni ko'rish ({studentPayments.length})
               </button>
             </div>
-          )}
 
-          {isExcepted && hasAnyDebt && (
-            <button
-              onClick={handleException}
-              disabled={isExcepting}
-              className="mb-4 w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait shadow-lg"
-            >
-              {isExcepting ? <Loader2 size={18} className="animate-spin text-amber-400" /> : <ShieldAlert size={18} className="text-amber-400" />}
-              {isExcepting ? "Kutib turing..." : "Istisnoni olib tashlash"}
-            </button>
-          )}
+            {showHistory && (
+              <div className="border-t pt-4 mt-4 flex flex-col flex-1 min-h-[200px]">
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    placeholder="Oy yoki fan nomi..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    className="w-full px-4 py-2 text-sm rounded-xl border outline-none focus:border-indigo-500 bg-slate-50"
+                  />
+                  <button
+                    onClick={exportStudentHistory}
+                    className="bg-emerald-50 text-emerald-600 px-3 rounded-xl hover:bg-emerald-100 transition-colors"
+                  >
+                    <Download size={20} />
+                  </button>
+                </div>
 
-          <div className="mt-auto">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 flex justify-center items-center gap-2 transition-colors"
-            >
-              <History size={18} /> Tarixni ko'rish ({studentPayments.length})
-            </button>
+                <div className="space-y-2">
+                  {filteredHistory.map((p) => (
+                    <div key={p._id} className="p-3 border rounded-xl bg-white shadow-sm">
+                      <div className="flex justify-between items-center text-sm mb-1.5">
+                        <span className="font-bold text-slate-800">{formatMonth(p.month)}</span>
+                        <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                          {Number(p.amount).toLocaleString("ru-RU")}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 font-medium mb-2 flex items-center gap-1">
+                        <BookOpen size={12} /> <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{p.groupName || "Umumiy"}</span>
+                      </div>
+                      <button
+                        onClick={() => shareReceipt(p)}
+                        className="w-full mt-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex justify-center items-center gap-2 hover:bg-blue-100 transition-colors"
+                      >
+                        <Send size={14} /> Telegramdan chek yuborish
+                      </button>
+                    </div>
+                  ))}
+                  {filteredHistory.length === 0 && (
+                    <p className="text-center text-slate-400 text-sm mt-4">Hech narsa topilmadi</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-
-          {showHistory && (
-            <div className="border-t pt-4 mt-4 flex flex-col flex-1 min-h-[200px]">
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  placeholder="Oy yoki fan nomi..."
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  className="w-full px-4 py-2 text-sm rounded-xl border outline-none focus:border-indigo-500 bg-slate-50"
-                />
-                <button
-                  onClick={exportStudentHistory}
-                  className="bg-emerald-50 text-emerald-600 px-3 rounded-xl hover:bg-emerald-100 transition-colors"
-                >
-                  <Download size={20} />
-                </button>
-              </div>
-
-              <div className="overflow-y-auto space-y-2 pb-2 pr-1 max-h-[250px]">
-                {filteredHistory.map((p) => (
-                  <div key={p._id} className="p-3 border rounded-xl bg-white shadow-sm">
-                    <div className="flex justify-between items-center text-sm mb-1.5">
-                      <span className="font-bold text-slate-800">{formatMonth(p.month)}</span>
-                      <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                        {Number(p.amount).toLocaleString("ru-RU")}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-500 font-medium mb-2 flex items-center gap-1">
-                      <BookOpen size={12} /> <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{p.groupName || "Umumiy"}</span>
-                    </div>
-                    <button
-                      onClick={() => shareReceipt(p)}
-                      className="w-full mt-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex justify-center items-center gap-2 hover:bg-blue-100 transition-colors"
-                    >
-                      <Send size={14} /> Telegramdan chek yuborish
-                    </button>
-                  </div>
-                ))}
-                {filteredHistory.length === 0 && (
-                  <p className="text-center text-slate-400 text-sm mt-4">Hech narsa topilmadi</p>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* 🔥 QR KOD MODAL OYNASI */}
+      {showQR && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] animate-in fade-in duration-200">
+          <div className="bg-white p-8 rounded-3xl text-center shadow-2xl relative w-full max-w-sm">
+            <button 
+              onClick={() => setShowQR(false)} 
+              className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-rose-100 hover:text-rose-600 rounded-full transition-colors text-slate-500"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="font-bold text-xl mb-6 text-slate-800">{student.name}</h3>
+            
+            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 inline-block shadow-inner">
+               <QRCodeSVG value={student._id} size={220} level="H" />
+            </div>
+            
+            <p className="text-sm text-slate-500 mt-6 font-medium">Davomat uchun skanerlang</p>
+          </div>
+        </div>
+      )}
 
       {payGroup && (
         <PaymentModal
@@ -444,6 +441,13 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
           }}
         />
       )}
+      
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      `}</style>
     </>
   );
 }
