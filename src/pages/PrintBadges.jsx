@@ -26,13 +26,11 @@ export default function PrintBadges() {
     fetchStudents();
   }, []);
 
-  // Barcha mavjud guruhlarni ajratib olish
   const allGroups = students.flatMap((s) =>
     s.group ? s.group.split(",").map((g) => g.trim()) : []
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
-  // Tanlangan guruh bo'yicha o'quvchilarni saralash
   const filteredStudents = students.filter((s) => {
     if (selectedGroup === "Barchasi") return true;
     const sGroups = s.group ? s.group.split(",").map((g) => g.trim()) : [];
@@ -52,7 +50,7 @@ export default function PrintBadges() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24 relative">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24 print-wrapper">
       
       {/* 🛑 BOSHQARUV PANELI (PRINT PAYTIDA YASHIRINADI) */}
       <div className="no-print">
@@ -109,8 +107,7 @@ export default function PrintBadges() {
             </div>
 
             <div className="badge-qr">
-              {/* Davomat skaneri to'g'ri ishlashi uchun to'g'ridan-to'g'ri ID beramiz */}
-              <QRCodeSVG value={student._id} size={200} level="H" />
+              <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={200} level="H" />
             </div>
 
             <div className="badge-footer">
@@ -129,7 +126,7 @@ export default function PrintBadges() {
         )}
       </div>
 
-      {/* 💅 CSS STYLING (B2 O'LCHAM VA PRINT PARAMETRLARI) */}
+      {/* 💅 CSS STYLING (B2 O'LCHAM VA KO'P SAHIFALI PRINT PARAMETRLARI) */}
       <style>{`
         .print-area {
           display: flex;
@@ -138,7 +135,6 @@ export default function PrintBadges() {
           justify-content: center;
         }
 
-        /* TIKKA (VERTICAL) B2 BEJIK O'LCHAMLARI */
         .badge-card {
           width: 80mm;
           height: 124mm;
@@ -182,59 +178,49 @@ export default function PrintBadges() {
           border-radius: 16px; 
           background: #fff; 
         }
-        /* QR KOD O'LCHAMINI 80MM GA MOSLASHTIRISH */
         .badge-qr svg { width: 55mm !important; height: 55mm !important; }
         
         .badge-footer { text-align: center; width: 100%; }
         .badge-brand { color: #4f46e5; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
         .badge-tagline { font-size: 10px; color: #94a3b8; font-weight: bold; margin-top: 2px; }
 
-        /* 🖨️ PRINT BOSILGANDAGI HOLAT */
+        /* 🖨️ PRINT BOSILGANDAGI HOLAT (KO'P SAHIFALI) */
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm; /* A4 qog'oz chekkasidan qoladigan joy */
+            margin: 10mm; 
           }
           
-          /* Menyular va UI tugmalarni yashirish */
-          body * {
-            visibility: hidden;
+          /* Cheksiz sahifalar chiqishi uchun html va body dan overflow va height ni olib tashlaymiz */
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: white;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
+
           .no-print {
             display: none !important;
           }
 
-          /* Faqat qog'oz hududini ko'rsatish */
-          #print-section, #print-section * {
-            visibility: visible;
-          }
-
           #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
             display: flex !important;
             flex-wrap: wrap !important;
             gap: 5mm !important; /* Bejiklar orasidagi joy */
             justify-content: center !important;
             align-items: flex-start !important;
-            margin: 0 !important;
-            padding: 0 !important;
+            width: 100% !important;
+            /* 🔥 position: absolute OLIB TASHLANDI - BU KO'P SAHIFA CHIQISHI UCHUN ENG MUHIMI! */
           }
 
           .badge-card {
-            border: 1px dashed #000 !important; /* Qora nuqtali qirqish chizig'i */
+            border: 1px dashed #000 !important; 
             box-shadow: none !important;
             border-radius: 0 !important;
-            break-inside: avoid; /* Qog'oz yarmidan bo'linib qolishini oldini oladi */
+            break-inside: avoid; /* 🔥 Bitta bejik ikki sahifaga bo'linib qolmasligi uchun */
             page-break-inside: avoid;
             margin-bottom: 5mm;
-          }
-          
-          body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
           }
         }
       `}</style>
