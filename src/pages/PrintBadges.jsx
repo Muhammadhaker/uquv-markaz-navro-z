@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Printer, ArrowLeft, Loader2, Filter, Users } from "lucide-react";
+import { Printer, ArrowLeft, Loader2, Filter, Users, Image as ImageIcon } from "lucide-react";
 
 export default function PrintBadges() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState("Barchasi");
+  // 🔥 Qaysi tomonini chop etishni belgilaymiz ('front' yoki 'back')
+  const [printMode, setPrintMode] = useState("front"); 
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -13,7 +15,6 @@ export default function PrintBadges() {
         const res = await fetch("/api/students");
         const data = await res.json();
         if (data.success) {
-          // O'quvchilarni alifbo tartibida to'g'irlaymiz (A-Z)
           const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
           setStudents(sortedStudents);
         }
@@ -37,8 +38,12 @@ export default function PrintBadges() {
     return sGroups.includes(selectedGroup);
   });
 
-  const handlePrint = () => {
-    window.print();
+  // Chop etish tugmasi bosilganda rejimni o'zgartirib, keyin printerni chaqiramiz
+  const handlePrint = (mode) => {
+    setPrintMode(mode);
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   if (loading) {
@@ -50,11 +55,11 @@ export default function PrintBadges() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24 print-wrapper">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24">
       
-      {/* 🛑 BOSHQARUV PANELI (PRINT PAYTIDA YASHIRINADI) */}
+      {/* 🛑 BOSHQARUV PANELI (PRINTDA YASHIRILADI) */}
       <div className="no-print">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-200 pb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6 border-b border-slate-200 pb-6">
           <div>
             <button 
               onClick={() => window.history.back()} 
@@ -62,22 +67,32 @@ export default function PrintBadges() {
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">B2 Bejiklar Chop Etish</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Alohida Bejiklar Chop Etish</h1>
             <p className="text-slate-500 text-sm mt-1">
-              B2 (80x124mm) karmashkalar uchun maxsus andoza
+              B2 formati (80x124mm). Qog'oz va kraskani tejash uchun alohida chop eting.
             </p>
           </div>
 
-          <button 
-            onClick={handlePrint}
-            disabled={filteredStudents.length === 0}
-            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            <Printer size={20} /> <span>Print ({filteredStudents.length} ta)</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            {/* 1. O'QUVCHILARNI CHOP ETISH TUGMASI */}
+            <button 
+              onClick={() => handlePrint('front')}
+              disabled={filteredStudents.length === 0}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              <Printer size={20} /> <span>Oldi (QR) - {filteredStudents.length} ta</span>
+            </button>
+
+            {/* 2. LOGOTIPLARNI CHOP ETISH TUGMASI */}
+            <button 
+              onClick={() => handlePrint('back')}
+              className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all"
+            >
+              <ImageIcon size={20} /> <span>Orqasi (Logotiplar)</span>
+            </button>
+          </div>
         </div>
 
-        {/* Guruh bo'yicha filter */}
         <div className="mb-8 flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 w-full sm:w-auto text-slate-500 font-bold px-2">
             <Filter size={20} className="text-indigo-500" /> Guruhni tanlang:
@@ -96,29 +111,37 @@ export default function PrintBadges() {
         </div>
       </div>
 
-      {/* 🖨️ BEJIKLAR ZONASI (A4 QOG'OZ UCHUN MOSLANGAN) */}
+      {/* 🖨️ CHOP ETISH ZONASI */}
       <div id="print-section" className="print-area">
-        {filteredStudents.map((student) => (
-          <div key={student._id} className="badge-card">
-            
-            <div className="badge-header">
-              <h2>{student.name}</h2>
-              <div className="badge-group">{student.group || "G'ulomov Math Group"}</div>
+        
+        {/* OLDI QISMI (O'QUVCHILAR RO'YXATI) */}
+        {printMode === 'front' && filteredStudents.map((student) => (
+          <div key={student._id} className="badge-card front-side">
+            <div>
+              <div className="header-title">G'ulomov Math Group</div>
+              <div className="header-sub">Student Access Badge</div>
             </div>
 
-            <div className="badge-qr">
-              <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={200} level="H" />
+            <div className="qr-box">
+              <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={160} level="H" />
             </div>
 
-            <div className="badge-footer">
-              <div className="badge-brand">G'ULOMOV MATH GROUP</div>
-              <div className="badge-tagline">Davomat tizimi orqali himoyalangan</div>
+            <div className="student-details">
+              <div className="st-name">{student.name}</div>
+              <div className="st-group">📚 {student.group || "Guruhsiz"}</div>
             </div>
-
           </div>
         ))}
 
-        {filteredStudents.length === 0 && (
+        {/* ORQA QISMI (4 TA BIR XIL LOGOTIP 1 TA A4 QOG'OZ UCHUN) */}
+        {printMode === 'back' && [1, 2, 3, 4].map((item) => (
+          <div key={item} className="badge-card back-side">
+            <img src="/icon-192.png" className="logo-img" alt="Logo" />
+            <div className="footer-strip">Mantiq • Bilim • Natija</div>
+          </div>
+        ))}
+
+        {printMode === 'front' && filteredStudents.length === 0 && (
           <div className="w-full text-center py-16 text-slate-400 no-print flex flex-col items-center gap-3">
             <Users size={48} className="opacity-40" />
             <p className="font-medium text-lg">Bu guruhda o'quvchilar yo'q.</p>
@@ -126,7 +149,7 @@ export default function PrintBadges() {
         )}
       </div>
 
-      {/* 💅 CSS STYLING (B2 O'LCHAM VA KO'P SAHIFALI PRINT PARAMETRLARI) */}
+      {/* 💅 STYLING PANELI */}
       <style>{`
         .print-area {
           display: flex;
@@ -141,57 +164,96 @@ export default function PrintBadges() {
           background: white;
           border: 1px dashed #cbd5e1;
           box-sizing: border-box;
-          padding: 10mm 6mm;
+          padding: 12mm 6mm;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: space-between;
-          border-radius: 8px;
-          background-color: #fff;
+          border-radius: 6px;
+          position: relative;
         }
 
         @media screen {
           .badge-card {
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            border: 2px dashed #94a3b8;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
           }
         }
 
-        .badge-header { text-align: center; width: 100%; }
-        .badge-header h2 { 
-          margin: 0 0 4px 0; 
-          color: #1e293b; 
-          font-size: 24px; 
-          font-weight: 800; 
-          line-height: 1.1; 
-          text-transform: uppercase; 
+        /* Front Side (QR) Styles */
+        .front-side {
+          justify-content: space-between;
         }
-        .badge-group { font-size: 13px; color: #64748b; font-weight: bold; }
-        
-        .badge-qr { 
-          margin: 0 auto; 
-          display: flex; 
-          justify-content: center; 
-          align-items: center; 
-          padding: 12px; 
-          border: 2px solid #e2e8f0; 
-          border-radius: 16px; 
-          background: #fff; 
+        .header-title {
+          color: #1e3a8a;
+          font-size: 13px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          text-align: center;
         }
-        .badge-qr svg { width: 55mm !important; height: 55mm !important; }
-        
-        .badge-footer { text-align: center; width: 100%; }
-        .badge-brand { color: #4f46e5; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
-        .badge-tagline { font-size: 10px; color: #94a3b8; font-weight: bold; margin-top: 2px; }
+        .header-sub {
+          font-size: 9px;
+          color: #64748b;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          text-align: center;
+          margin-bottom: 8px;
+        }
+        .qr-box {
+          padding: 8px;
+          border: 2px solid #e2e8f0;
+          border-radius: 12px;
+          background: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .qr-box svg {
+          width: 42mm !important;
+          height: 42mm !important;
+        }
+        .student-details { text-align: center; width: 100%; }
+        .st-name {
+          font-size: 19px;
+          font-weight: 800;
+          color: #1e293b;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+          line-height: 1.2;
+        }
+        .st-group { font-size: 12px; color: #4f46e5; font-weight: 700; }
 
-        /* 🖨️ PRINT BOSILGANDAGI HOLAT (KO'P SAHIFALI) */
+        /* Back Side (Logo) Styles */
+        .back-side {
+          justify-content: center;
+          background-color: #fafafa;
+        }
+        .logo-img {
+          width: 55mm;
+          height: 55mm;
+          object-fit: contain;
+        }
+        .footer-strip {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          background: #1e3a8a;
+          color: #fff;
+          font-size: 9px;
+          font-weight: 800;
+          text-align: center;
+          padding: 6px 0;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          border-bottom-left-radius: 4px;
+          border-bottom-right-radius: 4px;
+        }
+
+        /* 🖨️ CHOP ETISH (PRINT) SOZLAMALARI */
         @media print {
-          @page {
-            size: A4 portrait;
-            margin: 10mm; 
-          }
+          @page { size: A4 portrait; margin: 10mm; }
           
-          /* Cheksiz sahifalar chiqishi uchun html va body dan overflow va height ni olib tashlaymiz */
           html, body {
             height: auto !important;
             overflow: visible !important;
@@ -200,28 +262,31 @@ export default function PrintBadges() {
             print-color-adjust: exact;
           }
 
-          .no-print {
-            display: none !important;
-          }
+          .no-print { display: none !important; }
+          #print-section, #print-section * { visibility: visible; }
 
           #print-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
             display: flex !important;
             flex-wrap: wrap !important;
-            gap: 5mm !important; /* Bejiklar orasidagi joy */
             justify-content: center !important;
-            align-items: flex-start !important;
-            width: 100% !important;
-            /* 🔥 position: absolute OLIB TASHLANDI - BU KO'P SAHIFA CHIQISHI UCHUN ENG MUHIMI! */
+            align-content: flex-start !important;
+            gap: 10mm 15mm !important; /* Bejiklar orasidagi masofa */
+            padding-top: 5mm !important;
           }
 
           .badge-card {
-            border: 1px dashed #000 !important; 
+            border: 1px dashed #000 !important; /* Qirqish uchun yo'naltiruvchi qora chiziq */
             box-shadow: none !important;
             border-radius: 0 !important;
-            break-inside: avoid; /* 🔥 Bitta bejik ikki sahifaga bo'linib qolmasligi uchun */
             page-break-inside: avoid;
-            margin-bottom: 5mm;
+            break-inside: avoid;
           }
+          
+          .footer-strip { border-radius: 0 !important; }
         }
       `}</style>
     </div>

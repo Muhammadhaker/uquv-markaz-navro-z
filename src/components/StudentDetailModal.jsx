@@ -27,10 +27,10 @@ const calculateCycles = (addedAtStr) => {
   if (!addedAtStr) return 1;
   const added = new Date(addedAtStr);
   if (isNaN(added.getTime())) return 1;
-  
+
   const today = new Date();
   let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
-  
+
   if (today.getDate() < added.getDate()) {
     m--;
   }
@@ -61,7 +61,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   );
 
   const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-  
+
   const isExcepted = localException.includes(targetMonth);
   const activeCycles = calculateCycles(student.addedAt);
 
@@ -70,7 +70,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
       if (match && match.price !== undefined) return Number(match.price);
     }
-    return 300000; 
+    return 300000;
   };
 
   const debtDetails = [];
@@ -80,12 +80,12 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     studentGroups.forEach(g => {
       const COURSE_PRICE = getPrice(g);
       const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
-      
+
       const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
       const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      
+
       const qarz = EXPECTED_TOTAL - totalPaid;
-      
+
       if (qarz > 0) {
         debtDetails.push({ group: g, qarz });
         OVERALL_DEBT += qarz;
@@ -205,19 +205,19 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
 
   const handleException = async () => {
     const isCurrentlyExcepted = localException.includes(targetMonth);
-    const confirmMsg = isCurrentlyExcepted 
+    const confirmMsg = isCurrentlyExcepted
       ? "Bu o'quvchidan istisnoni olib tashlab, yana qarzlar ro'yxatiga qo'shasizmi?"
       : "Bu o'quvchini qarzlar ro'yxatidan yashirib, unga bot orqali ogohlantirish bormaydigan qilasizmi?";
-      
+
     if (!window.confirm(confirmMsg)) return;
 
     setIsExcepting(true);
     try {
       let updatedExceptions;
       if (isCurrentlyExcepted) {
-         updatedExceptions = localException.filter(m => m !== targetMonth);
+        updatedExceptions = localException.filter(m => m !== targetMonth);
       } else {
-         updatedExceptions = [...localException, targetMonth];
+        updatedExceptions = [...localException, targetMonth];
       }
 
       const res = await fetch("/api/students", {
@@ -225,7 +225,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: student._id, exceptionMonths: updatedExceptions }),
       });
-      
+
       if (res.ok) {
         setLocalException(updatedExceptions);
         onRefresh();
@@ -233,119 +233,110 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     } catch (err) {
       console.error(err);
     } finally {
-      setIsExcepting(false); 
+      setIsExcepting(false);
     }
   };
 
-  // 🔥 QR KODNI CHOP ETISH FUNKSIYASI (B2 O'LCHAM, 80x124mm)
+  // 🔥 QR KODNI CHOP ETISH FUNKSIYASI (FAQT OLDI QISMI 80x124mm)
   const handlePrintQR = () => {
     const qrElement = document.getElementById("qr-print-area");
     if (!qrElement) return;
-    
+
     const printWindow = window.open('', '_blank', 'width=800,height=800');
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${student.name} - Bejik</title>
+          <title>${student.name} - Bejik (Oldi)</title>
           <style>
-            @page { 
-              size: A4; 
-              margin: 10mm; 
-            }
+            @page { size: A4; margin: 10mm; }
             body { 
               font-family: 'Segoe UI', Arial, sans-serif; 
               display: flex; 
               justify-content: center; 
               align-items: flex-start; 
-              padding-top: 20mm;
+              padding-top: 25mm;
               height: 100vh; 
               margin: 0; 
               background-color: #fff;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
-            .badge { 
-              width: 80mm; 
-              height: 124mm; 
-              border: 1px dashed #94a3b8;
+            .badge-side {
+              width: 80mm;
+              height: 124mm;
+              border: 1px dashed #64748b;
               box-sizing: border-box;
-              padding: 10mm 6mm; 
+              padding: 12mm 6mm;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
-              border-radius: 4px;
-            }
-            .header {
-              text-align: center;
-              width: 100%;
-            }
-            h2 { 
-              margin: 0 0 4px 0; 
-              color: #1e293b; 
-              font-size: 24px; 
-              font-weight: 800;
-              line-height: 1.1;
-              text-transform: uppercase;
-            }
-            .group-name {
-              font-size: 13px;
-              color: #64748b;
-              font-weight: bold;
-            }
-            .qr-container { 
-              margin: 0 auto; 
-              display: flex; 
-              justify-content: center; 
-              align-items: center;
-              padding: 12px;
-              border: 2px solid #e2e8f0;
-              border-radius: 16px;
               background: #fff;
             }
-            .qr-container svg {
-              width: 55mm;
-              height: 55mm;
-            }
-            .footer { 
-              text-align: center; 
-              width: 100%;
-            }
-            .brand {
-              color: #4f46e5;
-              font-size: 16px;
+            .header-title {
+              color: #1e3a8a;
+              font-size: 13px;
               font-weight: 900;
               text-transform: uppercase;
               letter-spacing: 0.5px;
+              text-align: center;
+              margin-bottom: 2px;
             }
-            .tagline {
-              font-size: 10px;
-              color: #94a3b8;
+            .header-sub {
+              font-size: 9px;
+              color: #64748b;
               font-weight: bold;
-              margin-top: 2px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              text-align: center;
             }
+            .qr-box {
+              padding: 8px;
+              border: 2px solid #e2e8f0;
+              border-radius: 12px;
+              background: #fff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-box svg {
+              width: 42mm !important;
+              height: 42mm !important;
+            }
+            .student-details { text-align: center; width: 100%; }
+            .st-name {
+              font-size: 19px;
+              font-weight: 800;
+              color: #1e293b;
+              text-transform: uppercase;
+              margin-bottom: 4px;
+              line-height: 1.2;
+            }
+            .st-group { font-size: 12px; color: #4f46e5; font-weight: 700; }
           </style>
         </head>
         <body>
-          <div class="badge">
-            <div class="header">
-              <h2>${student.name}</h2>
-              <div class="group-name">${student.group || "G'ulomov Math Group"}</div>
+          <div class="badge-side">
+            <div>
+              <div class="header-title">G'ulomov Math Group</div>
+              <div class="header-sub">Student Access Badge</div>
             </div>
-            <div class="qr-container">
+            
+            <div class="qr-box">
               ${qrElement.innerHTML}
             </div>
-            <div class="footer">
-              <div class="brand">G'ULOMOV MATH GROUP</div>
-              <div class="tagline">Davomat tizimi orqali himoyalangan</div>
+            
+            <div class="student-details">
+              <div class="st-name">${student.name}</div>
+              <div class="st-group">📚 ${student.group || "Guruhsiz"}</div>
             </div>
           </div>
           <script>
-            window.onload = () => { 
+            window.onload = () => {
               setTimeout(() => {
-                window.print(); 
-                window.close(); 
+                window.print();
+                window.close();
               }, 400);
             }
           </script>
@@ -367,8 +358,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
           </div>
 
           <div className="overflow-y-auto pr-2 pb-4 custom-scrollbar">
-            
-            <button 
+
+            <button
               onClick={() => setShowQR(true)}
               className="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 flex justify-center items-center gap-2 transition-colors mb-4"
             >
@@ -397,20 +388,20 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                 const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
                 const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
                 const qarz = EXPECTED_TOTAL - totalPaid;
-                
+
                 const isGroupPaid = qarz <= 0;
                 const isPartial = totalPaid > 0 && qarz > 0;
 
                 return (
                   <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 border rounded-xl bg-white shadow-sm gap-3">
                     <div className="font-bold text-slate-700 flex items-center gap-2 text-sm">
-                      <BookOpen size={16} className="text-indigo-500 min-w-[16px]" /> 
+                      <BookOpen size={16} className="text-indigo-500 min-w-[16px]" />
                       <div>
-                         {g} <br/>
-                         <span className="text-[10px] text-slate-400 font-medium">Jami to'lashi kerak: {EXPECTED_TOTAL.toLocaleString()} so'm</span>
+                        {g} <br />
+                        <span className="text-[10px] text-slate-400 font-medium">Jami to'lashi kerak: {EXPECTED_TOTAL.toLocaleString()} so'm</span>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       {isGroupPaid ? (
                         <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold w-full text-center sm:w-auto">To'langan</span>
@@ -530,8 +521,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       {showQR && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] animate-in fade-in duration-200">
           <div className="bg-white p-8 rounded-3xl text-center shadow-2xl relative w-full max-w-sm">
-            
-            <button 
+
+            <button
               onClick={handlePrintQR}
               className="absolute top-4 left-4 p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full transition-colors flex items-center justify-center"
               title="QR kodni chop etish"
@@ -539,20 +530,20 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               <Printer size={20} />
             </button>
 
-            <button 
-              onClick={() => setShowQR(false)} 
+            <button
+              onClick={() => setShowQR(false)}
               className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-rose-100 hover:text-rose-600 rounded-full transition-colors text-slate-500"
             >
               <X size={20} />
             </button>
-            
+
             <h3 className="font-bold text-xl mb-6 text-slate-800 mt-2">{student.name}</h3>
-            
+
             <div id="qr-print-area" className="p-6 bg-slate-50 rounded-3xl border border-slate-200 inline-block shadow-inner">
-               {/* 🔥 BOTA YO'NALTIRUVCHI QR KOD */}
-               <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={220} level="H" />
+              {/* 🔥 BOTA YO'NALTIRUVCHI QR KOD */}
+              <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={220} level="H" />
             </div>
-            
+
             <p className="text-sm text-slate-500 mt-6 font-medium">Profilni ulash uchun skanerlang</p>
           </div>
         </div>
@@ -569,7 +560,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
           }}
         />
       )}
-      
+
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
