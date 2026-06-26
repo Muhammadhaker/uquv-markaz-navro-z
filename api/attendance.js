@@ -14,7 +14,7 @@ const attendanceSchema = new mongoose.Schema({
     studentId: String,
     studentName: String,
     status: String,
-    messageId: Number // Telegramdagi xabarni o'chirish uchun ID saqlanadi
+    messageId: Number 
   }],
   createdAt: { type: Date, default: Date.now }
 });
@@ -35,7 +35,6 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const { groupName, date, adminName, records } = req.body;
       
-      // 1. Bazadagi eski holatni chaqirib olamiz
       const oldDoc = await Attendance.findOne({ groupName, date });
       const oldDataMap = {};
       if (oldDoc) {
@@ -44,7 +43,6 @@ export default async function handler(req, res) {
          });
       }
 
-      // Kiritilgan ma'lumotlarni klon qilamiz (Eski messageId larni ulash uchun)
       const finalRecords = records.map(r => ({
           studentId: r.studentId,
           studentName: r.studentName,
@@ -54,14 +52,11 @@ export default async function handler(req, res) {
 
       const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
       
-      // 2. TELEGRAM QISMI (Xatolik bo'lsa ham dastur to'xtab qolmasligi uchun himoyalangan)
       if (telegramToken && finalRecords.length > 0) {
          try {
-            // Faqat o'zgarganlarni olamiz
             const changedRecords = finalRecords.filter(r => !oldDoc || oldDataMap[r.studentId]?.status !== r.status);
             
             if (changedRecords.length > 0) {
-               // Xavfsiz qidiruv: Mongoose Error bermasligi uchun tekshiramiz
                const objectIds = [];
                changedRecords.forEach(r => {
                   if (mongoose.Types.ObjectId.isValid(r.studentId)) {
@@ -79,12 +74,17 @@ export default async function handler(req, res) {
                const [yyyy, mm, dd] = date.split("-");
                const formattedDate = `${dd}.${mm}.${yyyy}`;
 
-               // Barcha xabarlarni parallell yuborish (Vaqtni tejaydi)
+               // 🔥 3 XIL STATUS UCHUN MATN TANLASH FUNKSIYASI
+               const getStatusText = (status) => {
+                  if (status === 'keldi') return '✅ Darsda qatnashdingiz';
+                  if (status === 'kechikdi') return '⏳ Darsga kechikib keldingiz';
+                  return '❌ Darsga kelmadingiz';
+               };
+
                await Promise.all(changedRecords.map(async (record) => {
                    const chatId = chatIdsMap[record.studentId];
                    if (!chatId) return;
 
-                   // Eski xabarni topib o'chirish
                    if (record.messageId) {
                        try {
                            await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
@@ -95,11 +95,11 @@ export default async function handler(req, res) {
                        } catch(e) { console.error("Eski xabarni o'chirishda xato", e); }
                    }
 
-                   // Yangi xabarni tayyorlash va yuborish
                    const isCorrection = oldDataMap[record.studentId] !== undefined; 
+                   
                    let text = isCorrection 
-                       ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*, sizning ${formattedDate} sanasidagi "${groupName}" fani bo'yicha davomatingiz tahrirlandi.\n\n📊 Yangi holat: *${record.status === 'keldi' ? '✅ Darsda qatnashdingiz' : '❌ Darsga kelmadingiz'}*`
-                       : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*, bugun (${formattedDate}) "${groupName}" fani bo'yicha davomat olindi.\n\n📊 Holat: *${record.status === 'keldi' ? '✅ Darsda qatnashdingiz' : '❌ Darsga kelmadingiz'}*`;
+                       ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*, sizning ${formattedDate} sanasidagi "${groupName}" fani bo'yicha davomatingiz tahrirlandi.\n\n📊 Yangi holat: *${getStatusText(record.status)}*`
+                       : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*, bugun (${formattedDate}) "${groupName}" fani bo'yicha davomat olindi.\n\n📊 Holat: *${getStatusText(record.status)}*`;
 
                    try {
                        const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
@@ -109,7 +109,7 @@ export default async function handler(req, res) {
                        });
                        const tgData = await tgRes.json();
                        if (tgData.ok) {
-                           record.messageId = tgData.result.message_id; // Yangi xabar ID saqlandi
+                           record.messageId = tgData.result.message_id; 
                        } else {
                            record.messageId = null;
                        }
@@ -119,11 +119,10 @@ export default async function handler(req, res) {
                }));
             }
          } catch (tgError) {
-            console.error("Telegram jarayonida xatolik yuz berdi, lekin saqlash davom etadi:", tgError);
+            console.error("Telegram jarayonida xatolik yuz berdi:", tgError);
          }
       }
 
-      // 3. ASOSIY QISM: Davomat BAZAGA yozilishi shart!
       const data = await Attendance.findOneAndUpdate(
         { groupName, date },
         { groupName, date, adminName, records: finalRecords },

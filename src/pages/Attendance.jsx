@@ -12,8 +12,6 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ type: "", text: "" });
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // 🔥 YANGI: Kamera holati
   const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
@@ -76,6 +74,18 @@ export default function Attendance() {
     setAttendanceRecords(newRecords);
   };
 
+  // 🔥 QR SKANERDAN KELADIGAN SIGNAL UCHUN FUNKSIYA
+  const handleScan = (scannedId) => {
+    setAttendanceRecords((prev) => {
+      // Agar avval 'kelmadi' deb saqlangan bo'lsa, 'kechikdi' deb o'zgartiramiz, aks holda 'keldi'
+      const isAbsent = prev[scannedId] === "kelmadi";
+      return {
+        ...prev,
+        [scannedId]: isAbsent ? "kechikdi" : "keldi"
+      };
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -86,9 +96,16 @@ export default function Attendance() {
         records: currentGroupStudents.map((s) => ({
           studentId: s._id,
           studentName: s.name,
-          status: attendanceRecords[s._id] || "kelmadi",
+          // 🔥 Hech narsa belgilanmagan va skanerlanmaganlar avtomatik "kelmadi" ga aylanadi
+          status: attendanceRecords[s._id] || "kelmadi", 
         })),
       };
+      
+      // Mahalliy holatni ham birdaniga to'liq yangilab qo'yamiz (Kelmadi bo'lib qolganlarni ekranda qizartirish uchun)
+      const updatedLocalRecords = {};
+      payload.records.forEach(r => { updatedLocalRecords[r.studentId] = r.status; });
+      setAttendanceRecords(updatedLocalRecords);
+
       const res = await fetch("/api/attendance", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
@@ -118,7 +135,8 @@ export default function Attendance() {
 
         {showScanner && (
           <div className="mt-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            <AttendanceScanner />
+            {/* 🔥 onScan props orqali natijani qabul qilamiz */}
+            <AttendanceScanner onScan={handleScan} />
           </div>
         )}
       </div>
@@ -164,16 +182,24 @@ export default function Attendance() {
           currentGroupStudents.map((s) => (
             <div key={s._id} className="p-4 border-b flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:bg-slate-50 transition-colors">
               <span className="font-bold text-slate-700">{s.name}</span>
+              
+              {/* 🔥 UCHTA TUGMA QILINDI: KELDI, KECHIKDI, KELMADI */}
               <div className="flex bg-slate-100 p-1 rounded-xl gap-1 w-full sm:w-auto">
                 <button
                   onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: "keldi"})}
-                  className={`flex-1 sm:flex-none px-6 py-2 rounded-lg font-bold transition-all ${attendanceRecords[s._id] === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-sm transition-all ${attendanceRecords[s._id] === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
                 >
                   Keldi
                 </button>
                 <button
+                  onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: "kechikdi"})}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-sm transition-all ${attendanceRecords[s._id] === "kechikdi" ? "bg-amber-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                >
+                  Kechikdi
+                </button>
+                <button
                   onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: "kelmadi"})}
-                  className={`flex-1 sm:flex-none px-6 py-2 rounded-lg font-bold transition-all ${attendanceRecords[s._id] === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-sm transition-all ${attendanceRecords[s._id] === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
                 >
                   Kelmadi
                 </button>

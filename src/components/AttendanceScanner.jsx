@@ -2,13 +2,13 @@ import { useEffect, useState, useRef } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Loader2, CheckCircle, AlertCircle, Camera, X } from "lucide-react";
 
-export default function AttendanceScanner() {
+// 🔥 DIQQAT: onScan propsini qabul qilyapmiz!
+export default function AttendanceScanner({ onScan }) {
   const [status, setStatus] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const scannerRef = useRef(null);
 
-  // 🔥 KAMERANI YOQISH UCHUN MAXSUS FUNKSIYA
   const startCamera = async () => {
     setStatus({ type: "", text: "" });
     try {
@@ -22,7 +22,7 @@ export default function AttendanceScanner() {
           if (scannerRef.current && scannerRef.current.getState() === 2) {
              scannerRef.current.pause(true);
           }
-          await markAttendanceViaQR(decodedText);
+          await processQR(decodedText);
         },
         (errorMessage) => {
           // Xatolar e'tiborga olinmaydi
@@ -35,7 +35,6 @@ export default function AttendanceScanner() {
     }
   };
 
-  // 🔥 KAMERANI YOPISH
   const stopCamera = async () => {
     if (scannerRef.current) {
       try {
@@ -57,18 +56,29 @@ export default function AttendanceScanner() {
     };
   }, []);
 
-  // BAZAGA YOZISH VA BOTGA XABAR YUBORISH
-  const markAttendanceViaQR = async (studentId) => {
+  // 🔥 QR KODNI QAYTA ISHLASH VA BAZAGA YUBORISH
+  const processQR = async (decodedText) => {
     setLoading(true);
     setStatus({ type: "", text: "" });
 
+    // 1. URL ICHIDAN FAQAT "ID" QISMINI QIRQIB OLISH!
+    let studentId = decodedText;
+    if (decodedText.includes("?start=")) {
+      studentId = decodedText.split("?start=")[1].trim();
+    }
+
     try {
-      // 🔥 MANZIL TO'G'RILANDI: endi to'g'ridan-to'g'ri /api/scan ga boradi
+      // 2. PARENT (Attendance.jsx) GA ID NI YUBORISH (Kechikdi/Keldi rangini o'zgartirish uchun)
+      if (onScan) {
+        onScan(studentId);
+      }
+
+      // 3. API GA TO'G'RI ID BILAN SO'ROV YUBORISH
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          studentId,
+          studentId: studentId, // Ochiq toza ID ketadi
           date: new Date().toISOString().split("T")[0], 
           adminName: localStorage.getItem("username") || "Admin"
         }),
@@ -77,7 +87,7 @@ export default function AttendanceScanner() {
       const result = await res.json();
 
       if (result.success) {
-        setStatus({ type: "success", text: `✅ ${result.message}` });
+        setStatus({ type: "success", text: `✅ O'quvchi topildi va belgilandi!` });
       } else {
         setStatus({ type: "error", text: `❌ Xatolik: ${result.message}` });
       }
@@ -85,6 +95,7 @@ export default function AttendanceScanner() {
       setStatus({ type: "error", text: "❌ Server bilan bog'lanishda xato." });
     } finally {
       setLoading(false);
+      // Skanerni yana yangi o'quvchini kutish uchun ishga tushirish
       setTimeout(() => {
         setStatus({ type: "", text: "" });
         if (scannerRef.current && scannerRef.current.getState() === 3) {
