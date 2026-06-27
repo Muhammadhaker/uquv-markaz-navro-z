@@ -237,7 +237,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     }
   };
 
-// 🔥 QR KODNI CHOP ETISH FUNKSIYASI (FAQT OLDI QISMI 67x107mm)
+// 🔥 QR KODNI CHOP ETISH FUNKSIYASI (PREMIUM DIZAYN 67x107mm)
   const handlePrintQR = () => {
     const qrElement = document.getElementById("qr-print-area");
     if (!qrElement) return;
@@ -247,7 +247,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${student.name} - Bejik (Oldi)</title>
+          <title>${student.name} - Bejik</title>
           <style>
             @page { size: A4; margin: 10mm; }
             body { 
@@ -259,58 +259,68 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               height: 100vh; 
               margin: 0; 
               background-color: #fff;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
             .badge-side {
               width: 67mm;
               height: 107mm;
-              border: 1px dashed #000;
+              outline: 1px dashed #000;
               box-sizing: border-box;
-              padding: 8mm 4mm;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
               background: #fff;
+              overflow: hidden;
+            }
+            .header-section {
+              width: 100%;
+              background-color: #1e3a8a;
+              padding: 6mm 0;
+              text-align: center;
             }
             .header-title {
-              color: #1e3a8a;
+              color: #ffffff;
               font-size: 11px;
               font-weight: 900;
               text-transform: uppercase;
               letter-spacing: 0.5px;
-              text-align: center;
-              margin-bottom: 2px;
+              margin-bottom: 1px;
             }
             .header-sub {
-              font-size: 8px;
-              color: #64748b;
+              color: #93c5fd;
+              font-size: 7px;
               font-weight: bold;
               text-transform: uppercase;
               letter-spacing: 1px;
-              text-align: center;
             }
-            .qr-box {
-              padding: 6px;
-              border: 2px solid #e2e8f0;
-              border-radius: 10px;
-              background: #fff;
+            .qr-container {
+              flex: 1;
               display: flex;
               align-items: center;
               justify-content: center;
+              width: 100%;
+            }
+            .qr-box {
+              padding: 5px;
+              background: #fff;
             }
             .qr-box svg {
-              width: 38mm !important;
-              height: 38mm !important;
+              width: 44mm !important;
+              height: 44mm !important;
             }
-            .student-details { text-align: center; width: 100%; }
+            .student-details {
+              width: 100%;
+              text-align: center;
+              padding-bottom: 6mm;
+            }
             .st-name {
-              font-size: 16px;
+              font-size: 15px;
               font-weight: 800;
               color: #1e293b;
               text-transform: uppercase;
-              margin-bottom: 3px;
+              margin-bottom: 2px;
               line-height: 1.1;
             }
             .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
@@ -318,13 +328,15 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         </head>
         <body>
           <div class="badge-side">
-            <div>
+            <div class="header-section">
               <div class="header-title">G'ulomov Math Group</div>
               <div class="header-sub">Student Access Badge</div>
             </div>
             
-            <div class="qr-box">
-              ${qrElement.innerHTML}
+            <div class="qr-container">
+              <div class="qr-box">
+                ${qrElement.innerHTML}
+              </div>
             </div>
             
             <div class="student-details">

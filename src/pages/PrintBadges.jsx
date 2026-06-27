@@ -94,9 +94,9 @@ export default function PrintBadges() {
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">Tanlab Chop Etish</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Yopishib chiqadigan Bejiklar</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Ichki o'lcham: 67x107mm. Qog'oz va kraskani tejash uchun alohida chop eting.
+              Qirqishga oson, qog'oz va kraskani tejovchi Premium format (67x107mm)
             </p>
           </div>
 
@@ -156,17 +156,20 @@ export default function PrintBadges() {
               className={`badge-card front-side cursor-pointer transition-all duration-200 
                 ${isSelected ? 'ring-2 ring-indigo-500 shadow-md' : 'opacity-40 grayscale-[40%] scale-95 no-print'}`}
             >
-              <div className="absolute top-2 right-2 no-print bg-white rounded-md z-10 shadow-sm">
+              <div className="absolute top-1 right-1 no-print bg-white rounded-md z-10 shadow-sm">
                 {isSelected ? <CheckSquare className="text-indigo-600" size={20} /> : <Square className="text-slate-400" size={20} />}
               </div>
 
+              {/* 🔥 Tepa ko'k shapka */}
               <div className="header-section">
                 <div className="header-title">G'ulomov Math Group</div>
                 <div className="header-sub">Student Access Badge</div>
               </div>
 
-              <div className="qr-box">
-                <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={160} level="M" />
+              <div className="qr-container">
+                <div className="qr-box">
+                  <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={160} level="M" />
+                </div>
               </div>
 
               <div className="student-details">
@@ -178,7 +181,7 @@ export default function PrintBadges() {
         })}
 
         {printMode === 'back' && Array.from({ length: selectedIds.length }).map((_, index) => (
-          <div key={index} className="badge-card back-side shadow-sm">
+          <div key={index} className="badge-card back-side">
             <img src="/icon-192.png" className="logo-img" alt="Logo" />
             <div className="footer-strip">Mantiq • Bilim • Natija</div>
           </div>
@@ -196,87 +199,94 @@ export default function PrintBadges() {
         .print-area {
           display: flex;
           flex-wrap: wrap;
-          gap: 15px;
+          gap: 15px; /* Ekranda sal ochiq turadi, lekin printda yopishadi */
           justify-content: center;
         }
 
-        /* 🔥 ANIQ QOG'OZ O'LCHAMI (Ichki) */
         .badge-card {
           width: 67mm;
           height: 107mm;
           background: white;
-          border: 1px dashed #cbd5e1;
           box-sizing: border-box;
-          padding: 8mm 4mm;
           display: flex;
           flex-direction: column;
           align-items: center;
-          border-radius: 4px;
           position: relative;
+          overflow: hidden;
+          outline: 1px dashed #cbd5e1;
         }
 
         @media screen {
           .badge-card {
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            border-radius: 6px;
           }
         }
 
+        /* Front Side Styles */
         .front-side {
           justify-content: space-between;
         }
         .header-section {
           width: 100%;
+          background-color: #1e3a8a; /* To'q ko'k shapka */
+          padding: 6mm 0;
+          text-align: center;
         }
         .header-title {
-          color: #1e3a8a;
+          color: #ffffff;
           font-size: 11px;
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          text-align: center;
+          margin-bottom: 1px;
         }
         .header-sub {
-          font-size: 8px;
-          color: #64748b;
+          color: #93c5fd;
+          font-size: 7px;
           font-weight: bold;
           text-transform: uppercase;
           letter-spacing: 1px;
-          text-align: center;
-          margin-bottom: 6px;
         }
-        .qr-box {
-          padding: 6px;
-          border: 2px solid #e2e8f0;
-          border-radius: 10px;
-          background: #fff;
+        .qr-container {
+          flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 100%;
         }
-        /* QR Kod 67mm lik eniga sig'ishi uchun kichraytirildi */
+        .qr-box {
+          padding: 5px;
+          background: #fff;
+        }
         .qr-box svg {
-          width: 38mm !important;
-          height: 38mm !important;
+          width: 44mm !important;
+          height: 44mm !important;
         }
-        .student-details { text-align: center; width: 100%; }
+        .student-details {
+          width: 100%;
+          text-align: center;
+          padding-bottom: 6mm;
+        }
         .st-name {
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 800;
           color: #1e293b;
           text-transform: uppercase;
           margin-bottom: 2px;
+          padding: 0 4px;
           line-height: 1.1;
         }
         .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
 
+        /* Back Side Styles */
         .back-side {
           justify-content: center;
-          background-color: #fafafa;
+          background-color: #f8fafc;
         }
-        /* Logotip 67mm lik eniga sig'ishi uchun */
         .logo-img {
-          width: 44mm;
-          height: 44mm;
+          width: 46mm;
+          height: 46mm;
           object-fit: contain;
         }
         .footer-strip {
@@ -292,40 +302,44 @@ export default function PrintBadges() {
           padding: 5px 0;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          border-bottom-left-radius: 4px;
-          border-bottom-right-radius: 4px;
         }
 
+        /* 🖨️ PRINT (CHOP ETISH) QOIDALARI */
         @media print {
-          @page { size: A4 portrait; margin: 10mm; }
+          @page { 
+            size: A4 portrait; 
+            margin: 10mm auto; /* Tepadagi ssilkalarni o'chiradi */
+          }
           
           html, body {
             height: auto !important;
             overflow: visible !important;
             background: white;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .no-print { display: none !important; }
           #print-section, #print-section * { visibility: visible; }
 
           #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 134mm !important; /* 67 + 67 = 134mm (Faqat 2 ta bejik yonma-yon) */
+            margin: 0 auto !important;
             display: flex !important;
             flex-wrap: wrap !important;
-            justify-content: center !important;
+            justify-content: flex-start !important;
             align-content: flex-start !important;
-            gap: 5mm !important; /* Bejiklar orasidagi masofa */
-            padding-top: 2mm !important;
+            gap: 0 !important; /* 🔥 ROSTAKAM YOPISHADI (Probel yo'q) */
+            /* A4 (210mm) da markazga tushirish uchun 38mm suramiz */
+            transform: translateX(38mm) !important;
           }
 
           .badge-card {
-            border: 1px dashed #000 !important; 
-            box-shadow: none !important;
+            border: none !important; 
+            outline: 1px dashed #333 !important; /* Ustma-ust chiziq tushmasligi uchun outline ishlatildi */
             border-radius: 0 !important;
             page-break-inside: avoid;
             break-inside: avoid;
@@ -333,8 +347,6 @@ export default function PrintBadges() {
             transform: scale(1) !important;
             filter: none !important;
           }
-          
-          .footer-strip { border-radius: 0 !important; }
         }
       `}</style>
     </div>
