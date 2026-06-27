@@ -237,7 +237,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     }
   };
 
-// 🔥 QR KODNI CHOP ETISH FUNKSIYASI (PREMIUM DIZAYN 67x107mm)
+// 🔥 QR KODNI CHOP ETISH FUNKSIYASI (TEJAMKOR IXCHAM 60x95mm)
   const handlePrintQR = () => {
     const qrElement = document.getElementById("qr-print-area");
     if (!qrElement) return;
@@ -249,7 +249,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         <head>
           <title>${student.name} - Bejik</title>
           <style>
-            @page { size: A4; margin: 10mm; }
+            @page { size: A4; margin: 5mm; }
             body { 
               font-family: 'Segoe UI', Arial, sans-serif; 
               display: flex; 
@@ -263,8 +263,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               print-color-adjust: exact !important;
             }
             .badge-side {
-              width: 67mm;
-              height: 107mm;
+              width: 60mm; /* Ixcham eni */
+              height: 95mm; /* Ixcham bo'yi */
               outline: 1px dashed #000;
               box-sizing: border-box;
               display: flex;
@@ -277,12 +277,12 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             .header-section {
               width: 100%;
               background-color: #1e3a8a;
-              padding: 6mm 0;
+              padding: 5mm 0;
               text-align: center;
             }
             .header-title {
               color: #ffffff;
-              font-size: 11px;
+              font-size: 10px;
               font-weight: 900;
               text-transform: uppercase;
               letter-spacing: 0.5px;
@@ -290,7 +290,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             }
             .header-sub {
               color: #93c5fd;
-              font-size: 7px;
+              font-size: 6.5px;
               font-weight: bold;
               text-transform: uppercase;
               letter-spacing: 1px;
@@ -303,27 +303,27 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               width: 100%;
             }
             .qr-box {
-              padding: 5px;
+              padding: 4px;
               background: #fff;
             }
             .qr-box svg {
-              width: 44mm !important;
-              height: 44mm !important;
+              width: 38mm !important;
+              height: 38mm !important;
             }
             .student-details {
               width: 100%;
               text-align: center;
-              padding-bottom: 6mm;
+              padding-bottom: 5mm;
             }
             .st-name {
-              font-size: 15px;
+              font-size: 14px;
               font-weight: 800;
               color: #1e293b;
               text-transform: uppercase;
               margin-bottom: 2px;
               line-height: 1.1;
             }
-            .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
+            .st-group { font-size: 9px; color: #4f46e5; font-weight: 700; }
           </style>
         </head>
         <body>
@@ -357,7 +357,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     `);
     printWindow.document.close();
   };
-
   return (
     <>
       <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">

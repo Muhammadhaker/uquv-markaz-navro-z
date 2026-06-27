@@ -94,9 +94,9 @@ export default function PrintBadges() {
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">Yopishib chiqadigan Bejiklar</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Tejamkor Bejiklar (1 varaqda 9 ta)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Qirqishga oson, qog'oz va kraskani tejovchi Premium format (67x107mm)
+              Yonma-yon 3 ta, pastma-past 3 ta joylashadigan ixcham format (60x95mm).
             </p>
           </div>
 
@@ -157,10 +157,9 @@ export default function PrintBadges() {
                 ${isSelected ? 'ring-2 ring-indigo-500 shadow-md' : 'opacity-40 grayscale-[40%] scale-95 no-print'}`}
             >
               <div className="absolute top-1 right-1 no-print bg-white rounded-md z-10 shadow-sm">
-                {isSelected ? <CheckSquare className="text-indigo-600" size={20} /> : <Square className="text-slate-400" size={20} />}
+                {isSelected ? <CheckSquare className="text-indigo-600" size={18} /> : <Square className="text-slate-400" size={18} />}
               </div>
 
-              {/* 🔥 Tepa ko'k shapka */}
               <div className="header-section">
                 <div className="header-title">G'ulomov Math Group</div>
                 <div className="header-sub">Student Access Badge</div>
@@ -199,13 +198,13 @@ export default function PrintBadges() {
         .print-area {
           display: flex;
           flex-wrap: wrap;
-          gap: 15px; /* Ekranda sal ochiq turadi, lekin printda yopishadi */
+          gap: 15px; 
           justify-content: center;
         }
 
         .badge-card {
-          width: 67mm;
-          height: 107mm;
+          width: 60mm;   
+          height: 95mm;  
           background: white;
           box-sizing: border-box;
           display: flex;
@@ -223,19 +222,17 @@ export default function PrintBadges() {
           }
         }
 
-        /* Front Side Styles */
-        .front-side {
-          justify-content: space-between;
-        }
+        .front-side { justify-content: space-between; }
+        
         .header-section {
           width: 100%;
-          background-color: #1e3a8a; /* To'q ko'k shapka */
-          padding: 6mm 0;
+          background-color: #1e3a8a; 
+          padding: 5mm 0;
           text-align: center;
         }
         .header-title {
           color: #ffffff;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -243,7 +240,7 @@ export default function PrintBadges() {
         }
         .header-sub {
           color: #93c5fd;
-          font-size: 7px;
+          font-size: 6.5px;
           font-weight: bold;
           text-transform: uppercase;
           letter-spacing: 1px;
@@ -256,20 +253,20 @@ export default function PrintBadges() {
           width: 100%;
         }
         .qr-box {
-          padding: 5px;
+          padding: 4px;
           background: #fff;
         }
         .qr-box svg {
-          width: 44mm !important;
-          height: 44mm !important;
+          width: 38mm !important;
+          height: 38mm !important;
         }
         .student-details {
           width: 100%;
           text-align: center;
-          padding-bottom: 6mm;
+          padding-bottom: 5mm;
         }
         .st-name {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 800;
           color: #1e293b;
           text-transform: uppercase;
@@ -277,16 +274,15 @@ export default function PrintBadges() {
           padding: 0 4px;
           line-height: 1.1;
         }
-        .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
+        .st-group { font-size: 9px; color: #4f46e5; font-weight: 700; }
 
-        /* Back Side Styles */
         .back-side {
           justify-content: center;
           background-color: #f8fafc;
         }
         .logo-img {
-          width: 46mm;
-          height: 46mm;
+          width: 40mm;
+          height: 40mm;
           object-fit: contain;
         }
         .footer-strip {
@@ -296,57 +292,74 @@ export default function PrintBadges() {
           width: 100%;
           background: #1e3a8a;
           color: #fff;
-          font-size: 8px;
+          font-size: 7px;
           font-weight: 800;
           text-align: center;
-          padding: 5px 0;
+          padding: 4px 0;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
 
-        /* 🖨️ PRINT (CHOP ETISH) QOIDALARI */
+        /* 🖨️ YAKUNIY VA MUQOBIL PRINT SOZLAMALARI */
         @media print {
           @page { 
             size: A4 portrait; 
-            margin: 10mm auto; /* Tepadagi ssilkalarni o'chiradi */
+            margin: 0 !important; /* 🔥 Qog'oz chetidagi brauzer sanasi va URL larni yo'q qiladi */
           }
           
-          html, body {
-            height: auto !important;
-            overflow: visible !important;
-            background: white;
+          /* Saytdagi barcha kontentni yashiramiz */
+          body * {
+            visibility: hidden;
+          }
+          
+          html, body, #root {
+            background-color: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-
+          
           .no-print { display: none !important; }
-          #print-section, #print-section * { visibility: visible; }
 
+          #print-section, #print-section * { 
+            visibility: visible; 
+          }
+
+          /* 🔥 "OPPOQ KO'RPA" - SAYT ORQA FONINI TO'LIQ QOPLAYDI */
           #print-section {
             position: absolute !important;
-            left: 0 !important;
             top: 0 !important;
-            width: 134mm !important; /* 67 + 67 = 134mm (Faqat 2 ta bejik yonma-yon) */
-            margin: 0 auto !important;
+            left: 0 !important;
+            width: 100vw !important;
+            min-height: 100vh !important;
+            background-color: #ffffff !important; /* CRM fonini oppoqqa bo'yaydi */
+            z-index: 999999 !important;
+            
             display: flex !important;
             flex-wrap: wrap !important;
             justify-content: flex-start !important;
             align-content: flex-start !important;
-            gap: 0 !important; /* 🔥 ROSTAKAM YOPISHADI (Probel yo'q) */
-            /* A4 (210mm) da markazga tushirish uchun 38mm suramiz */
-            transform: translateX(38mm) !important;
+            gap: 0 !important; 
+            
+            /* A4 qog'ozni roppa-rosa o'rtasiga tekislash (210 - 180 = 30 / 2 = 15mm left padding) */
+            padding-left: 15mm !important;
+            padding-top: 10mm !important; 
+            margin: 0 !important;
           }
 
           .badge-card {
             border: none !important; 
-            outline: 1px dashed #333 !important; /* Ustma-ust chiziq tushmasligi uchun outline ishlatildi */
+            outline: 1px dashed #cbd5e1 !important; 
             border-radius: 0 !important;
             page-break-inside: avoid;
             break-inside: avoid;
-            opacity: 1 !important;
-            transform: scale(1) !important;
-            filter: none !important;
+            background-color: #ffffff !important; /* Bejik fonini oq qilish */
           }
+          
+          /* Fon yoqilganda o'z rangini saqlab qoladigan elementlar */
+          .header-section { background-color: #1e3a8a !important; }
+          .footer-strip { background-color: #1e3a8a !important; }
         }
       `}</style>
     </div>
