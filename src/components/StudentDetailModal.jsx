@@ -237,11 +237,11 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     }
   };
 
-  // 🔥 QR KODNI CHOP ETISH FUNKSIYASI (FAQT OLDI QISMI 80x124mm)
+// 🔥 QR KODNI CHOP ETISH FUNKSIYASI (FAQT OLDI QISMI 67x107mm)
   const handlePrintQR = () => {
     const qrElement = document.getElementById("qr-print-area");
     if (!qrElement) return;
-
+    
     const printWindow = window.open('', '_blank', 'width=800,height=800');
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -263,11 +263,11 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               print-color-adjust: exact;
             }
             .badge-side {
-              width: 80mm;
-              height: 124mm;
-              border: 1px dashed #64748b;
+              width: 67mm;
+              height: 107mm;
+              border: 1px dashed #000;
               box-sizing: border-box;
-              padding: 12mm 6mm;
+              padding: 8mm 4mm;
               display: flex;
               flex-direction: column;
               align-items: center;
@@ -276,7 +276,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             }
             .header-title {
               color: #1e3a8a;
-              font-size: 13px;
+              font-size: 11px;
               font-weight: 900;
               text-transform: uppercase;
               letter-spacing: 0.5px;
@@ -284,7 +284,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               margin-bottom: 2px;
             }
             .header-sub {
-              font-size: 9px;
+              font-size: 8px;
               color: #64748b;
               font-weight: bold;
               text-transform: uppercase;
@@ -292,28 +292,28 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               text-align: center;
             }
             .qr-box {
-              padding: 8px;
+              padding: 6px;
               border: 2px solid #e2e8f0;
-              border-radius: 12px;
+              border-radius: 10px;
               background: #fff;
               display: flex;
               align-items: center;
               justify-content: center;
             }
             .qr-box svg {
-              width: 42mm !important;
-              height: 42mm !important;
+              width: 38mm !important;
+              height: 38mm !important;
             }
             .student-details { text-align: center; width: 100%; }
             .st-name {
-              font-size: 19px;
+              font-size: 16px;
               font-weight: 800;
               color: #1e293b;
               text-transform: uppercase;
-              margin-bottom: 4px;
-              line-height: 1.2;
+              margin-bottom: 3px;
+              line-height: 1.1;
             }
-            .st-group { font-size: 12px; color: #4f46e5; font-weight: 700; }
+            .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
           </style>
         </head>
         <body>
