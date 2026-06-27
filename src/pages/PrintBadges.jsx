@@ -6,8 +6,8 @@ export default function PrintBadges() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState("Barchasi");
-  
-  const [printMode, setPrintMode] = useState("front"); 
+
+  const [printMode, setPrintMode] = useState("front");
   const [selectedIds, setSelectedIds] = useState([]);
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function PrintBadges() {
         if (data.success) {
           const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
           setStudents(sortedStudents);
-          setSelectedIds(sortedStudents.map(s => s._id)); 
+          setSelectedIds(sortedStudents.map(s => s._id));
         }
       } catch (err) {
         console.error("O'quvchilarni yuklashda xato:", err);
@@ -43,7 +43,7 @@ export default function PrintBadges() {
   const handleGroupChange = (e) => {
     const newGroup = e.target.value;
     setSelectedGroup(newGroup);
-    
+
     const newFiltered = students.filter((s) => {
       if (newGroup === "Barchasi") return true;
       const sGroups = s.group ? s.group.split(",").map((g) => g.trim()) : [];
@@ -53,16 +53,16 @@ export default function PrintBadges() {
   };
 
   const toggleSelection = (id) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
   const toggleAll = () => {
     if (selectedIds.length === filteredStudents.length) {
-      setSelectedIds([]); 
+      setSelectedIds([]);
     } else {
-      setSelectedIds(filteredStudents.map(s => s._id)); 
+      setSelectedIds(filteredStudents.map(s => s._id));
     }
   };
 
@@ -84,12 +84,12 @@ export default function PrintBadges() {
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24">
-      
+
       <div className="no-print">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6 border-b border-slate-200 pb-6">
           <div>
-            <button 
-              onClick={() => window.history.back()} 
+            <button
+              onClick={() => window.history.back()}
               className="flex items-center gap-2 text-sm text-slate-500 hover:text-indigo-600 font-bold mb-3 transition-colors w-fit px-3 py-1.5 -ml-3 rounded-lg hover:bg-slate-100"
             >
               <ArrowLeft size={16} /> Orqaga qaytish
@@ -101,7 +101,7 @@ export default function PrintBadges() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <button 
+            <button
               onClick={() => handlePrint('front')}
               disabled={selectedIds.length === 0}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
@@ -109,7 +109,7 @@ export default function PrintBadges() {
               <Printer size={20} /> <span>Oldi (QR) - {selectedIds.length} ta</span>
             </button>
 
-            <button 
+            <button
               onClick={() => handlePrint('back')}
               disabled={selectedIds.length === 0}
               className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
@@ -135,7 +135,7 @@ export default function PrintBadges() {
             </select>
           </div>
 
-          <button 
+          <button
             onClick={toggleAll}
             className="text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition-colors w-full sm:w-auto text-center"
           >
@@ -145,13 +145,13 @@ export default function PrintBadges() {
       </div>
 
       <div id="print-section" className="print-area">
-        
+
         {printMode === 'front' && filteredStudents.map((student) => {
           const isSelected = selectedIds.includes(student._id);
-          
+
           return (
-            <div 
-              key={student._id} 
+            <div
+              key={student._id}
               onClick={() => toggleSelection(student._id)}
               className={`badge-card front-side cursor-pointer transition-all duration-200 
                 ${isSelected ? 'ring-2 ring-indigo-500 shadow-md' : 'opacity-40 grayscale-[40%] scale-95 no-print'}`}
@@ -300,14 +300,13 @@ export default function PrintBadges() {
           letter-spacing: 0.5px;
         }
 
-        /* 🖨️ YAKUNIY VA MUQOBIL PRINT SOZLAMALARI */
+        /* 🖨️ YAKUNIY PRINT SOZLAMALARI (ORASI OCHILGAN) */
         @media print {
           @page { 
             size: A4 portrait; 
-            margin: 0 !important; /* 🔥 Qog'oz chetidagi brauzer sanasi va URL larni yo'q qiladi */
+            margin: 0 !important; 
           }
           
-          /* Saytdagi barcha kontentni yashiramiz */
           body * {
             visibility: hidden;
           }
@@ -326,38 +325,37 @@ export default function PrintBadges() {
             visibility: visible; 
           }
 
-          /* 🔥 "OPPOQ KO'RPA" - SAYT ORQA FONINI TO'LIQ QOPLAYDI */
+          /* 🔥 BEJIKLAR ORASINI 3MM DAN OCHISH VA MARKAZGA MIXLASH */
           #print-section {
             position: absolute !important;
             top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            min-height: 100vh !important;
-            background-color: #ffffff !important; /* CRM fonini oppoqqa bo'yaydi */
+            left: 50% !important; 
+            transform: translateX(-50%) !important; 
+            width: 186mm !important; /* 60x3 = 180 + 2 ta 3mm lik oraliq = 186mm */
+            
+            background-color: #ffffff !important; 
             z-index: 999999 !important;
             
             display: flex !important;
             flex-wrap: wrap !important;
             justify-content: flex-start !important;
             align-content: flex-start !important;
-            gap: 0 !important; 
+            gap: 3mm !important; /* 🔥 ORALIG'I 3MM DAN OCHILDI */
             
-            /* A4 qog'ozni roppa-rosa o'rtasiga tekislash (210 - 180 = 30 / 2 = 15mm left padding) */
-            padding-left: 15mm !important;
-            padding-top: 10mm !important; 
+            padding: 0 !important;
             margin: 0 !important;
+            padding-top: 3mm !important; /* A4 varaqqa to'liq sig'ishi uchun tepadan 3mm qoldirildi */
           }
 
           .badge-card {
             border: none !important; 
-            outline: 1px dashed #cbd5e1 !important; 
-            border-radius: 0 !important;
+            outline: 1px dashed #94a3b8 !important; /* Qirqish chizig'i ko'rinishi uchun */
+            border-radius: 4px !important; 
             page-break-inside: avoid;
             break-inside: avoid;
-            background-color: #ffffff !important; /* Bejik fonini oq qilish */
+            background-color: #ffffff !important; 
           }
           
-          /* Fon yoqilganda o'z rangini saqlab qoladigan elementlar */
           .header-section { background-color: #1e3a8a !important; }
           .footer-strip { background-color: #1e3a8a !important; }
         }
