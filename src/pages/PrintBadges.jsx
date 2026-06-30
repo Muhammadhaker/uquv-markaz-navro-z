@@ -11,6 +11,9 @@ export default function PrintBadges() {
   const [printMode, setPrintMode] = useState("front"); 
   const [selectedIds, setSelectedIds] = useState([]);
 
+  // 🔥 Xotiradan Ustoz ismini olamiz
+  const teacherName = localStorage.getItem("userFullName") || "O'qituvchi";
+
   // 🔥 API himoya kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
@@ -123,6 +126,7 @@ export default function PrintBadges() {
                     <div className="student-details">
                       <div className="st-name">{student.name}</div>
                       <div className="st-group">📚 {student.group || "Guruhsiz"}</div>
+                      <div className="st-teacher">USTOZ: {teacherName}</div> {/* 🔥 USTOZ ISMI */}
                     </div>
                   </>
                 ) : (
@@ -229,6 +233,7 @@ export default function PrintBadges() {
                 <div className="student-details">
                   <div className="st-name">{student.name}</div>
                   <div className="st-group">📚 {student.group || "Guruhsiz"}</div>
+                  <div className="st-teacher">USTOZ: {teacherName}</div> {/* 🔥 USTOZ ISMI EKRAYNDA HAM CHIQADI */}
                 </div>
               </div>
             )
@@ -312,6 +317,9 @@ export default function PrintBadges() {
               line-height: 1.1;
             }
             .st-group { font-size: 10px; color: #4f46e5 !important; font-weight: 700; }
+            
+            /* 🔥 USTOZ ISMI UCHUN CSS */
+            .st-teacher { font-size: 8px; color: #64748b !important; font-weight: 800; margin-top: 3px; text-transform: uppercase; }
 
             .back-side {
               display: flex;
@@ -395,15 +403,12 @@ export default function PrintBadges() {
                 break-after: page !important;
                 box-sizing: border-box !important;
 
-                /* 🔥 BUTUN VARAQ BO'YLAB KESISH CHIZIQLARINI (CROP MARKS) YASASH */
                 background-image: 
-                  /* Gorizontal chiziqlar (butun eni bo'ylab) */
                   linear-gradient(to right, #000 50%, transparent 50%),
                   linear-gradient(to right, #000 50%, transparent 50%),
                   linear-gradient(to right, #000 50%, transparent 50%),
                   linear-gradient(to right, #000 50%, transparent 50%),
                   
-                  /* Vertikal chiziqlar (butun bo'yi bo'ylab) */
                   linear-gradient(to bottom, #000 50%, transparent 50%),
                   linear-gradient(to bottom, #000 50%, transparent 50%),
                   linear-gradient(to bottom, #000 50%, transparent 50%),

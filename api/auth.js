@@ -5,13 +5,14 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// 🔥 Multi-role tizimi: Super Admin, Teacher va Assistant
+// 🔥 YANGI: fullName (To'liq ism) qatori qo'shildi
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  fullName: { type: String, default: "Xodim" }, 
   role: { type: String, enum: ['super_admin', 'teacher', 'assistant'], default: 'teacher' },
-  parentTeacherId: { type: String, default: null }, // Yordamchi qaysi ustozga tegishli ekanligi
-  permissions: { type: Array, default: ['davomat', 'guruhlar'] }, // Yordamchining maxsus ruxsatlari
+  parentTeacherId: { type: String, default: null },
+  permissions: { type: Array, default: ['davomat', 'guruhlar'] },
   loginHistory: { type: Array, default: [] }, 
   addedAt: { type: Date, default: Date.now }
 });
@@ -21,25 +22,17 @@ const User = mongoose.models.User || mongoose.model('User', userSchema);
 export default async function handler(req, res) {
   await connectDB();
 
-  // DOIMIY ADMINLARNI TEKSHIRISH VA YARATISH
   try {
     const defaultUsers = [
-      { username: "Navroz", password: "Navroz", role: "super_admin", permissions: ['all'] },
-      { username: "muhammad", password: "kaneki235", role: "teacher", permissions: ['all'] }
+      { username: "Navroz", password: "Navroz", fullName: "Navro'z G'ulomov", role: "super_admin", permissions: ['all'] },
+      { username: "muhammad", password: "kaneki235", fullName: "Muhammad Tursunov", role: "teacher", permissions: ['all'] }
     ];
     for (const dUser of defaultUsers) {
       const exists = await User.findOne({ username: dUser.username });
-      if (!exists) {
-        await User.create(dUser);
-      }
+      if (!exists) await User.create(dUser);
     }
-  } catch (err) {
-    console.error("Default users error:", err);
-  }
+  } catch (err) { }
 
-  // =======================================================
-  // 1. TIZIMGA KIRISH (LOGIN) — POST
-  // =======================================================
   if (req.method === 'POST' && req.body.action !== 'create') {
     const { username, password } = req.body;
     try {
@@ -48,16 +41,13 @@ export default async function handler(req, res) {
       if (user) {
         const userAgent = req.headers['user-agent'] || '';
         let deviceName = 'Noma\'lum qurilma';
-
+        
         if (/iPhone/i.test(userAgent)) deviceName = 'iPhone';
-        else if (/Samsung|SM-[A-Z0-9]+/i.test(userAgent)) deviceName = userAgent.match(/SM-[A-Z0-9]+/i)?.[0] || 'Samsung Device';
-        else if (/Redmi|Mi|Xiaomi/i.test(userAgent)) deviceName = userAgent.match(/(Redmi|Mi|Xiaomi) [A-Z0-9]+/i)?.[0] || 'Xiaomi Device';
+        else if (/Samsung|SM-[A-Z0-9]+/i.test(userAgent)) deviceName = userAgent.match(/SM-[A-Z0-9]+/i)?.[0] || 'Samsung';
+        else if (/Redmi|Mi|Xiaomi/i.test(userAgent)) deviceName = userAgent.match(/(Redmi|Mi|Xiaomi) [A-Z0-9]+/i)?.[0] || 'Xiaomi';
         else if (/Windows NT/i.test(userAgent)) deviceName = 'Windows PC';
-        else if (/Macintosh/i.test(userAgent)) deviceName = 'MacBook / Mac';
-        else if (/Android/i.test(userAgent)) {
-            const match = userAgent.match(/\(([^)]+)\)/);
-            deviceName = match ? match[1].split(';')[1]?.trim() || 'Android Device' : 'Android Device';
-        }
+        else if (/Macintosh/i.test(userAgent)) deviceName = 'MacBook';
+        else if (/Android/i.test(userAgent)) deviceName = 'Android';
 
         const newLogin = { device: deviceName, time: new Date() };
 
@@ -66,12 +56,12 @@ export default async function handler(req, res) {
         if (user.loginHistory.length > 5) user.loginHistory = user.loginHistory.slice(0, 5);
         await user.save();
 
-        // 🔥 Oynalarni filtrlash uchun barcha kerakli ma'lumotlar yuboriladi
         return res.status(200).json({ 
             success: true, 
             userId: user._id,
             role: user.role, 
             username: user.username,
+            fullName: user.fullName || user.username, // 🔥 Ism ham qaytadi
             permissions: user.permissions,
             parentTeacherId: user.parentTeacherId
         });
@@ -82,11 +72,9 @@ export default async function handler(req, res) {
     }
   }
 
-  // =======================================================
-  // 2. YANGI FOYDALANUVCHI YARATISH (USTOZ/YORDAMCHI) — POST
-  // =======================================================
+  // 🔥 YANGI XODIM QO'SHISHDA ISMINI HAM SAQLAYDI
   if (req.method === 'POST' && req.body.action === 'create') {
-      const { username, password, role, parentTeacherId, permissions } = req.body;
+      const { username, password, fullName, role, parentTeacherId, permissions } = req.body;
       try {
           const exists = await User.findOne({ username });
           if (exists) return res.status(400).json({ success: false, message: "Bu login band!" });
@@ -94,6 +82,7 @@ export default async function handler(req, res) {
           await User.create({
               username,
               password,
+              fullName: fullName || username,
               role: role || 'teacher',
               parentTeacherId: role === 'assistant' ? parentTeacherId : null,
               permissions: role === 'assistant' ? (permissions || ['davomat', 'guruhlar']) : ['all']
@@ -105,9 +94,6 @@ export default async function handler(req, res) {
       }
   }
 
-  // =======================================================
-  // 3. FOYDALANUVCHILAR RO'YXATINI OLISH — GET
-  // =======================================================
   if (req.method === 'GET') {
     try {
       const users = await User.find({}).sort({ addedAt: -1 });
@@ -117,9 +103,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // =======================================================
-  // 4. FOYDALANUVCHINI O'CHIRISH — DELETE
-  // =======================================================
   if (req.method === 'DELETE') {
     const { id } = req.body;
     try {

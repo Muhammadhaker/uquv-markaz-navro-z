@@ -24,16 +24,17 @@ export default function Login() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        // 🔥 Barcha kerakli ma'lumotlar LocalStorage'ga yoziladi
         localStorage.setItem("userId", data.userId);
         localStorage.setItem("userRole", data.role);
         localStorage.setItem("username", data.username);
+        // 🔥 To'liq ismni saqlaymiz (Header va Bejiklar uchun kerak)
+        localStorage.setItem("userFullName", data.fullName || data.username); 
         localStorage.setItem("userPermissions", JSON.stringify(data.permissions || []));
+        
         if (data.parentTeacherId) {
             localStorage.setItem("parentTeacherId", data.parentTeacherId);
         }
         
-        // Yordamchi (Assistant) kirdi va unda "dashboard"ga ruxsat bo'lmasa, to'g'ridan-to'g'ri Davomatga yo'naltiriladi
         if (data.role === "assistant") {
            navigate(data.permissions.includes('dashboard') ? "/dashboard" : "/attendance", { replace: true });
         } else {
@@ -103,11 +104,7 @@ export default function Login() {
             disabled={loading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-200 flex justify-center items-center gap-2 mt-2"
           >
-            {loading ? (
-              <Loader2 className="animate-spin" size={20} />
-            ) : (
-              "Tizimga kirish"
-            )}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : "Tizimga kirish"}
           </button>
         </form>
       </div>

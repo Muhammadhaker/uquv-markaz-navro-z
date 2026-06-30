@@ -65,6 +65,9 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const isExcepted = localException.includes(targetMonth);
   const activeCycles = calculateCycles(student.addedAt);
 
+  // 🔥 Xotiradan Ustoz ismini olamiz
+  const teacherName = localStorage.getItem("userFullName") || "O'qituvchi";
+
   // 🔥 API himoya kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
@@ -331,6 +334,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               line-height: 1.1;
             }
             .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
+            /* 🔥 USTOZ ISMI UCHUN CSS */
+            .st-teacher { font-size: 8px; color: #64748b !important; font-weight: 800; margin-top: 3px; text-transform: uppercase; }
           </style>
         </head>
         <body>
@@ -349,6 +354,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             <div class="student-details">
               <div class="st-name">${student.name}</div>
               <div class="st-group">📚 ${student.group || "Guruhsiz"}</div>
+              <div class="st-teacher">USTOZ: ${teacherName}</div> <!-- 🔥 USTOZ ISMI PRINTGA CHIQADI -->
             </div>
           </div>
           <script>
