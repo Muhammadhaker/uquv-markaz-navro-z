@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Save, Loader2, Search, QrCode } from "lucide-react";
 import AttendanceScanner from "../components/AttendanceScanner";
 
@@ -14,6 +14,9 @@ export default function Attendance() {
   const [status, setStatus] = useState({ type: "", text: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const [showScanner, setShowScanner] = useState(false);
+
+  // 🔥 KAMERA TEZLIGIDAN QAT'IY HIMOYA XOTIRASI
+  const scanCooldowns = useRef({});
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -85,32 +88,44 @@ export default function Attendance() {
     currentGroupStudents.forEach((s) => { 
       if (!newRecords[s._id] || newRecords[s._id].status === "kelmadi") {
         newRecords[s._id] = { status: "keldi", arrivalTime: timeStr, lastScan: now }; 
+        scanCooldowns.current[s._id] = now; // Qo'lda qilganda ham xotiraga yozamiz
       }
     });
     setAttendanceRecords(newRecords);
   };
 
-  // 🔥 QR SKANER FUNKSIYASI (XABARLAR AVTOMAT 3 SONIYADA O'CHIRILADI)
+  // 🔥 QR SKANER (YANGILANGAN QAT'IY BLOKROVKA)
   const handleScan = async (scannedId) => {
     const studentObj = students.find(s => s._id === scannedId);
     if (!studentObj) {
       setStatus({ type: "error", text: "Noto'g'ri QR-Kod (O'quvchi topilmadi)" });
-      setTimeout(() => setStatus({ type: "", text: "" }), 3000); // 🔥 Qo'shildi
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
       return;
     }
 
     const now = Date.now();
     const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
     
-    const record = attendanceRecords[scannedId] || { status: "kelmadi", lastScan: 0 };
-    const timeSinceLastScan = now - (record.lastScan || 0);
-
-    // 30 daqiqalik himoya
-    if (record.status !== "kelmadi" && timeSinceLastScan < 1800000) {
+    // 1-HIMOYA: KAMERA TEZLIGI (React ulgurmasidan oldin qat'iy to'sish)
+    const lastTimeRef = scanCooldowns.current[scannedId] || 0;
+    if (now - lastTimeRef < 1800000) {
       setStatus({ type: "error", text: "❌ Kamida 30 daqiqa kuting!" });
-      setTimeout(() => setStatus({ type: "", text: "" }), 3000); // 🔥 Qo'shildi
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
+      return;
+    }
+
+    const record = attendanceRecords[scannedId] || { status: "kelmadi", lastScan: 0 };
+    
+    // 2-HIMOYA: BAZA VA SAHIFA YANGILANISHIDAN KEYINGI HOLAT
+    if (record.status !== "kelmadi" && (now - (record.lastScan || 0) < 1800000)) {
+      scanCooldowns.current[scannedId] = record.lastScan || now;
+      setStatus({ type: "error", text: "❌ Kamida 30 daqiqa kuting!" });
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
       return; 
     }
+
+    // Tizim barcha qulfdan o'tkazdi -> Srazu yana xotiraga qulflaymiz (dubl bo'lmasligi uchun)
+    scanCooldowns.current[scannedId] = now;
 
     let newStatus = "keldi";
     let arrTime = record.arrivalTime;
@@ -124,7 +139,7 @@ export default function Attendance() {
       levTime = timeStr; 
     } else if (record.status === "ketdi") {
       setStatus({ type: "error", text: "Bu o'quvchi allaqachon ketgan!" });
-      setTimeout(() => setStatus({ type: "", text: "" }), 3000); // 🔥 Qo'shildi
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
       return;
     }
 
@@ -137,8 +152,9 @@ export default function Attendance() {
 
     setAttendanceRecords(prev => ({ ...prev, [scannedId]: updatedRecord }));
     setStatus({ type: "success", text: `✅ Qabul qilindi: ${newStatus.toUpperCase()} (${timeStr})` });
-    setTimeout(() => setStatus({ type: "", text: "" }), 3000); // 🔥 Qo'shildi
+    setTimeout(() => setStatus({ type: "", text: "" }), 3000);
 
+    // ORQA FONDA XABAR JO'NATISH
     try {
       await fetch("/api/attendance", {
         method: "POST",
@@ -164,6 +180,8 @@ export default function Attendance() {
     const now = Date.now();
     const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
     
+    scanCooldowns.current[studentId] = now;
+
     setAttendanceRecords((prev) => {
       const current = prev[studentId] || {};
       return {
