@@ -8,7 +8,6 @@ export default function Attendance() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   
-  // 🔥 Endi faqat string emas, object saqlanadi: { status: "keldi", arrivalTime: "14:00", leaveTime: "16:00", lastScan: 123456789 }
   const [attendanceRecords, setAttendanceRecords] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,52 +90,76 @@ export default function Attendance() {
     setAttendanceRecords(newRecords);
   };
 
-  // 🔥 QR SKANER (BOLALAR O'YNAShINI BLOKLASH VA 30 MINUTLIK CHEKLOV)
-  const handleScan = (scannedId) => {
+  // 🔥 QR SKANER FUNKSIYASI (XABARLAR AVTOMAT 3 SONIYADA O'CHIRILADI)
+  const handleScan = async (scannedId) => {
+    const studentObj = students.find(s => s._id === scannedId);
+    if (!studentObj) {
+      setStatus({ type: "error", text: "Noto'g'ri QR-Kod (O'quvchi topilmadi)" });
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000); // 🔥 Qo'shildi
+      return;
+    }
+
     const now = Date.now();
     const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
     
-    setAttendanceRecords((prev) => {
-      const record = prev[scannedId] || { status: "kelmadi", lastScan: 0 };
-      const timeSinceLastScan = now - (record.lastScan || 0);
+    const record = attendanceRecords[scannedId] || { status: "kelmadi", lastScan: 0 };
+    const timeSinceLastScan = now - (record.lastScan || 0);
 
-      // Agar o'quvchi avvalroq skaner qilgan bo'lsa va 30 daqiqa (1800000 ms) o'tmagan bo'lsa:
-      if (record.status !== "kelmadi" && timeSinceLastScan < 1800000) {
-        setStatus({ type: "error", text: "❌ Ketma-ket skaner qilish mumkin emas! (Kamida 30 daqiqa kuting)" });
-        return prev; 
-      }
+    // 30 daqiqalik himoya
+    if (record.status !== "kelmadi" && timeSinceLastScan < 1800000) {
+      setStatus({ type: "error", text: "❌ Kamida 30 daqiqa kuting!" });
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000); // 🔥 Qo'shildi
+      return; 
+    }
 
-      let newStatus = "keldi";
-      let arrTime = record.arrivalTime;
-      let levTime = record.leaveTime;
+    let newStatus = "keldi";
+    let arrTime = record.arrivalTime;
+    let levTime = record.leaveTime;
 
-      if (record.status === "kelmadi") {
-        newStatus = "keldi";
-        arrTime = timeStr; // Birinchi marta kelganda soat yoziladi
-      } else if (record.status === "keldi" || record.status === "kechikdi") {
-        newStatus = "ketdi";
-        levTime = timeStr; // Ketayotganda soat yoziladi
-      } else if (record.status === "ketdi") {
-        setStatus({ type: "error", text: "Bu o'quvchi allaqachon ketgan deb belgilangan!" });
-        return prev;
-      }
+    if (record.status === "kelmadi") {
+      newStatus = "keldi";
+      arrTime = timeStr; 
+    } else if (record.status === "keldi" || record.status === "kechikdi") {
+      newStatus = "ketdi";
+      levTime = timeStr; 
+    } else if (record.status === "ketdi") {
+      setStatus({ type: "error", text: "Bu o'quvchi allaqachon ketgan!" });
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000); // 🔥 Qo'shildi
+      return;
+    }
 
-      setStatus({ type: "success", text: `✅ Qabul qilindi: ${newStatus.toUpperCase()} (${timeStr})` });
+    const updatedRecord = {
+      status: newStatus,
+      arrivalTime: arrTime,
+      leaveTime: levTime,
+      lastScan: now
+    };
 
-      return {
-        ...prev,
-        [scannedId]: {
-          ...record,
-          status: newStatus,
-          arrivalTime: arrTime,
-          leaveTime: levTime,
-          lastScan: now
-        }
-      };
-    });
+    setAttendanceRecords(prev => ({ ...prev, [scannedId]: updatedRecord }));
+    setStatus({ type: "success", text: `✅ Qabul qilindi: ${newStatus.toUpperCase()} (${timeStr})` });
+    setTimeout(() => setStatus({ type: "", text: "" }), 3000); // 🔥 Qo'shildi
+
+    try {
+      await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groupName: selectedGroup,
+          date: selectedDate,
+          adminName: localStorage.getItem("username") || "Admin",
+          isScan: true,
+          scannedRecord: {
+            studentId: scannedId,
+            studentName: studentObj.name,
+            ...updatedRecord
+          }
+        })
+      });
+    } catch (err) {
+      console.error("Instant scan xatosi:", err);
+    }
   };
 
-  // QO'LDA BOSHQARISH UCHUN FUNKSIYA (O'qituvchi xohlagan payt tahrirlay oladi)
   const handleManualStatus = (studentId, newStatus) => {
     const now = Date.now();
     const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
@@ -168,7 +191,7 @@ export default function Attendance() {
           return {
             studentId: s._id,
             studentName: s.name,
-            status: rec.status || "kelmadi",
+            status: rec.status || "kelmadi", 
             arrivalTime: rec.arrivalTime || null,
             leaveTime: rec.leaveTime || null,
             lastScan: rec.lastScan || null
@@ -187,6 +210,7 @@ export default function Attendance() {
       setTimeout(() => setStatus({ type: "", text: "" }), 3000);
     } catch (error) {
       setStatus({ type: "error", text: "Xatolik yuz berdi." });
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
     } finally {
       setSaving(false);
     }
@@ -265,7 +289,6 @@ export default function Attendance() {
                   </div>
                 </div>
                 
-                {/* 🔥 YORTITA TUGMA: KELDI, KECHIKDI, KETDI, KELMADI */}
                 <div className="grid grid-cols-2 lg:flex bg-slate-100 p-1 rounded-xl gap-1 w-full md:w-auto">
                   <button
                     onClick={() => handleManualStatus(s._id, "keldi")}
