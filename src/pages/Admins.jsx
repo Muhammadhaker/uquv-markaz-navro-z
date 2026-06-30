@@ -10,21 +10,27 @@ export default function Admins() {
   const [isOpen, setIsOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("assistant"); // Boshlang'ich qiymat
+  const [role, setRole] = useState("assistant"); 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   
-  // 🔥 Yordamchilar uchun ruxsatlar (permissions)
-  const [permissions, setPermissions] = useState(["attendance"]); // Default ruxsat faqat Davomatga
+  const [permissions, setPermissions] = useState(["attendance"]); 
 
-  // Joriy kirgan ustozning ma'lumotlari
   const currentUserId = localStorage.getItem("userId");
   const currentUserRole = localStorage.getItem("userRole");
+
+  // 🔥 API himoya kalitlari
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-role": currentUserRole || "",
+    "x-user-id": currentUserId || "",
+    "x-parent-id": localStorage.getItem("parentTeacherId") || ""
+  });
 
   const fetchAdmins = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/auth");
+      const res = await fetch("/api/auth", { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success) setAdmins(data.data || []);
     } catch (err) {
@@ -60,7 +66,7 @@ export default function Admins() {
 
       const res = await fetch("/api/auth", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -87,7 +93,7 @@ export default function Admins() {
     if (!window.confirm(`${name} ni o'chirmoqchimisiz?`)) return;
     await fetch("/api/auth", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ id }),
     });
     fetchAdmins();
@@ -323,7 +329,7 @@ export default function Admins() {
                 </select>
               </div>
 
-              {/* 🔥 Yordamchi tanlanganda ruxsatlar menyusi ochiladi */}
+              {/* Yordamchi tanlanganda ruxsatlar menyusi ochiladi */}
               {role === "assistant" && (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2 space-y-3">
                   <label className="text-[11px] font-bold text-slate-400 uppercase">Qaysi bo'limlarga ruxsat berasiz?</label>
