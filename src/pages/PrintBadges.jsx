@@ -74,10 +74,8 @@ export default function PrintBadges() {
     }, 300);
   };
 
-  // 🔥 CHOP ETISH UCHUN MATEMATIK SAHIFALASH VA KO'GULASH LOGIKASI
+  // 🔥 1-QADAM: CHOP ETILADIGAN O'QUVCHILARNI AJRATISH VA 4 TADAN QILIB SAHIFALARGA BO'LISH
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id));
-  
-  // O'quvchilarni 4 tadan qilib sahifalarga (A4) bo'lamiz
   const printPages = [];
   for (let i = 0; i < selectedStudents.length; i += 4) {
     printPages.push(selectedStudents.slice(i, i + 4));
@@ -94,7 +92,7 @@ export default function PrintBadges() {
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24">
       
-      {/* 🛑 DASHBOARD INTERFEYSI (FAQAT EKRANDA KO'RINADI, PRINTDA MUTLAQ YASHIRILADI) */}
+      {/* 🛑 EKRAN UCHUN DASHBOARD (PRINTDA YASHIRILADI) */}
       <div className="no-print">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6 border-b border-slate-200 pb-6">
           <div>
@@ -104,9 +102,9 @@ export default function PrintBadges() {
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">Ikki Tomonlama Simmetrik Bejiklar</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Ikki Tomonlama Bejiklar (69x111)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Yangi o'lcham: 69x111mm. Qog'oz ag'darilganda logotiplar aniq joyiga tushadi.
+              Ko'p sahifali (Pagination) va avtomatik ko'zgulash (Mirroring) to'g'rilangan versiya.
             </p>
           </div>
 
@@ -124,7 +122,7 @@ export default function PrintBadges() {
               disabled={selectedIds.length === 0}
               className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <ImageIcon size={20} /> <span>Orqasi (Katta Logo) - {selectedIds.length} ta</span>
+              <ImageIcon size={20} /> <span>Orqasi (Logo) - {selectedIds.length} ta</span>
             </button>
           </div>
         </div>
@@ -153,54 +151,65 @@ export default function PrintBadges() {
           </button>
         </div>
 
-        {/* Ekranda boshqarish uchun oddiy ro'yxat */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {/* Ekranda tanlash uchun o'quvchilar ro'yxati */}
+        <div className="print-area">
           {filteredStudents.map((student) => {
             const isSelected = selectedIds.includes(student._id);
             return (
               <div 
-                key={student._id}
+                key={student._id} 
                 onClick={() => toggleSelection(student._id)}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
-                  isSelected ? "bg-indigo-50/80 border-indigo-200" : "bg-white border-slate-100 hover:bg-slate-50"
-                }`}
+                className={`badge-card front-side cursor-pointer transition-all duration-200 
+                  ${isSelected ? 'ring-2 ring-indigo-500 shadow-md' : 'opacity-40 grayscale-[40%] scale-95'}`}
               >
-                <div>
-                  <div className="font-bold text-slate-800 text-sm">{student.name}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">📚 {student.group || "Guruhsiz"}</div>
+                <div className="absolute top-1 right-1 bg-white rounded-md z-10 shadow-sm">
+                  {isSelected ? <CheckSquare className="text-indigo-600" size={18} /> : <Square className="text-slate-400" size={18} />}
                 </div>
-                <div>
-                  {isSelected ? <CheckSquare className="text-indigo-600" size={22} /> : <Square className="text-slate-300" size={22} />}
+                <div className="header-section">
+                  <div className="header-title">G'ulomov Math Group</div>
+                  <div className="header-sub">Student Access Badge</div>
+                </div>
+                <div className="qr-container">
+                  <div className="qr-box">
+                    <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={160} level="M" />
+                  </div>
+                </div>
+                <div className="student-details">
+                  <div className="st-name">{student.name}</div>
+                  <div className="st-group">📚 {student.group || "Guruhsiz"}</div>
                 </div>
               </div>
-            );
+            )
           })}
+          {filteredStudents.length === 0 && (
+            <div className="w-full text-center py-16 text-slate-400 flex flex-col items-center gap-3">
+              <Users size={48} className="opacity-40" />
+              <p className="font-medium text-lg">Bu guruhda o'quvchilar yo'q.</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 🖨️ MAXSUS CHOP ETISH ANDOZASI (CHOP ETILGANDA ISHGA TUSHADI) */}
+      {/* 🖨️ MAXSUS PRINT ZONASI (FAQAT CHOP ETILGANDA KO'RINADI, SAHIFALANADI) */}
       <div className="print-only">
-        {printPages.map((pageStudents, pageIdx) => (
-          <div key={pageIdx} className="print-page">
-            {[0, 1, 2, 3].map((slotIndex) => {
-              let student = null;
+        {printPages.map((pageStudents, pageIndex) => (
+          <div key={pageIndex} className="print-page">
+            
+            {[0, 1, 2, 3].map((slot) => {
+              // 🔥 AQLLI KO'ZGULASH (Chap va O'ngni almashtirish)
+              // 0 bilan 1 o'rin almashadi, 2 bilan 3 o'rin almashadi
+              const actualIndex = printMode === 'front' 
+                ? slot 
+                : (slot % 2 === 0 ? slot + 1 : slot - 1);
+              
+              const student = pageStudents[actualIndex];
 
-              if (printMode === "front") {
-                // To'g'ri tartib
-                student = pageStudents[slotIndex] || null;
-              } else {
-                // 🔥 AQLLI GORIZONTAL KO'ZGULASH REJIM (BACK SIDE)
-                // Qog'oz ag'darilganda: 0-slot 1 ga, 1-slot 0 ga, 2-slot 3 ga, 3-slot 2 ga o'tadi
-                const mirroredIndex = slotIndex === 0 ? 1 : slotIndex === 1 ? 0 : slotIndex === 2 ? 3 : 2;
-                student = pageStudents[mirroredIndex] || null;
-              }
-
-              if (!student) return <div key={slotIndex} className="empty-badge-slot"></div>;
+              // Agar o'quvchi yo'q bo'lsa, qolip buzilmasligi uchun bo'sh bo'shliq qoldiramiz
+              if (!student) return <div key={slot} className="empty-slot"></div>;
 
               return (
-                <div key={slotIndex} className={`badge-card slot-${slotIndex}`}>
-                  {printMode === "front" ? (
-                    /* OLDI QISMI (QR-KOD) */
+                <div key={slot} className="badge-card print-card">
+                  {printMode === 'front' ? (
                     <>
                       <div className="header-section">
                         <div className="header-title">G'ulomov Math Group</div>
@@ -217,7 +226,6 @@ export default function PrintBadges() {
                       </div>
                     </>
                   ) : (
-                    /* ORQA QISMI (YIRIKLASHTIRILGAN LOGOTIP) */
                     <>
                       <div className="logo-wrapper">
                         <img src="/icon-192.png" className="logo-img" alt="Logo" />
@@ -232,12 +240,80 @@ export default function PrintBadges() {
         ))}
       </div>
 
-      {/* 💅 PRINT STYLING PANELI (MUTLAQ GEOMETRIYA) */}
       <style>{`
-        /* Oddiy holatda print andozasini yashiramiz */
+        /* EKRAN UCHUN STYLLAR */
+        .print-area {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 15px; 
+          justify-content: center;
+        }
+
+        .badge-card {
+          width: 69mm; 
+          height: 111mm;  
+          background: white;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+          overflow: hidden;
+          outline: 1px dashed #cbd5e1;
+          box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+          border-radius: 6px;
+        }
+
+        .front-side { justify-content: space-between; }
+        
+        .header-section {
+          width: 100%;
+          background-color: #1e3a8a; 
+          padding: 6mm 0;
+          text-align: center;
+        }
+        .header-title {
+          color: #ffffff;
+          font-size: 11px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 1px;
+        }
+        .header-sub {
+          color: #93c5fd;
+          font-size: 7px;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+        .qr-container {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+        }
+        .qr-box { padding: 5px; background: #fff; }
+        .qr-box svg { width: 44mm !important; height: 44mm !important; }
+        .student-details { width: 100%; text-align: center; padding-bottom: 6mm; }
+        .st-name {
+          font-size: 15px;
+          font-weight: 800;
+          color: #1e293b;
+          text-transform: uppercase;
+          margin-bottom: 2px;
+          padding: 0 4px;
+          line-height: 1.1;
+        }
+        .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
+
+        /* Print uchun mo'ljallangan yashirin element */
         .print-only { display: none; }
 
+        /* 🖨️ PRINT BOSILGANDA ISHGA TUSHADIGAN QAT'IY QOIDALAR */
         @media print {
+          /* 1. Ekrandagi hamma narsani tozalash */
           .no-print { display: none !important; }
           .print-only { display: block !important; }
 
@@ -245,110 +321,64 @@ export default function PrintBadges() {
             size: A4 portrait; 
             margin: 0 !important; 
           }
-
+          
           html, body, #root {
             background-color: #ffffff !important;
             margin: 0 !important;
             padding: 0 !important;
-            height: auto !important;
-            overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
-          /* HAR BIR A4 VARAG'I MATEMATIK GEOMETRIYA */
+          /* 2. HAR BIR A4 VARAQNI BO'LISH VA MARKAZLASHTIRISH */
           .print-page {
             width: 210mm;
             height: 297mm;
-            position: relative;
-            background-color: #ffffff !important;
-            page-break-after: always;
-            break-after: page;
+            display: flex !important;
+            flex-wrap: wrap !important;
+            align-content: flex-start !important;
+            /* 142mm lik content uchun qog'oz o'rtasi (210-142)/2 = 34mm */
+            padding-left: 34mm !important;
+            /* 227mm lik content uchun qog'oz o'rtasi (297-227)/2 = 35mm */
+            padding-top: 35mm !important;
+            /* Bejiklar oralig'i (vertikal 5mm, gorizontal 4mm) */
+            gap: 5mm 4mm !important;
+            /* Har 4 tadan keyin yangi varaqqa uzish */
+            page-break-after: always !important;
+            break-after: page !important;
             box-sizing: border-box;
           }
 
-          /* 🆕 69x111MM ICHKI KARTA O'LCHAMI */
-          .badge-card, .empty-badge-slot {
+          .print-card {
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            background: white !important;
+            outline: 1px dashed #94a3b8 !important; /* Qirqish chizig'i */
+            /* Absolute-ni olib tashladik, endi Flexbox o'zi terib chiqadi */
+          }
+
+          .empty-slot {
             width: 69mm;
             height: 111mm;
-            position: absolute;
-            box-sizing: border-box;
+            visibility: hidden; /* Joyni ushlab turadi, lekin ko'rinmaydi */
           }
 
-          .badge-card {
-            background: white !important;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow: hidden;
-            outline: 1px dashed #cbd5e1 !important; /* Kesish chizig'i */
+          /* Orqa Fon Logotipi styles */
+          .back-side {
+            justify-content: flex-start;
+            background-color: #ffffff;
+            padding-top: 12mm;
           }
-
-          /* 🔥 IKKALA TOMON BIR XIL TUSHISHI UCHUN ANIQ KOORDINATALAR */
-          /* Eni: 69+4+69 = 142mm. Chetidan: (210-142)/2 = 34mm margin */
-          /* Bo'yi: 111+5+111 = 227mm. Tepadan: (297-227)/2 = 35mm margin */
-          .slot-0 { top: 35mm; left: 34mm; }
-          .slot-1 { top: 35mm; left: 107mm; }  /* 34 + 69 + 4 = 107mm */
-          .slot-2 { top: 151mm; left: 34mm; }  /* 35 + 111 + 5 = 151mm */
-          .slot-3 { top: 151mm; left: 107mm; }
-
-          /* Front Side dizayni */
-          .front-side { justify-content: space-between; }
-          
-          .header-section {
-            width: 100%;
-            background-color: #1e3a8a !important; 
-            padding: 6mm 0;
-            text-align: center;
-          }
-          .header-title {
-            color: #ffffff !important;
-            font-size: 11px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          .header-sub {
-            color: #93c5fd !important;
-            font-size: 7px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 2px;
-          }
-          .qr-container {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-          }
-          .qr-box { padding: 4px; background: #fff !important; }
-          .qr-box svg { width: 44mm !important; height: 44mm !important; }
-          
-          .student-details { width: 100%; text-align: center; padding-bottom: 6mm; }
-          .st-name {
-            font-size: 15px;
-            font-weight: 800;
-            color: #1e293b !important;
-            text-transform: uppercase;
-            line-height: 1.1;
-            margin-bottom: 3px;
-          }
-          .st-group { font-size: 10px; color: #4f46e5 !important; font-weight: 700; }
-
-          /* 🔥 LOGOTIPNI MAKSIMAL KATTALASHTIRISH (ORQA TOMON) */
           .logo-wrapper {
             width: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
             flex: 1;
-            padding-top: 10mm;
-            padding-bottom: 12mm;
+            padding-bottom: 10mm;
           }
           .logo-img {
-            width: 60mm; /* 69mm dan 60mm logotipga berildi - Maksimal yirik */
+            width: 60mm;
             height: 60mm;
             object-fit: contain;
           }
@@ -366,6 +396,8 @@ export default function PrintBadges() {
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
+          
+          .header-section { background-color: #1e3a8a !important; }
         }
       `}</style>
     </div>
