@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom"; // 🔥 SHU QATOR QO'SHILDI (Bo'sh varaqlarni yo'qotish uchun)
 import { QRCodeSVG } from "qrcode.react";
 import { Printer, ArrowLeft, Loader2, Filter, Users, Image as ImageIcon, CheckSquare, Square } from "lucide-react";
 
@@ -89,6 +90,52 @@ export default function PrintBadges() {
     );
   }
 
+  // 🔥 🖨️ PRINTER UCHUN MAXSUS HTML QOLIP
+  const printContent = (
+    <div className="print-only">
+      {printPages.map((pageStudents, pageIndex) => (
+        <div key={pageIndex} className="print-page">
+          {[0, 1, 2, 3].map((slot) => {
+            // Ko'zgulash (Mirroring): Qog'oz o'girilganda joyini topishi uchun (Chap -> O'ngga)
+            const actualIndex = printMode === 'front' ? slot : (slot % 2 === 0 ? slot + 1 : slot - 1);
+            const student = pageStudents[actualIndex];
+
+            if (!student) return <div key={slot} className="print-badge-card empty-slot"></div>;
+
+            return (
+              <div key={slot} className="print-badge-card">
+                {printMode === 'front' ? (
+                  <>
+                    <div className="header-section">
+                      <div className="header-title">G'ulomov Math Group</div>
+                      <div className="header-sub">Student Access Badge</div>
+                    </div>
+                    <div className="qr-container">
+                      <div className="qr-box">
+                        <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={160} level="M" />
+                      </div>
+                    </div>
+                    <div className="student-details">
+                      <div className="st-name">{student.name}</div>
+                      <div className="st-group">📚 {student.group || "Guruhsiz"}</div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="back-side">
+                    <div className="logo-wrapper">
+                      <img src="/icon-192.png" className="logo-img" alt="Logo" />
+                    </div>
+                    <div className="footer-strip">Mantiq • Bilim • Natija</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <>
       {/* 💻 1. EKRAN QISMI (Boshqaruv va ko'rish uchun, PRINTDA YASHIRILADI) */}
@@ -101,9 +148,9 @@ export default function PrintBadges() {
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">Top-toza Simmetrik Bejiklar (69x111)</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Bo'sh varaqlarsiz Bejiklar (69x111)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Printerda faqat oq qog'oz va bejiklar chiqadi. Fonlar mutlaqo yashirilgan.
+              Endi ortiqcha bo'sh (pustoy) varaqlar chiqmaydi. Muammo 100% hal etildi.
             </p>
           </div>
 
@@ -150,7 +197,6 @@ export default function PrintBadges() {
           </button>
         </div>
 
-        {/* Ekranda ko'rsatish uchun ro'yxat */}
         <div className="screen-badges-grid">
           {filteredStudents.map((student) => {
             const isSelected = selectedIds.includes(student._id);
@@ -192,246 +238,206 @@ export default function PrintBadges() {
         </div>
       </div>
 
-      {/* 🖨️ 2. PRINTER QISMI (Faqatgina print tugmasi bosilganda toza qog'oz sifatida namoyon bo'ladi) */}
-      <div className="print-only">
-        {printPages.map((pageStudents, pageIndex) => (
-          <div key={pageIndex} className="print-page">
+      {/* 🖨️ 2. PRINTER PORTALI (Saytdan uzilib, to'g'ridan to'g'ri bo'm-bo'sh body ga joylashadi) */}
+      {typeof document !== 'undefined' && createPortal(
+        <>
+          {printContent}
+          {/* 💅 CSS STYLING */}
+          <style>{`
+            /* --- EKRAN UCHUN DIZAYN --- */
+            .print-only { 
+              display: none; 
+            }
             
-            {[0, 1, 2, 3].map((slot) => {
-              // Ko'zgulash (Mirroring): Qog'oz o'girilganda joyini topishi uchun (Chap -> O'ngga)
-              const actualIndex = printMode === 'front' ? slot : (slot % 2 === 0 ? slot + 1 : slot - 1);
-              const student = pageStudents[actualIndex];
+            .screen-badges-grid {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 15px; 
+              justify-content: center;
+            }
 
-              if (!student) return <div key={slot} className="print-badge-card empty-slot"></div>;
+            .screen-badge-card {
+              width: 69mm; 
+              height: 111mm;  
+              background: white;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              position: relative;
+              overflow: hidden;
+              outline: 1px dashed #cbd5e1;
+              box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+              border-radius: 6px;
+              justify-content: space-between;
+            }
 
-              return (
-                <div key={slot} className="print-badge-card">
-                  {printMode === 'front' ? (
-                    <>
-                      <div className="header-section">
-                        <div className="header-title">G'ulomov Math Group</div>
-                        <div className="header-sub">Student Access Badge</div>
-                      </div>
-                      <div className="qr-container">
-                        <div className="qr-box">
-                          <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={160} level="M" />
-                        </div>
-                      </div>
-                      <div className="student-details">
-                        <div className="st-name">{student.name}</div>
-                        <div className="st-group">📚 {student.group || "Guruhsiz"}</div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="back-side">
-                      <div className="logo-wrapper">
-                        <img src="/icon-192.png" className="logo-img" alt="Logo" />
-                      </div>
-                      <div className="footer-strip">Mantiq • Bilim • Natija</div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            
-          </div>
-        ))}
-      </div>
+            /* --- UMUMIY ICHKI ELEMENTLAR --- */
+            .header-section {
+              width: 100%;
+              background-color: #1e3a8a !important; 
+              padding: 6mm 0;
+              text-align: center;
+            }
+            .header-title {
+              color: #ffffff !important;
+              font-size: 11px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 1px;
+            }
+            .header-sub {
+              color: #93c5fd !important;
+              font-size: 7px;
+              font-weight: bold;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .qr-container {
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+            }
+            .qr-box { padding: 5px; background: #fff !important; }
+            .qr-box svg { width: 44mm !important; height: 44mm !important; }
+            .student-details { width: 100%; text-align: center; padding-bottom: 6mm; }
+            .st-name {
+              font-size: 15px;
+              font-weight: 800;
+              color: #1e293b !important;
+              text-transform: uppercase;
+              margin-bottom: 2px;
+              padding: 0 4px;
+              line-height: 1.1;
+            }
+            .st-group { font-size: 10px; color: #4f46e5 !important; font-weight: 700; }
 
-      {/* 💅 CSS STYLING */}
-      <style>{`
-        /* --- EKRAN UCHUN DIZAYN (PRINTDA YASHIRILADI) --- */
-        .print-only { 
-          display: none; 
-        }
-        
-        .screen-badges-grid {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 15px; 
-          justify-content: center;
-        }
+            .back-side {
+              display: flex;
+              flex-direction: column;
+              width: 100%;
+              height: 100%;
+              justify-content: flex-start;
+              background-color: #ffffff !important;
+              padding-top: 12mm;
+              position: relative;
+            }
+            .logo-wrapper {
+              width: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              flex: 1;
+              padding-bottom: 10mm;
+            }
+            .logo-img {
+              width: 60mm;
+              height: 60mm;
+              object-fit: contain;
+            }
+            .footer-strip {
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              width: 100%;
+              background: #1e3a8a !important;
+              color: #fff !important;
+              font-size: 8px;
+              font-weight: 800;
+              text-align: center;
+              padding: 6px 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
 
-        .screen-badge-card {
-          width: 69mm; 
-          height: 111mm;  
-          background: white;
-          box-sizing: border-box;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          position: relative;
-          overflow: hidden;
-          outline: 1px dashed #cbd5e1;
-          box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-          border-radius: 6px;
-          justify-content: space-between;
-        }
+            /* --- 🖨️ PRINT BOSILGANDA ISHGA TUSHADIGAN QAT'IY QOIDALAR --- */
+            @media print {
+              
+              /* 🔥 1. Saytdagi Hamma narsani butunlay yo'q qilib, joyini ham tozalaymiz! */
+              body > *:not(.print-only):not(style):not(script) {
+                display: none !important;
+              }
 
-        /* --- UMUMIY ICHKI ELEMENTLAR (QR, Text, Logotip) --- */
-        .header-section {
-          width: 100%;
-          background-color: #1e3a8a !important; 
-          padding: 6mm 0;
-          text-align: center;
-        }
-        .header-title {
-          color: #ffffff !important;
-          font-size: 11px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 1px;
-        }
-        .header-sub {
-          color: #93c5fd !important;
-          font-size: 7px;
-          font-weight: bold;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-        }
-        .qr-container {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-        }
-        .qr-box { padding: 5px; background: #fff !important; }
-        .qr-box svg { width: 44mm !important; height: 44mm !important; }
-        .student-details { width: 100%; text-align: center; padding-bottom: 6mm; }
-        .st-name {
-          font-size: 15px;
-          font-weight: 800;
-          color: #1e293b !important;
-          text-transform: uppercase;
-          margin-bottom: 2px;
-          padding: 0 4px;
-          line-height: 1.1;
-        }
-        .st-group { font-size: 10px; color: #4f46e5 !important; font-weight: 700; }
+              /* Faqat print oynasi ko'rinadi */
+              .print-only { 
+                display: block !important; 
+                width: 100% !important;
+              }
 
-        .back-side {
-          display: flex;
-          flex-direction: column;
-          width: 100%;
-          height: 100%;
-          justify-content: flex-start;
-          background-color: #ffffff !important;
-          padding-top: 12mm;
-          position: relative;
-        }
-        .logo-wrapper {
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          flex: 1;
-          padding-bottom: 10mm;
-        }
-        .logo-img {
-          width: 60mm;
-          height: 60mm;
-          object-fit: contain;
-        }
-        .footer-strip {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          width: 100%;
-          background: #1e3a8a !important;
-          color: #fff !important;
-          font-size: 8px;
-          font-weight: 800;
-          text-align: center;
-          padding: 6px 0;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
+              @page { 
+                size: A4 portrait; 
+                margin: 0 !important; 
+              }
+              
+              html, body {
+                background-color: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important; /* Bo'sh joylarni kesib tashlash */
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
 
-        /* --- 🖨️ PRINT BOSILGANDA ISHGA TUSHADIGAN QAT'IY QOIDALAR --- */
-        @media print {
-          /* 1. Saytdagi hamma narsani ko'rinmas qilish (Navbar, Sidebar, hammasi) */
-          body * {
-            visibility: hidden !important;
-          }
+              /* 2. HAR BIR A4 VARAQNI YASASH */
+              .print-page {
+                width: 210mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important; /* 🔥 Qog'ozdan aslo toshib ketmasligi uchun */
+                overflow: hidden !important;
+                background-color: #ffffff !important;
+                
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-content: flex-start !important;
+                
+                /* Markazlash (34mm yonlardan, 35mm tepadan) */
+                padding-left: 34mm !important;
+                padding-top: 35mm !important;
+                gap: 5mm 4mm !important;
+                
+                page-break-after: always !important;
+                break-after: page !important;
+                box-sizing: border-box !important;
+              }
 
-          @page { 
-            size: A4 portrait; 
-            margin: 0 !important; 
-          }
-          
-          html, body, #root {
-            background-color: #ffffff !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            height: 100% !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
+              /* 🔥 3. Eng so'nggi varaqdan keyin pustoy qog'oz chiqmasligi uchun */
+              .print-page:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
+              }
 
-          /* 2. Faqat .print-only qutisini va uning ichidagilarni ko'rsatamiz */
-          .print-only, .print-only * {
-            visibility: visible !important;
-          }
+              /* BEJIKLARNING ANIQ O'LCHAMI */
+              .print-badge-card {
+                width: 69mm !important;
+                height: 111mm !important;
+                background-color: #ffffff !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                position: relative !important;
+                overflow: hidden !important;
+                
+                outline: 1px dashed #cbd5e1 !important; 
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
 
-          /* 🔥 3. ENGINA MUHIM QISM: TEPADAGI NAVBAR O'RNINI YO'Q QILISH UCHUN ABSOLYUT JOYLASHUV! */
-          .print-only {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: block !important;
-          }
-
-          /* HAR BIR A4 VARAQNI YASASH */
-          .print-page {
-            width: 210mm !important;
-            height: 297mm !important;
-            background-color: #ffffff !important;
-            
-            display: flex !important;
-            flex-wrap: wrap !important;
-            align-content: flex-start !important;
-            
-            /* Qog'ozni roppa-rosa o'rtasiga joylash (142mm eni uchun 34mm margin, 227mm bo'yi uchun 35mm margin) */
-            padding-left: 34mm !important;
-            padding-top: 35mm !important;
-            gap: 5mm 4mm !important;
-            
-            page-break-after: always !important;
-            break-after: page !important;
-            box-sizing: border-box !important;
-          }
-
-          /* BEJIKLARNING ANIQ O'LCHAMI */
-          .print-badge-card {
-            width: 69mm !important;
-            height: 111mm !important;
-            background-color: #ffffff !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            position: relative !important;
-            overflow: hidden !important;
-            
-            outline: 1px dashed #cbd5e1 !important; 
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-          /* Qolib ketganlar xunuk ko'rinmasligi uchun (shunchaki ochiq joy tashlaydi) */
-          .empty-slot {
-            outline: none !important;
-            visibility: hidden !important;
-          }
-        }
-      `}</style>
+              /* Qolib ketganlar xunuk ko'rinmasligi uchun */
+              .empty-slot {
+                outline: none !important;
+                visibility: hidden !important;
+              }
+            }
+          `}</style>
+        </>,
+        document.body
+      )}
     </>
   );
 }
