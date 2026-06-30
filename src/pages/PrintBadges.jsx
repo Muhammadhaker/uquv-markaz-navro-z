@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom"; // 🔥 SHU QATOR QO'SHILDI (Bo'sh varaqlarni yo'qotish uchun)
+import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { Printer, ArrowLeft, Loader2, Filter, Users, Image as ImageIcon, CheckSquare, Square } from "lucide-react";
 
@@ -75,7 +75,6 @@ export default function PrintBadges() {
     }, 300);
   };
 
-  // 🔥 O'QUVCHILARNI 4 TADAN QILIB A4 SAHIFALARGA BO'LISH
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id));
   const printPages = [];
   for (let i = 0; i < selectedStudents.length; i += 4) {
@@ -90,13 +89,11 @@ export default function PrintBadges() {
     );
   }
 
-  // 🔥 🖨️ PRINTER UCHUN MAXSUS HTML QOLIP
   const printContent = (
     <div className="print-only">
       {printPages.map((pageStudents, pageIndex) => (
         <div key={pageIndex} className="print-page">
           {[0, 1, 2, 3].map((slot) => {
-            // Ko'zgulash (Mirroring): Qog'oz o'girilganda joyini topishi uchun (Chap -> O'ngga)
             const actualIndex = printMode === 'front' ? slot : (slot % 2 === 0 ? slot + 1 : slot - 1);
             const student = pageStudents[actualIndex];
 
@@ -138,7 +135,6 @@ export default function PrintBadges() {
 
   return (
     <>
-      {/* 💻 1. EKRAN QISMI (Boshqaruv va ko'rish uchun, PRINTDA YASHIRILADI) */}
       <div className="no-print p-4 md:p-8 max-w-6xl mx-auto pb-24">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6 border-b border-slate-200 pb-6">
           <div>
@@ -150,7 +146,7 @@ export default function PrintBadges() {
             </button>
             <h1 className="text-2xl font-bold text-slate-800">Bo'sh varaqlarsiz Bejiklar (69x111)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Endi ortiqcha bo'sh (pustoy) varaqlar chiqmaydi. Muammo 100% hal etildi.
+              Endi ortiqcha bo'sh (pustoy) varaqlar chiqmaydi. Kesish chiziqlari qalinlashtirildi.
             </p>
           </div>
 
@@ -238,16 +234,11 @@ export default function PrintBadges() {
         </div>
       </div>
 
-      {/* 🖨️ 2. PRINTER PORTALI (Saytdan uzilib, to'g'ridan to'g'ri bo'm-bo'sh body ga joylashadi) */}
       {typeof document !== 'undefined' && createPortal(
         <>
           {printContent}
-          {/* 💅 CSS STYLING */}
           <style>{`
-            /* --- EKRAN UCHUN DIZAYN --- */
-            .print-only { 
-              display: none; 
-            }
+            .print-only { display: none; }
             
             .screen-badges-grid {
               display: flex;
@@ -266,13 +257,12 @@ export default function PrintBadges() {
               align-items: center;
               position: relative;
               overflow: hidden;
-              outline: 1px dashed #cbd5e1;
+              border: 1px dashed #94a3b8; /* Ekranda ham to'qroq chiziq */
               box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
               border-radius: 6px;
               justify-content: space-between;
             }
 
-            /* --- UMUMIY ICHKI ELEMENTLAR --- */
             .header-section {
               width: 100%;
               background-color: #1e3a8a !important; 
@@ -353,15 +343,11 @@ export default function PrintBadges() {
               letter-spacing: 0.5px;
             }
 
-            /* --- 🖨️ PRINT BOSILGANDA ISHGA TUSHADIGAN QAT'IY QOIDALAR --- */
             @media print {
-              
-              /* 🔥 1. Saytdagi Hamma narsani butunlay yo'q qilib, joyini ham tozalaymiz! */
               body > *:not(.print-only):not(style):not(script) {
                 display: none !important;
               }
 
-              /* Faqat print oynasi ko'rinadi */
               .print-only { 
                 display: block !important; 
                 width: 100% !important;
@@ -376,16 +362,15 @@ export default function PrintBadges() {
                 background-color: #ffffff !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                height: auto !important; /* Bo'sh joylarni kesib tashlash */
+                height: auto !important; 
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
 
-              /* 2. HAR BIR A4 VARAQNI YASASH */
               .print-page {
                 width: 210mm !important;
                 height: 297mm !important;
-                max-height: 297mm !important; /* 🔥 Qog'ozdan aslo toshib ketmasligi uchun */
+                max-height: 297mm !important; 
                 overflow: hidden !important;
                 background-color: #ffffff !important;
                 
@@ -393,7 +378,6 @@ export default function PrintBadges() {
                 flex-wrap: wrap !important;
                 align-content: flex-start !important;
                 
-                /* Markazlash (34mm yonlardan, 35mm tepadan) */
                 padding-left: 34mm !important;
                 padding-top: 35mm !important;
                 gap: 5mm 4mm !important;
@@ -403,13 +387,11 @@ export default function PrintBadges() {
                 box-sizing: border-box !important;
               }
 
-              /* 🔥 3. Eng so'nggi varaqdan keyin pustoy qog'oz chiqmasligi uchun */
               .print-page:last-child {
                 page-break-after: auto !important;
                 break-after: auto !important;
               }
 
-              /* BEJIKLARNING ANIQ O'LCHAMI */
               .print-badge-card {
                 width: 69mm !important;
                 height: 111mm !important;
@@ -421,16 +403,18 @@ export default function PrintBadges() {
                 position: relative !important;
                 overflow: hidden !important;
                 
-                outline: 1px dashed #cbd5e1 !important; 
+                /* 🔥 PRINTER UCHUN QALINROQ VA TO'QROQ QIRQISH CHIZIG'I */
+                border: 1px dashed #64748b !important; 
+                box-sizing: border-box !important;
+
                 box-shadow: none !important;
                 border-radius: 0 !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
               }
 
-              /* Qolib ketganlar xunuk ko'rinmasligi uchun */
               .empty-slot {
-                outline: none !important;
+                border: none !important;
                 visibility: hidden !important;
               }
             }
