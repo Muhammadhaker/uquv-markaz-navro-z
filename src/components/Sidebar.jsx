@@ -5,10 +5,11 @@ import { useState, useEffect } from "react";
 export default function Sidebar({ isOpen, setIsOpen }) {
   const role = localStorage.getItem("userRole");
   
-  // Yordamchilarning maxsus ruxsatlarini olish
   let permissions = [];
   try {
-    permissions = JSON.parse(localStorage.getItem("userPermissions") || "[]");
+    const stored = localStorage.getItem("userPermissions");
+    permissions = stored ? JSON.parse(stored) : [];
+    if (!Array.isArray(permissions)) permissions = [];
   } catch(e) {
     permissions = [];
   }
@@ -70,13 +71,14 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     }
   };
 
-  // 🔥 ROLLAR VA RUXSATLAR (PERMISSIONS) BO'YICHA MENYULARNI TEKSHIRISH
+  // 🔥 YOG'INGARCHILIK: Rollarga moslab menyular aniq ajratildi
   const navItems = [
     { 
       to: "/dashboard", 
       label: "Umumiy statistika", 
       icon: LayoutDashboard, 
-      show: role === "super_admin" || (role === "assistant" && permissions.includes("dashboard"))
+      // Ustoz uchun statistika ochildi (lekin orqada u faqat o'z pulini ko'radi)
+      show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("dashboard"))
     },
     { 
       to: "/groups", 
@@ -96,8 +98,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       icon: Printer, 
       show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("badges"))
     },
-    // Xodimlar va Harakatlar tarixini yordamchilar UMUUMAN ko'rmaydi
-    { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === "super_admin" || role === "teacher" },
+    // 🔥 Xodimlar va Tarix faqatgina eng katta Boshliq (Super Admin) uchun!
+    { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === "super_admin" },
     { to: "/logs", label: "Harakatlar tarixi", icon: History, show: role === "super_admin" },
   ];
 

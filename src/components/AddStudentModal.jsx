@@ -24,7 +24,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const [currentGroupInput, setCurrentGroupInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔥 API himoya kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
     "x-user-role": localStorage.getItem("userRole") || "",
@@ -104,14 +103,26 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (formData.groupsData.length === 0) {
-      alert("Iltimos, o'quvchiga kamida bitta guruh kiriting!");
+    // 🔥 TELEFONLAR UCHUN MAXSUS HIMOYA (UX Fix)
+    // Agar foydalanuvchi "Qo'shish" tugmasini bosishni esdan chiqarib, srazi "Saqlash"ni bossa
+    let currentGroups = [...formData.groupsData];
+    const trimmedInput = currentGroupInput.trim();
+
+    if (trimmedInput) {
+      const alreadyExists = currentGroups.some(g => g.name.toLowerCase() === trimmedInput.toLowerCase());
+      if (!alreadyExists) {
+        currentGroups.push({ name: trimmedInput, price: 300000 });
+      }
+    }
+
+    if (currentGroups.length === 0) {
+      alert("Iltimos, o'quvchiga kamida bitta fan yoki guruh yozing!");
       return;
     }
 
     setLoading(true);
     const method = studentToEdit ? "PUT" : "POST";
-    const finalGroupString = formData.groupsData.map(g => g.name).join(", "); 
+    const finalGroupString = currentGroups.map(g => g.name).join(", "); 
     
     let finalPhone = formData.phone.trim();
     if (finalPhone === "+998") finalPhone = "Kiritilmagan";
@@ -121,7 +132,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
       ...formData, 
       phone: finalPhone,
       group: finalGroupString,
-      groupsData: formData.groupsData
+      groupsData: currentGroups // To'g'rilangan guruhlarni yuboramiz
     };
 
     try {
@@ -154,8 +165,8 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-[60] backdrop-blur-sm">
+      <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-200">
         <h2 className="text-xl font-bold mb-4 text-slate-800">
           {studentToEdit ? "Tahrirlash" : "Yangi o'quvchi"}
         </h2>
@@ -163,20 +174,21 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             required
-            className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-medium text-slate-800 transition-all bg-slate-50 hover:bg-white"
             placeholder="O'quvchi F.I.SH"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
           <input
             required
-            className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-medium text-slate-800 transition-all bg-slate-50 hover:bg-white"
             placeholder="Ota-ona F.I.SH"
             value={formData.parentName}
             onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
           />
           <input
-            className="w-full p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+            type="tel"
+            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold text-slate-800 transition-all bg-slate-50 hover:bg-white tracking-wide"
             placeholder="Telefon (ixtiyoriy)"
             value={formData.phone}
             onChange={handlePhoneChange}
@@ -189,7 +201,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
               <input
                 type="date"
                 required
-                className="w-full mt-1 p-3 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700"
+                className="w-full mt-1 p-3.5 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold text-slate-700 transition-all bg-slate-50 hover:bg-white cursor-pointer"
                 value={formData.addedAt}
                 onChange={(e) => setFormData({ ...formData, addedAt: e.target.value })}
               />
@@ -202,7 +214,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             <div className="flex gap-2">
               <input
                 type="text"
-                className="flex-1 p-3 border rounded-xl outline-none focus:border-indigo-500 text-sm font-medium"
+                className="flex-1 p-3 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-medium transition-all"
                 placeholder="Mas: Matematika 1-guruh"
                 value={currentGroupInput}
                 onChange={(e) => setCurrentGroupInput(e.target.value)}
@@ -211,28 +223,28 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
               <button
                 type="button"
                 onClick={addGroup}
-                className="bg-indigo-100 text-indigo-700 px-4 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center gap-1"
+                className="bg-indigo-100 text-indigo-700 px-4 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center gap-1 active:scale-95"
               >
                 <Plus size={18} /> Qo'shish
               </button>
             </div>
             
             {formData.groupsData.length > 0 && (
-              <div className="space-y-2 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <p className="text-[11px] text-slate-400 font-medium mb-2">Tanlangan guruhlar narxini o'zgartirishingiz mumkin:</p>
+              <div className="space-y-2 mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-inner">
+                <p className="text-[11px] text-slate-500 font-bold mb-2 uppercase">Tanlangan guruhlar va oylik to'lov:</p>
                 {formData.groupsData.map((g, index) => (
-                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-white p-2 border rounded-lg shadow-sm">
-                    <div className="flex items-center gap-2 max-w-[50%]">
-                      <button type="button" onClick={() => removeGroup(g.name)} className="text-rose-400 hover:text-rose-600 transition-colors p-1">
+                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-2.5 border rounded-xl shadow-sm">
+                    <div className="flex items-center gap-2 max-w-[100%] sm:max-w-[50%]">
+                      <button type="button" onClick={() => removeGroup(g.name)} className="text-rose-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors p-1.5">
                         <X size={16} />
                       </button>
                       <span className="text-sm font-bold text-slate-700 truncate">{g.name}</span>
                     </div>
-                    <div className="flex items-center relative w-full sm:w-auto mt-2 sm:mt-0">
+                    <div className="flex items-center relative w-full sm:w-auto mt-1 sm:mt-0">
                       <input 
                         type="text" 
                         inputMode="numeric"
-                        className="w-full sm:w-32 py-1.5 pl-3 pr-8 border rounded outline-none focus:border-emerald-500 text-sm font-bold text-emerald-600 bg-emerald-50"
+                        className="w-full sm:w-32 py-2 pl-3 pr-8 border rounded-lg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-bold text-emerald-700 bg-emerald-50/50 transition-all"
                         value={g.price === 0 ? "" : g.price.toLocaleString("ru-RU")}
                         onChange={(e) => handlePriceChange(g.name, e.target.value)}
                       />
@@ -245,9 +257,11 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <button type="button" onClick={onClose} className="w-full py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors">Bekor qilish</button>
-            <button type="submit" disabled={loading} className="w-full py-3 bg-indigo-600 font-bold text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-70 flex justify-center items-center">
-              {loading ? "Saqlanmoqda..." : "Saqlash"}
+            <button type="button" onClick={onClose} className="w-full py-3.5 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors active:scale-[0.98]">
+              Bekor qilish
+            </button>
+            <button type="submit" disabled={loading} className="w-full py-3.5 bg-indigo-600 font-bold text-white rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 flex justify-center items-center active:scale-[0.98]">
+              {loading ? <Loader2 className="animate-spin" size={20} /> : "Saqlash"}
             </button>
           </div>
         </form>
