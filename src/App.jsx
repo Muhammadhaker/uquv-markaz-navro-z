@@ -1,45 +1,50 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Groups from "./pages/Groups";
 import Attendance from "./pages/Attendance";
+import PrintBadges from "./pages/PrintBadges";
 import Admins from "./pages/Admins";
-import BotRegister from "./pages/BotRegister";
 import ActivityLogs from "./pages/ActivityLogs";
-import Layout from "./components/Layout";
-import Profile from './pages/Profile';
-import PrintBadges from './pages/PrintBadges'; // 🔥 Bejiklar sahifasini import qildik
+import BotRegister from "./pages/BotRegister";
+import Profile from "./pages/Profile";
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
+// 🔥 Himoyalangan marshrut (Faqat tizimga kirganlar uchun ruxsat)
+const ProtectedRoute = ({ children }) => {
   const role = localStorage.getItem("userRole");
-
-  if (!role) return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(role)) return <Navigate to="/groups" replace />;
-
-  return <Layout>{children}</Layout>;
+  if (!role) return <Navigate to="/" replace />;
+  return children;
 };
 
 export default function App() {
+  const role = localStorage.getItem("userRole");
+
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        {/* 🔓 OCHIQ SAHIFALAR (Bot va Login uchun) */}
+        <Route 
+          path="/" 
+          element={
+            !role ? <Login /> : <Navigate to={role === "assistant" ? "/attendance" : "/groups"} replace />
+          } 
+        />
         <Route path="/bot-register" element={<BotRegister />} />
-
-        <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["super_admin"]}><Dashboard /></ProtectedRoute>} />
-        <Route path="/admins" element={<ProtectedRoute allowedRoles={["super_admin"]}><Admins /></ProtectedRoute>} />
-        <Route path="/logs" element={<ProtectedRoute allowedRoles={["super_admin"]}><ActivityLogs /></ProtectedRoute>} />
-
         <Route path="/profile" element={<Profile />} />
 
-        <Route path="/groups" element={<ProtectedRoute allowedRoles={["super_admin", "admin"]}><Groups /></ProtectedRoute>} />
-        <Route path="/attendance" element={<ProtectedRoute allowedRoles={["super_admin", "admin"]}><Attendance /></ProtectedRoute>} />
+        {/* 🔒 YOPIQ SAHIFALAR (Faqat tizimga kirgan xodimlar uchun) */}
+        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/groups" element={<Groups />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/badges" element={<PrintBadges />} />
+          <Route path="/admins" element={<Admins />} />
+          <Route path="/logs" element={<ActivityLogs />} />
+        </Route>
 
-        {/* 🔥 YANGI: Printer sahifasi */}
-        <Route path="/badges" element={<ProtectedRoute allowedRoles={["super_admin", "admin"]}><PrintBadges /></ProtectedRoute>} />
-
-        <Route path="/" element={<Navigate to="/groups" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Noto'g'ri manzil yozilsa, avtomat bosh sahifaga qaytaradi */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
