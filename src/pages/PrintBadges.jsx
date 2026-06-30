@@ -6,8 +6,8 @@ export default function PrintBadges() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState("Barchasi");
-
-  const [printMode, setPrintMode] = useState("front");
+  
+  const [printMode, setPrintMode] = useState("front"); 
   const [selectedIds, setSelectedIds] = useState([]);
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function PrintBadges() {
         if (data.success) {
           const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
           setStudents(sortedStudents);
-          setSelectedIds(sortedStudents.map(s => s._id));
+          setSelectedIds(sortedStudents.map(s => s._id)); 
         }
       } catch (err) {
         console.error("O'quvchilarni yuklashda xato:", err);
@@ -43,7 +43,7 @@ export default function PrintBadges() {
   const handleGroupChange = (e) => {
     const newGroup = e.target.value;
     setSelectedGroup(newGroup);
-
+    
     const newFiltered = students.filter((s) => {
       if (newGroup === "Barchasi") return true;
       const sGroups = s.group ? s.group.split(",").map((g) => g.trim()) : [];
@@ -53,16 +53,16 @@ export default function PrintBadges() {
   };
 
   const toggleSelection = (id) => {
-    setSelectedIds(prev =>
+    setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
   const toggleAll = () => {
     if (selectedIds.length === filteredStudents.length) {
-      setSelectedIds([]);
+      setSelectedIds([]); 
     } else {
-      setSelectedIds(filteredStudents.map(s => s._id));
+      setSelectedIds(filteredStudents.map(s => s._id)); 
     }
   };
 
@@ -84,24 +84,25 @@ export default function PrintBadges() {
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24">
-
+      
+      {/* 🛑 BOSHQARUV PANELI (PRINTDA YASHIRILADI) */}
       <div className="no-print">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6 border-b border-slate-200 pb-6">
           <div>
-            <button
-              onClick={() => window.history.back()}
+            <button 
+              onClick={() => window.history.back()} 
               className="flex items-center gap-2 text-sm text-slate-500 hover:text-indigo-600 font-bold mb-3 transition-colors w-fit px-3 py-1.5 -ml-3 rounded-lg hover:bg-slate-100"
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">Tejamkor Bejiklar (1 varaqda 9 ta)</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Ikki Tomonlama Bejiklar (69x111mm)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Yonma-yon 3 ta, pastma-past 3 ta joylashadigan ixcham format (60x95mm).
+              Mukammal simmetriya va yiriklashtirilgan orqa logotip andozasi.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <button
+            <button 
               onClick={() => handlePrint('front')}
               disabled={selectedIds.length === 0}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
@@ -109,12 +110,12 @@ export default function PrintBadges() {
               <Printer size={20} /> <span>Oldi (QR) - {selectedIds.length} ta</span>
             </button>
 
-            <button
+            <button 
               onClick={() => handlePrint('back')}
               disabled={selectedIds.length === 0}
               className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <ImageIcon size={20} /> <span>Orqasi (Logo) - {selectedIds.length} ta</span>
+              <ImageIcon size={20} /> <span>Orqasi (Katta Logo) - {selectedIds.length} ta</span>
             </button>
           </div>
         </div>
@@ -135,7 +136,7 @@ export default function PrintBadges() {
             </select>
           </div>
 
-          <button
+          <button 
             onClick={toggleAll}
             className="text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition-colors w-full sm:w-auto text-center"
           >
@@ -144,14 +145,16 @@ export default function PrintBadges() {
         </div>
       </div>
 
+      {/* 🖨️ CHOP ETISH ZONASI */}
       <div id="print-section" className="print-area">
-
+        
+        {/* OLDI QISMI (O'QUVCHILAR RO'YXATI) */}
         {printMode === 'front' && filteredStudents.map((student) => {
           const isSelected = selectedIds.includes(student._id);
-
+          
           return (
-            <div
-              key={student._id}
+            <div 
+              key={student._id} 
               onClick={() => toggleSelection(student._id)}
               className={`badge-card front-side cursor-pointer transition-all duration-200 
                 ${isSelected ? 'ring-2 ring-indigo-500 shadow-md' : 'opacity-40 grayscale-[40%] scale-95 no-print'}`}
@@ -179,9 +182,12 @@ export default function PrintBadges() {
           )
         })}
 
+        {/* ORQA QISMI (YIRIKLASHTIRILGAN LOGOTIP BILAN VARIANT) */}
         {printMode === 'back' && Array.from({ length: selectedIds.length }).map((_, index) => (
           <div key={index} className="badge-card back-side">
-            <img src="/icon-192.png" className="logo-img" alt="Logo" />
+            <div className="logo-wrapper">
+              <img src="/icon-192.png" className="logo-img" alt="Logo" />
+            </div>
             <div className="footer-strip">Mantiq • Bilim • Natija</div>
           </div>
         ))}
@@ -202,9 +208,10 @@ export default function PrintBadges() {
           justify-content: center;
         }
 
+        /* 🆕 YANGI BELGILANGAN ICHKI O'LCHAMLAR */
         .badge-card {
-          width: 60mm;   
-          height: 95mm;  
+          width: 69mm;   
+          height: 111mm;  
           background: white;
           box-sizing: border-box;
           display: flex;
@@ -227,12 +234,12 @@ export default function PrintBadges() {
         .header-section {
           width: 100%;
           background-color: #1e3a8a; 
-          padding: 5mm 0;
+          padding: 6mm 0;
           text-align: center;
         }
         .header-title {
           color: #ffffff;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -240,7 +247,7 @@ export default function PrintBadges() {
         }
         .header-sub {
           color: #93c5fd;
-          font-size: 6.5px;
+          font-size: 7px;
           font-weight: bold;
           text-transform: uppercase;
           letter-spacing: 1px;
@@ -253,20 +260,20 @@ export default function PrintBadges() {
           width: 100%;
         }
         .qr-box {
-          padding: 4px;
+          padding: 5px;
           background: #fff;
         }
         .qr-box svg {
-          width: 38mm !important;
-          height: 38mm !important;
+          width: 44mm !important;
+          height: 44mm !important;
         }
         .student-details {
           width: 100%;
           text-align: center;
-          padding-bottom: 5mm;
+          padding-bottom: 6mm;
         }
         .st-name {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 800;
           color: #1e293b;
           text-transform: uppercase;
@@ -274,15 +281,26 @@ export default function PrintBadges() {
           padding: 0 4px;
           line-height: 1.1;
         }
-        .st-group { font-size: 9px; color: #4f46e5; font-weight: 700; }
+        .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
 
+        /* 🔥 ORQA TOMON VA LOGOTIPNI KATTALASHTIRISH */
         .back-side {
-          justify-content: center;
-          background-color: #f8fafc;
+          justify-content: flex-start;
+          background-color: #ffffff;
+          padding-top: 12mm; /* Logotip tepadan chiroyli joylashishi uchun */
         }
+        .logo-wrapper {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex: 1;
+          padding-bottom: 10mm; /* Footer chizig'iga tegib ketmasligi uchun */
+        }
+        /* Logotip enini 69mm lik kartada 60mm gacha yiriklashtirdik (maksimal sig'im) */
         .logo-img {
-          width: 40mm;
-          height: 40mm;
+          width: 60mm;
+          height: 60mm;
           object-fit: contain;
         }
         .footer-strip {
@@ -292,25 +310,22 @@ export default function PrintBadges() {
           width: 100%;
           background: #1e3a8a;
           color: #fff;
-          font-size: 7px;
+          font-size: 8px;
           font-weight: 800;
           text-align: center;
-          padding: 4px 0;
+          padding: 6px 0;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
 
-        /* 🖨️ YAKUNIY PRINT SOZLAMALARI (ORASI OCHILGAN) */
+        /* 🖨️ MUKAMMAL SIMMETRIK PRINT QOIDALARI (2x2 qolip) */
         @media print {
           @page { 
             size: A4 portrait; 
             margin: 0 !important; 
           }
           
-          body * {
-            visibility: hidden;
-          }
-          
+          body * { visibility: hidden; }
           html, body, #root {
             background-color: #ffffff !important;
             margin: 0 !important;
@@ -320,19 +335,17 @@ export default function PrintBadges() {
           }
           
           .no-print { display: none !important; }
+          #print-section, #print-section * { visibility: visible; }
 
-          #print-section, #print-section * { 
-            visibility: visible; 
-          }
-
-          /* 🔥 BEJIKLAR ORASINI 3MM DAN OCHISH VA MARKAZGA MIXLASH */
+          /* 🔥 IKKALA TOMON CHOP ETILGANDA ADASHMASLIGI UCHUN ANIQ GEOMETRIK MARKAZ */
           #print-section {
             position: absolute !important;
             top: 0 !important;
-            left: 50% !important; 
-            transform: translateX(-50%) !important; 
-            width: 186mm !important; /* 60x3 = 180 + 2 ta 3mm lik oraliq = 186mm */
+            left: 50% !important;
+            transform: translateX(-50%) !important;
             
+            /* 69mm × 2 ta = 138mm + 4mm oraliq joy = 142mm umumiy eni */
+            width: 142mm !important; 
             background-color: #ffffff !important; 
             z-index: 999999 !important;
             
@@ -340,17 +353,20 @@ export default function PrintBadges() {
             flex-wrap: wrap !important;
             justify-content: flex-start !important;
             align-content: flex-start !important;
-            gap: 3mm !important; /* 🔥 ORALIG'I 3MM DAN OCHILDI */
             
+            /* Bejiklar chekkasi kesish uchun zich, ammo aniq oraliqli */
+            gap: 5mm 4mm !important; 
             padding: 0 !important;
             margin: 0 !important;
-            padding-top: 3mm !important; /* A4 varaqqa to'liq sig'ishi uchun tepadan 3mm qoldirildi */
+            
+            /* Varaqning bo'yi bo'yicha ham roppa-rosa markazga tushirish (297 - (111*2 + 5)) / 2 = 35mm */
+            padding-top: 35mm !important; 
           }
 
           .badge-card {
             border: none !important; 
-            outline: 1px dashed #94a3b8 !important; /* Qirqish chizig'i ko'rinishi uchun */
-            border-radius: 4px !important; 
+            outline: 1px dashed #94a3b8 !important; 
+            border-radius: 0 !important;
             page-break-inside: avoid;
             break-inside: avoid;
             background-color: #ffffff !important; 
