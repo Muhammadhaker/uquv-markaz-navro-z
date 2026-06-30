@@ -146,7 +146,7 @@ export default function PrintBadges() {
             </button>
             <h1 className="text-2xl font-bold text-slate-800">Toza Simmetrik Bejiklar (69x111)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              To'q qora qirqish chiziqlari bilan jihozlangan mukammal andoza.
+              Tipografiya usulidagi butun varaq bo'ylab tortilgan qirqish chiziqlari.
             </p>
           </div>
 
@@ -234,6 +234,7 @@ export default function PrintBadges() {
         </div>
       </div>
 
+      {/* PORTAL VA CSS QISMI - BIR MARTA YOZILGAN */}
       {typeof document !== 'undefined' && createPortal(
         <>
           {printContent}
@@ -373,6 +374,7 @@ export default function PrintBadges() {
                 max-height: 297mm !important; 
                 overflow: hidden !important;
                 background-color: #ffffff !important;
+                position: relative !important;
                 
                 display: flex !important;
                 flex-wrap: wrap !important;
@@ -385,6 +387,32 @@ export default function PrintBadges() {
                 page-break-after: always !important;
                 break-after: page !important;
                 box-sizing: border-box !important;
+
+                /* 🔥 BUTUN VARAQ BO'YLAB KESISH CHIZIQLARINI (CROP MARKS) YASASH */
+                background-image: 
+                  /* Gorizontal chiziqlar (butun eni bo'ylab) */
+                  linear-gradient(to right, #000 50%, transparent 50%),
+                  linear-gradient(to right, #000 50%, transparent 50%),
+                  linear-gradient(to right, #000 50%, transparent 50%),
+                  linear-gradient(to right, #000 50%, transparent 50%),
+                  
+                  /* Vertikal chiziqlar (butun bo'yi bo'ylab) */
+                  linear-gradient(to bottom, #000 50%, transparent 50%),
+                  linear-gradient(to bottom, #000 50%, transparent 50%),
+                  linear-gradient(to bottom, #000 50%, transparent 50%),
+                  linear-gradient(to bottom, #000 50%, transparent 50%) !important;
+
+                background-size: 
+                  8px 1px, 8px 1px, 8px 1px, 8px 1px, 
+                  1px 8px, 1px 8px, 1px 8px, 1px 8px !important; 
+                
+                background-position: 
+                  0 35mm, 0 146mm, 0 151mm, 0 262mm, 
+                  34mm 0, 103mm 0, 107mm 0, 176mm 0 !important; 
+                  
+                background-repeat: 
+                  repeat-x, repeat-x, repeat-x, repeat-x, 
+                  repeat-y, repeat-y, repeat-y, repeat-y !important; 
               }
 
               .print-page:last-child {
@@ -403,8 +431,9 @@ export default function PrintBadges() {
                 position: relative !important;
                 overflow: hidden !important;
                 
-                /* 🔥 MUTLOQ TO'Q QORA VA ANIQ QIRQISH CHIZIG'I */
-                border: 1px dashed #000000 !important; 
+                /* 🔥 Bejikning o'zini atrofidagi alohida chiziqni olib tashladik, 
+                   chunki endi orqasidagi to'r (matbaa setkasi) o'zi ko'rsatib turadi */
+                border: none !important; 
                 box-sizing: border-box !important;
 
                 box-shadow: none !important;
@@ -414,7 +443,6 @@ export default function PrintBadges() {
               }
 
               .empty-slot {
-                border: none !important;
                 visibility: hidden !important;
               }
             }
