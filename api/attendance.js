@@ -6,11 +6,12 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// 🔥 SChema vaqt va skaner tarixini qo'llab-quvvatlaydi
+// 🔥 YANGI: Davomat jadvalida ham teacherId saqlanadi
 const attendanceSchema = new mongoose.Schema({
   groupName: { type: String, required: true },
   date: { type: String, required: true },
   adminName: { type: String, required: true },
+  teacherId: { type: String, required: true }, // Kimning guruhining davomati ekanligi
   records: [{
     studentId: String,
     studentName: String,
@@ -30,16 +31,28 @@ export default async function handler(req, res) {
   try {
     await connectDB();
     
+    // Headers orqali rolni aniqlash
+    const role = req.headers['x-user-role'];
+    const userId = req.headers['x-user-id'];
+    const parentId = req.headers['x-parent-id'];
+    
     if (req.method === 'GET') {
       const { groupName, date } = req.query;
-      const data = await Attendance.findOne({ groupName, date });
+      
+      let query = { groupName, date };
+      // Yordamchi yoki ustoz faqat o'z davomatini ola oladi
+      if (role === 'teacher') query.teacherId = userId;
+      else if (role === 'assistant') query.teacherId = parentId;
+
+      const data = await Attendance.findOne(query);
       return res.status(200).json({ success: true, data });
     }
     
     if (req.method === 'POST') {
       const { groupName, date, adminName, records } = req.body;
+      const ownerId = role === 'assistant' ? parentId : userId;
       
-      const oldDoc = await Attendance.findOne({ groupName, date });
+      const oldDoc = await Attendance.findOne({ groupName, date, teacherId: ownerId });
       const oldDataMap = {};
       if (oldDoc) {
          oldDoc.records.forEach(r => {
@@ -66,24 +79,18 @@ export default async function handler(req, res) {
             if (changedRecords.length > 0) {
                const objectIds = [];
                changedRecords.forEach(r => {
-                  if (mongoose.Types.ObjectId.isValid(r.studentId)) {
-                      objectIds.push(new mongoose.Types.ObjectId(r.studentId));
-                  }
+                  if (mongoose.Types.ObjectId.isValid(r.studentId)) objectIds.push(new mongoose.Types.ObjectId(r.studentId));
                   objectIds.push(r.studentId);
                });
                
                const studentsInDb = await Student.find({ _id: { $in: objectIds } });
                const chatIdsMap = {};
-               studentsInDb.forEach(s => {
-                   chatIdsMap[s._id.toString()] = s.telegramChatId;
-               });
+               studentsInDb.forEach(s => { chatIdsMap[s._id.toString()] = s.telegramChatId; });
 
-               // 🔥 SANANI O'ZBEKCHA OYLARGA O'GIRISH VA FORMATLASH
                const months = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
                const [yyyy, mm, dd] = date.split("-");
                const formattedDate = `${dd}-${months[parseInt(mm) - 1]}, ${yyyy}-yil`;
 
-               // 🔥 4 XIL STATUS VA VAQTLAR UCHUN MAXSUS MATN
                const getStatusText = (record) => {
                   const arr = record.arrivalTime || '--:--';
                   const lev = record.leaveTime || '--:--';
@@ -97,15 +104,13 @@ export default async function handler(req, res) {
                    const chatId = chatIdsMap[record.studentId];
                    if (!chatId) return;
 
-                   // Eski xabarni tozalash
                    if (record.messageId) {
                        try {
                            await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
-                               method: 'POST',
-                               headers: { 'Content-Type': 'application/json' },
+                               method: 'POST', headers: { 'Content-Type': 'application/json' },
                                body: JSON.stringify({ chat_id: chatId, message_id: record.messageId })
                            });
-                       } catch(e) { console.error("Eski xabarni o'chirishda xato", e); }
+                       } catch(e) {}
                    }
 
                    const isCorrection = oldDataMap[record.studentId] !== undefined; 
@@ -116,8 +121,7 @@ export default async function handler(req, res) {
 
                    try {
                        const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-                           method: 'POST',
-                           headers: { 'Content-Type': 'application/json' },
+                           method: 'POST', headers: { 'Content-Type': 'application/json' },
                            body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
                        });
                        const tgData = await tgRes.json();
@@ -131,14 +135,13 @@ export default async function handler(req, res) {
                    }
                }));
             }
-         } catch (tgError) {
-            console.error("Telegram jarayonida xatolik yuz berdi:", tgError);
-         }
+         } catch (tgError) {}
       }
 
+      // 🔥 teacherId qo'shib yangilanadi yoki yaratiladi
       const data = await Attendance.findOneAndUpdate(
-        { groupName, date },
-        { groupName, date, adminName, records: finalRecords },
+        { groupName, date, teacherId: ownerId },
+        { groupName, date, adminName, teacherId: ownerId, records: finalRecords },
         { new: true, upsert: true }
       );
 

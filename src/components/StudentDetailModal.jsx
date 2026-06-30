@@ -65,6 +65,14 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const isExcepted = localException.includes(targetMonth);
   const activeCycles = calculateCycles(student.addedAt);
 
+  // 🔥 API himoya kalitlari
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-id": localStorage.getItem("userId") || "",
+    "x-parent-id": localStorage.getItem("parentTeacherId") || ""
+  });
+
   const getPrice = (groupName) => {
     if (student.groupsData && Array.isArray(student.groupsData) && student.groupsData.length > 0) {
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
@@ -115,7 +123,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     try {
       const res = await fetch("/api/send-message", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ chatId: student.telegramChatId, text }),
       });
       const data = await res.json();
@@ -191,7 +199,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       try {
         const res = await fetch("/api/send-message", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ chatId: student.telegramChatId, text, paymentId: p._id }),
         });
         const data = await res.json();
@@ -222,7 +230,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
 
       const res = await fetch("/api/students", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ id: student._id, exceptionMonths: updatedExceptions }),
       });
 
@@ -237,7 +245,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     }
   };
 
-// 🔥 QR KODNI CHOP ETISH FUNKSIYASI (YANGI O'LCHAM 69x111mm)
   const handlePrintQR = () => {
     const qrElement = document.getElementById("qr-print-area");
     if (!qrElement) return;
@@ -263,8 +270,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               print-color-adjust: exact !important;
             }
             .badge-side {
-              width: 69mm; /* 🆕 Yangi eni */
-              height: 111mm; /* 🆕 Yangi bo'yi */
+              width: 69mm;
+              height: 111mm;
               outline: 1px dashed #000;
               box-sizing: border-box;
               display: flex;
@@ -359,7 +366,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   };
   return (
     <>
-      <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[95vh] flex flex-col relative overflow-hidden">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-slate-800">{student.name}</h2>
@@ -528,7 +535,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         </div>
       </div>
 
-      {/* 🔥 QR KOD MODAL OYNASI VA CHOP ETISH TUGMASI */}
       {showQR && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] animate-in fade-in duration-200">
           <div className="bg-white p-8 rounded-3xl text-center shadow-2xl relative w-full max-w-sm">
@@ -551,7 +557,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             <h3 className="font-bold text-xl mb-6 text-slate-800 mt-2">{student.name}</h3>
 
             <div id="qr-print-area" className="p-6 bg-slate-50 rounded-3xl border border-slate-200 inline-block shadow-inner">
-              {/* 🔥 BOTA YO'NALTIRUVCHI QR KOD */}
               <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={220} level="H" />
             </div>
 

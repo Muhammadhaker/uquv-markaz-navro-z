@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Lock, User, Eye, EyeOff } from "lucide-react"; // Eye va EyeOff qo'shildi
+import { Loader2, Lock, User, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // YANGI: Parolni ko'rsatish/yashirish holati
+  const [showPassword, setShowPassword] = useState(false); 
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -24,11 +24,21 @@ export default function Login() {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        // 🔥 Barcha kerakli ma'lumotlar LocalStorage'ga yoziladi
+        localStorage.setItem("userId", data.userId);
         localStorage.setItem("userRole", data.role);
         localStorage.setItem("username", data.username);
-        navigate(data.role === "super_admin" ? "/dashboard" : "/groups", {
-          replace: true,
-        });
+        localStorage.setItem("userPermissions", JSON.stringify(data.permissions || []));
+        if (data.parentTeacherId) {
+            localStorage.setItem("parentTeacherId", data.parentTeacherId);
+        }
+        
+        // Yordamchi (Assistant) kirdi va unda "dashboard"ga ruxsat bo'lmasa, to'g'ridan-to'g'ri Davomatga yo'naltiriladi
+        if (data.role === "assistant") {
+           navigate(data.permissions.includes('dashboard') ? "/dashboard" : "/attendance", { replace: true });
+        } else {
+           navigate(data.role === "super_admin" ? "/dashboard" : "/groups", { replace: true });
+        }
       } else {
         setError(data.message || "Login yoki parol xato!");
       }
@@ -58,10 +68,7 @@ export default function Login() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="relative">
-            <User
-              className="absolute left-3 top-3.5 text-slate-400"
-              size={18}
-            />
+            <User className="absolute left-3 top-3.5 text-slate-400" size={18} />
             <input
               type="text"
               value={username}
@@ -73,19 +80,15 @@ export default function Login() {
           </div>
 
           <div className="relative">
-            <Lock
-              className="absolute left-3 top-3.5 text-slate-400"
-              size={18}
-            />
+            <Lock className="absolute left-3 top-3.5 text-slate-400" size={18} />
             <input
-              type={showPassword ? "text" : "password"} // YANGI: Type dinamik o'zgaradi
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 pr-12 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               placeholder="Parol"
               required
             />
-            {/* YANGI: Ko'zcha tugmasi */}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}

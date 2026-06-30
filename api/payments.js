@@ -6,7 +6,7 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// To'lov sxemasiga telegramMessageId maydoni qo'shildi
+// 🔥 YANGI: teacherId maydoni qo'shildi
 const paymentSchema = new mongoose.Schema({
   studentId: { type: String, required: true },
   studentName: { type: String, required: true },
@@ -16,8 +16,9 @@ const paymentSchema = new mongoose.Schema({
   month: { type: String, required: true },
   adminName: { type: String, default: "Admin" },
   telegramChatId: { type: String, default: null },
-  telegramMessageId: { type: Number, default: null }, // Bot yuborgan xabar IDsi
-  extraMessageIds: { type: [Number], default: [] }, // Qo'lda yuborilgan xabarlar uchun
+  telegramMessageId: { type: Number, default: null }, 
+  extraMessageIds: { type: [Number], default: [] }, 
+  teacherId: { type: String, required: true }, // To'lov qaysi ustozning kassasiga tushgani
   date: { type: Date, default: Date.now }
 });
 
@@ -29,19 +30,26 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
+    const role = req.headers['x-user-role'];
+    const userId = req.headers['x-user-id'];
+    const parentId = req.headers['x-parent-id'];
+
     // 1. TO'LOVLARNI OLISH
     if (req.method === 'GET') {
-      const payments = await Payment.find({}).sort({ date: -1 });
+      let query = {};
+      if (role === 'teacher') query = { teacherId: userId };
+      else if (role === 'assistant') query = { teacherId: parentId };
+
+      const payments = await Payment.find(query).sort({ date: -1 });
       return res.status(200).json({ success: true, data: payments });
     }
 
-    // 2. YANGI TO'LOV QISHISH (VA AVTOMATIK CHEK YUBORISH)
+    // 2. YANGI TO'LOV QO'SHISH (VA CHEK YUBORISH)
     if (req.method === 'POST') {
       const { studentId, studentName, groupName, amount, paymentType, month, adminName, telegramChatId } = req.body;
-
+      const ownerId = role === 'assistant' ? parentId : userId;
       let messageId = null;
 
-      // Agar o'quvchining telegramChatId si bo'lsa, birinchi chek yuboramiz
       if (telegramChatId) {
         const formatMonthName = (m) => {
           const [y, mm] = m.split("-");
@@ -53,74 +61,53 @@ export default async function handler(req, res) {
 
         try {
           const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: telegramChatId,
-              text: text,
-              parse_mode: 'Markdown'
-            })
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: telegramChatId, text: text, parse_mode: 'Markdown' })
           });
           const tgData = await tgRes.json();
-
-          // Telegram yuborgan xabarning ID sini ushlab qolamiz
-          if (tgData.ok) {
-            messageId = tgData.result.message_id;
-          }
-        } catch (err) {
-          console.error("Telegramga chek yuborishda xato:", err);
-        }
+          if (tgData.ok) messageId = tgData.result.message_id;
+        } catch (err) { }
       }
 
-      // To'lovni bazaga saqlaymiz (ichida telegramMessageId ham ketadi)
       const newPayment = await Payment.create({
-        studentId,
-        studentName,
-        groupName,
-        amount,
-        paymentType,
-        month,
-        adminName,
-        telegramChatId,
-        telegramMessageId: messageId // Xabar ID si saqlandi
+        studentId, studentName, groupName, amount, paymentType, month, adminName, telegramChatId,
+        telegramMessageId: messageId,
+        teacherId: ownerId // To'lov ustozning shaxsiy kassasiga tushadi
       });
 
       return res.status(201).json({ success: true, data: newPayment });
     }
 
-    // 3. TO'LOVNI O'CHIRISH (VA TELEGRAMDAN CHEKNI HAM YO'Q QILISH)
+    // 3. TO'LOVNI O'CHIRISH
     if (req.method === 'DELETE') {
       const { id } = req.body;
       const payment = await Payment.findById(id);
 
-      if (payment && payment.telegramChatId) {
-        // Barcha xabar ID larini bitta idishga (massiv) yig'amiz
-        const messagesToDelete = [];
+      // Agar Yordamchi yoki Ustoz o'chirmoqchi bo'lsa, bu uning pulimi yoki yo'qmi tekshiramiz
+      const ownerId = role === 'assistant' ? parentId : userId;
+      if (role !== 'super_admin' && payment.teacherId !== ownerId) {
+         return res.status(403).json({ success: false, message: "Siz faqat o'zingizning kassangizdagi to'lovlarni o'chira olasiz!" });
+      }
 
-        // To'g'ri maydon nomlarini qidirish
+      if (payment && payment.telegramChatId) {
+        const messagesToDelete = [];
         if (payment.telegramMessageId) messagesToDelete.push(payment.telegramMessageId);
         if (payment.messageId) messagesToDelete.push(payment.messageId); 
         if (payment.message_id) messagesToDelete.push(payment.message_id);
-
         if (payment.extraMessageIds && payment.extraMessageIds.length > 0) {
           messagesToDelete.push(...payment.extraMessageIds);
         }
 
-        // Yig'ilgan hamma cheklarni Telegramdan bittadan o'chirib chiqamiz
         for (let msgId of messagesToDelete) {
           try {
             await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chat_id: payment.telegramChatId, message_id: msgId })
             });
-          } catch (err) {
-            console.error("Telegram xabarni o'chirishda xatolik:", err);
-          }
+          } catch (err) {}
         }
       }
 
-      // Va nihoyat, to'lovning o'zini bazadan tozalaymiz
       await Payment.findByIdAndDelete(id);
       return res.status(200).json({ success: true });
     }

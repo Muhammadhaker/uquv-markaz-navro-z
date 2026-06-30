@@ -6,6 +6,14 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess, selectedMo
   const [expenseAmount, setExpenseAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 🔥 API himoya kalitlari
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-id": localStorage.getItem("userId") || "",
+    "x-parent-id": localStorage.getItem("parentTeacherId") || ""
+  });
+
   if (!isOpen) return null;
 
   const handleAddExpense = async (e) => {
@@ -17,7 +25,7 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess, selectedMo
     try {
       const res = await fetch("/api/expenses", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           reason: expenseReason,
           amount: amountNum,
@@ -29,7 +37,7 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess, selectedMo
       if (res.ok) {
         await fetch("/api/logs", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             adminName: localStorage.getItem("username") || "Admin",
             actionType: "create",
@@ -39,8 +47,8 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess, selectedMo
         
         setExpenseReason("");
         setExpenseAmount("");
-        onSuccess(); // Dashboard'dagi ma'lumotlarni yangilash uchun
-        onClose(); // Oynani yopish
+        onSuccess();
+        onClose(); 
       } else {
         alert("Xarajat saqlanmadi. Xatolik bor.");
       }

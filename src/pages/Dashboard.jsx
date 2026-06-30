@@ -13,12 +13,20 @@ export default function Dashboard() {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
+  // 🔥 API himoya kalitlari
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-id": localStorage.getItem("userId") || "",
+    "x-parent-id": localStorage.getItem("parentTeacherId") || ""
+  });
+
   const fetchStats = async () => {
     setLoading(true);
     try {
       const [payRes, expRes] = await Promise.all([
-        fetch("/api/payments"),
-        fetch("/api/expenses")
+        fetch("/api/payments", { headers: getAuthHeaders() }),
+        fetch("/api/expenses", { headers: getAuthHeaders() })
       ]);
       const payData = await payRes.json();
       const expData = await expRes.json();
@@ -38,8 +46,8 @@ export default function Dashboard() {
   const handleDeletePayment = async (id, name) => {
     if (!window.confirm(`${name} to'lovini o'chirmoqchimisiz?`)) return;
     try {
-      await fetch("/api/payments", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-      await fetch("/api/logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminName: localStorage.getItem("username") || "Admin", actionType: "delete", details: `To'lov o'chirildi: ${name}` }) });
+      await fetch("/api/payments", { method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id }) });
+      await fetch("/api/logs", { method: "POST", headers: getAuthHeaders(), body: JSON.stringify({ adminName: localStorage.getItem("username") || "Admin", actionType: "delete", details: `To'lov o'chirildi: ${name}` }) });
       fetchStats();
     } catch (error) {
       console.error(error);
@@ -49,8 +57,8 @@ export default function Dashboard() {
   const handleDeleteExpense = async (id, reason) => {
     if (!window.confirm(`"${reason}" xarajatini o'chirmoqchimisiz?`)) return;
     try {
-      await fetch("/api/expenses", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-      await fetch("/api/logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminName: localStorage.getItem("username") || "Admin", actionType: "delete", details: `Xarajat o'chirildi: ${reason}` }) });
+      await fetch("/api/expenses", { method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id }) });
+      await fetch("/api/logs", { method: "POST", headers: getAuthHeaders(), body: JSON.stringify({ adminName: localStorage.getItem("username") || "Admin", actionType: "delete", details: `Xarajat o'chirildi: ${reason}` }) });
       fetchStats();
     } catch (error) {
       console.error(error);
@@ -102,7 +110,6 @@ export default function Dashboard() {
     </html>
   `;
 
-  // 🔥 Excel yuklashdagi sonlarni probel bilan ajratish
   const exportToExcel = () => {
     let body = "";
 

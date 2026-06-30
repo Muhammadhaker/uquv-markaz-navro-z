@@ -24,6 +24,14 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const [currentGroupInput, setCurrentGroupInput] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // 🔥 API himoya kalitlari
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-id": localStorage.getItem("userId") || "",
+    "x-parent-id": localStorage.getItem("parentTeacherId") || ""
+  });
+
   useEffect(() => {
     if (studentToEdit) {
       let parsedGroups = [];
@@ -105,7 +113,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     const method = studentToEdit ? "PUT" : "POST";
     const finalGroupString = formData.groupsData.map(g => g.name).join(", "); 
     
-    // 🔥 TELEFON MAJBURIY EMAS: Agar bo'sh qoldirsa "Kiritilmagan" deb saqlaydi
     let finalPhone = formData.phone.trim();
     if (finalPhone === "+998") finalPhone = "Kiritilmagan";
 
@@ -120,7 +127,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     try {
       const response = await fetch("/api/students", {
         method: method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(body),
       });
       
@@ -128,7 +135,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         const adminName = localStorage.getItem("username") || "Admin";
         await fetch("/api/logs", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             adminName: adminName,
             actionType: studentToEdit ? "update" : "create",

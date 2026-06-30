@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   UserPlus, Shield, ShieldAlert, Trash2, Key, Loader2, X, User,
-  Smartphone, Monitor, Clock, History
+  Smartphone, Monitor, Clock, History, CheckSquare, Square
 } from "lucide-react";
 
 export default function Admins() {
@@ -10,9 +10,16 @@ export default function Admins() {
   const [isOpen, setIsOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("admin");
+  const [role, setRole] = useState("assistant"); // Boshlang'ich qiymat
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  
+  // 🔥 Yordamchilar uchun ruxsatlar (permissions)
+  const [permissions, setPermissions] = useState(["attendance"]); // Default ruxsat faqat Davomatga
+
+  // Joriy kirgan ustozning ma'lumotlari
+  const currentUserId = localStorage.getItem("userId");
+  const currentUserRole = localStorage.getItem("userRole");
 
   const fetchAdmins = async () => {
     setLoading(true);
@@ -31,21 +38,38 @@ export default function Admins() {
     fetchAdmins();
   }, []);
 
+  const handleTogglePermission = (val) => {
+    setPermissions(prev => 
+      prev.includes(val) ? prev.filter(p => p !== val) : [...prev, val]
+    );
+  };
+
   const handleAddAdmin = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError("");
     try {
+      const payload = { 
+        action: "create", 
+        username, 
+        password, 
+        role,
+        parentTeacherId: role === "assistant" ? currentUserId : null,
+        permissions: role === "assistant" ? permissions : ['all']
+      };
+
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", username, password, role }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      
       if (data.success) {
         setUsername("");
         setPassword("");
-        setRole("admin");
+        setRole("assistant");
+        setPermissions(["attendance"]);
         setIsOpen(false);
         fetchAdmins();
       } else {
@@ -75,7 +99,6 @@ export default function Admins() {
     return d.toLocaleString("ru-RU", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
   };
 
-  // Qurilmaga qarab rang va belgi chiqarish funksiyasi
   const renderDeviceBadge = (deviceStr) => {
     if (!deviceStr) return null;
     let IconComponent = Monitor;
@@ -99,7 +122,6 @@ export default function Admins() {
     );
   };
 
-  // 🔥 Tarixni chiroyli qilib pastma-past chiqarish funksiyasi
   const renderLoginHistory = (historyArr) => {
     if (!historyArr || historyArr.length === 0) {
       return <span className="text-xs text-slate-400 font-medium italic">Hali tizimga kirmagan</span>;
@@ -124,14 +146,14 @@ export default function Admins() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Tizim Xodimlari</h1>
           <p className="text-slate-500 text-sm">
-            Adminlar va ularning kirish tarixi (Oxirgi 5 ta)
+            Adminlar, ustozlar va yordamchilar ro'yxati
           </p>
         </div>
         <button
           onClick={() => setIsOpen(true)}
           className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-sm transition-all"
         >
-          <UserPlus size={18} /> Yangi Admin
+          <UserPlus size={18} /> Yangi Xodim
         </button>
       </div>
 
@@ -141,12 +163,11 @@ export default function Admins() {
         </div>
       ) : (
         <>
-          {/* DESKTOP UCHUN JADVAL */}
           <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
                 <tr>
-                  <th className="px-6 py-4">Admin</th>
+                  <th className="px-6 py-4">Xodim</th>
                   <th className="px-6 py-4">Parol / Rol</th>
                   <th className="px-6 py-4">Kirishlar tarixi</th>
                   <th className="px-6 py-4 text-right">Amallar</th>
@@ -169,21 +190,18 @@ export default function Admins() {
                         </div>
                         <span
                           className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 w-fit ${
-                            a.role === "super_admin"
-                              ? "bg-purple-50 text-purple-700"
-                              : "bg-blue-50 text-blue-700"
+                            a.role === "super_admin" ? "bg-purple-50 text-purple-700"
+                            : a.role === "teacher" ? "bg-indigo-50 text-indigo-700"
+                            : "bg-orange-50 text-orange-700"
                           }`}
                         >
-                          {a.role === "super_admin" ? (
-                            <><ShieldAlert size={12} /> SUPER ADMIN</>
-                          ) : (
-                            <><Shield size={12} /> ADMIN</>
-                          )}
+                          {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</>
+                          : a.role === "teacher" ? <><Shield size={12} /> USTOZ (ADMIN)</>
+                          : <><User size={12} /> YORDAMCHI</>}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-3">
-                      {/* 🔥 SHU YERDA TARIX CHIQADI */}
                       {renderLoginHistory(a.loginHistory)}
                     </td>
                     <td className="px-6 py-4 text-right pt-5">
@@ -203,7 +221,6 @@ export default function Admins() {
             </table>
           </div>
 
-          {/* TELEFON UCHUN KARTOCHKA */}
           <div className="md:hidden space-y-4">
             {admins.map((a) => (
               <div key={a._id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-4">
@@ -218,16 +235,14 @@ export default function Admins() {
                     </div>
                     <span
                       className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 w-fit ${
-                        a.role === "super_admin"
-                          ? "bg-purple-50 text-purple-700"
-                          : "bg-blue-50 text-blue-700"
+                        a.role === "super_admin" ? "bg-purple-50 text-purple-700"
+                        : a.role === "teacher" ? "bg-indigo-50 text-indigo-700"
+                        : "bg-orange-50 text-orange-700"
                       }`}
                     >
-                      {a.role === "super_admin" ? (
-                        <><ShieldAlert size={12} /> SUPER ADMIN</>
-                      ) : (
-                        <><Shield size={12} /> ADMIN</>
-                      )}
+                      {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</>
+                      : a.role === "teacher" ? <><Shield size={12} /> USTOZ</>
+                      : <><User size={12} /> YORDAMCHI</>}
                     </span>
                   </div>
                   {a.username !== "Navroz" && (
@@ -244,7 +259,6 @@ export default function Admins() {
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
                     <History size={12}/> Kirishlar tarixi:
                   </p>
-                  {/* 🔥 TELEFONDA HAM TARIX CHIQADI */}
                   {renderLoginHistory(a.loginHistory)}
                 </div>
               </div>
@@ -253,7 +267,7 @@ export default function Admins() {
         </>
       )}
 
-      {/* YANGI XODIM QO'SHISH MODALI (O'ZGARMADI) */}
+      {/* YANGI XODIM QO'SHISH MODALI */}
       {isOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center z-[60] p-4">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 animate-in zoom-in duration-200 shadow-2xl">
@@ -278,7 +292,7 @@ export default function Admins() {
                 <label className="text-xs font-bold text-slate-500 uppercase ml-1">Login</label>
                 <input
                   required
-                  placeholder="masalan: admin_1"
+                  placeholder="masalan: yordamchi_1"
                   className="w-full border p-3.5 rounded-xl outline-none focus:border-indigo-500 transition-colors bg-slate-50 focus:bg-white"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -303,10 +317,34 @@ export default function Admins() {
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                 >
-                  <option value="admin">Oddiy Admin</option>
-                  <option value="super_admin">Super Admin</option>
+                  <option value="assistant">Yordamchi (Assistant)</option>
+                  {currentUserRole === 'super_admin' && <option value="teacher">Ustoz (Admin)</option>}
+                  {currentUserRole === 'super_admin' && <option value="super_admin">Super Admin</option>}
                 </select>
               </div>
+
+              {/* 🔥 Yordamchi tanlanganda ruxsatlar menyusi ochiladi */}
+              {role === "assistant" && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2 space-y-3">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase">Qaysi bo'limlarga ruxsat berasiz?</label>
+                  
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { val: "attendance", label: "Davomat" },
+                      { val: "groups", label: "Guruhlar va To'lovlar" },
+                      { val: "dashboard", label: "Umumiy Statistika" },
+                      { val: "badges", label: "Bejiklar chiqarish" }
+                    ].map(item => (
+                      <label key={item.val} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                        <div onClick={() => handleTogglePermission(item.val)}>
+                          {permissions.includes(item.val) ? <CheckSquare className="text-indigo-600" size={20}/> : <Square className="text-slate-300" size={20}/>}
+                        </div>
+                        <span className="text-sm font-medium text-slate-700 select-none" onClick={() => handleTogglePermission(item.val)}>{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <button 
                 type="submit"

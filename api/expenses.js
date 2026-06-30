@@ -6,12 +6,13 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// Xarajatlar uchun maxsus Mongoose Schema qolipi
+// 🔥 YANGI: Xarajat qaysi ustozning pulidan ketganini bilish uchun teacherId qo'shildi
 const expenseSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   amount: { type: Number, required: true },
   month: { type: String, required: true },
   adminName: { type: String, default: "Admin" },
+  teacherId: { type: String, required: true }, 
   date: { type: Date, default: Date.now }
 });
 
@@ -21,22 +22,39 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
-    // GET: Xarajatlarni o'qish (Dashboard ga berish)
+    const role = req.headers['x-user-role'];
+    const userId = req.headers['x-user-id'];
+    const parentId = req.headers['x-parent-id'];
+
+    // GET: Xarajatlarni o'qish 
     if (req.method === 'GET') {
-      const expenses = await Expense.find({}).sort({ date: -1 });
+      let query = {};
+      if (role === 'teacher') query = { teacherId: userId };
+      else if (role === 'assistant') query = { teacherId: parentId };
+
+      const expenses = await Expense.find(query).sort({ date: -1 });
       return res.status(200).json({ success: true, data: expenses });
     }
 
-    // POST: Yangi xarajat qo'shish (Xarajat tugmasi bosilganda)
+    // POST: Yangi xarajat qo'shish
     if (req.method === 'POST') {
       const { reason, amount, month, adminName } = req.body;
-      const newExpense = await Expense.create({ reason, amount, month, adminName });
+      const ownerId = role === 'assistant' ? parentId : userId;
+
+      const newExpense = await Expense.create({ reason, amount, month, adminName, teacherId: ownerId });
       return res.status(201).json({ success: true, data: newExpense });
     }
 
-    // DELETE: Xarajatni o'chirish (Savat tugmasi bosilganda)
+    // DELETE: Xarajatni o'chirish
     if (req.method === 'DELETE') {
       const { id } = req.body;
+      const expense = await Expense.findById(id);
+
+      const ownerId = role === 'assistant' ? parentId : userId;
+      if (role !== 'super_admin' && expense.teacherId !== ownerId) {
+         return res.status(403).json({ success: false, message: "Siz faqat o'zingizning kassangizdagi xarajatlarni o'chira olasiz!" });
+      }
+
       await Expense.findByIdAndDelete(id);
       return res.status(200).json({ success: true, message: "O'chirildi" });
     }

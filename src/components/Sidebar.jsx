@@ -2,15 +2,20 @@ import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Users, CalendarCheck, UserCheck, X, History, Printer, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 
-// 🔥 DIQQAT: isOpen va setIsOpen props orqali keladi
 export default function Sidebar({ isOpen, setIsOpen }) {
   const role = localStorage.getItem("userRole");
+  
+  // Yordamchilarning maxsus ruxsatlarini olish
+  let permissions = [];
+  try {
+    permissions = JSON.parse(localStorage.getItem("userPermissions") || "[]");
+  } catch(e) {
+    permissions = [];
+  }
 
-  // PWA Ilova o'rnatish so'rovini ushlab turuvchi state
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
-    // ---- Barmoq bilan surish logikasi ----
     let touchStartX = 0;
     let touchStartY = 0;
     let touchEndX = 0;
@@ -37,7 +42,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchend', handleTouchEnd);
 
-    // Brauzer ilova o'rnatishga tayyorligini eshitib turish
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -52,56 +56,63 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     };
   }, [setIsOpen]);
 
-  // 🔥 Ilovani yuklash funksiyasi
   const handleInstallClick = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
+      if (outcome === 'accepted') setDeferredPrompt(null);
     } else {
       alert(
         "📥 ILONVANI O'RNATISH QO'LLANMASI:\n\n" +
-        "🤖 Android uchun: Brauzerning o'ng yuqori burchagidagi (⋮) uchta nuqtani bosing va «Bosh ekranga qo'shish» tugmasini tanlang.\n\n" +
-        "🍎 iPhone uchun: Pastdagi o'rtada turgan ulashish (Share) tugmasini bosing va pastga tushib «Ekranga qo'shish» (Add to Home Screen) tugmasini tanlang."
+        "🤖 Android: Brauzer menyusidan «Bosh ekranga qo'shish»ni tanlang.\n\n" +
+        "🍎 iPhone: Share tugmasini bosib «Ekranga qo'shish»ni tanlang."
       );
     }
   };
 
-  // 🔥 Rollarga qarab menyularni ajratish
+  // 🔥 ROLLAR VA RUXSATLAR (PERMISSIONS) BO'YICHA MENYULARNI TEKSHIRISH
   const navItems = [
-    { to: "/dashboard", label: "Umumiy statistika", icon: LayoutDashboard, show: role === "super_admin" },
-    
-    // Guruhlar va To'lov: ham admin, ham super_admin ko'radi
-    { to: "/groups", label: "Guruhlar va To'lov", icon: Users, show: role === "super_admin" || role === "admin" },
-    
-    // Davomat: BARCHA ko'radi (show: true)
-    { to: "/attendance", label: "Davomat", icon: CalendarCheck, show: true },
-    
-    // Qolganlari faqat super_admin uchun
-    { to: "/badges", label: "Bejiklar chiqarish", icon: Printer, show: role === "super_admin" },
-    { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === "super_admin" },
+    { 
+      to: "/dashboard", 
+      label: "Umumiy statistika", 
+      icon: LayoutDashboard, 
+      show: role === "super_admin" || (role === "assistant" && permissions.includes("dashboard"))
+    },
+    { 
+      to: "/groups", 
+      label: "Guruhlar va To'lov", 
+      icon: Users, 
+      show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("groups"))
+    },
+    { 
+      to: "/attendance", 
+      label: "Davomat", 
+      icon: CalendarCheck, 
+      show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("attendance"))
+    },
+    { 
+      to: "/badges", 
+      label: "Bejiklar chiqarish", 
+      icon: Printer, 
+      show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("badges"))
+    },
+    // Xodimlar va Harakatlar tarixini yordamchilar UMUUMAN ko'rmaydi
+    { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === "super_admin" || role === "teacher" },
     { to: "/logs", label: "Harakatlar tarixi", icon: History, show: role === "super_admin" },
   ];
 
   return (
     <>
-      {/* Qora ekran (Mobil uchun) */}
       {isOpen && (
         <div className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={() => setIsOpen(false)} />
       )}
 
-      {/* Yon menyu asosiy konteyneri */}
       <div className={`${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:static inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 transition-transform duration-300 z-50 flex flex-col shadow-2xl`}>
-
-        {/* Tepa qism: Logo */}
         <div className="h-20 flex-shrink-0 flex items-center justify-between px-6 border-b border-slate-800">
           <span className="text-white font-bold tracking-wider">CRM TIZIMI</span>
           <button className="md:hidden" onClick={() => setIsOpen(false)}><X size={24} /></button>
         </div>
 
-        {/* O'rta qism: Menyular */}
         <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2">
           {navItems.map((item) => item.show && (
             <NavLink
@@ -116,7 +127,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           ))}
         </nav>
 
-        {/* 🔥 Pastki qism: Yuklash tugmasi */}
         <div className="flex-shrink-0 p-4 border-t border-slate-800 bg-slate-900">
           <button
             onClick={handleInstallClick}
@@ -126,7 +136,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             Ilovani yuklab olish
           </button>
         </div>
-
       </div>
     </>
   );

@@ -18,11 +18,19 @@ export default function Attendance() {
   // 🔥 KAMERA TEZLIGIDAN QAT'IY HIMOYA XOTIRASI
   const scanCooldowns = useRef({});
 
+  // 🔥 API himoya kalitlari
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-id": localStorage.getItem("userId") || "",
+    "x-parent-id": localStorage.getItem("parentTeacherId") || ""
+  });
+
   useEffect(() => {
     const fetchStudents = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/students");
+        const res = await fetch("/api/students", { headers: getAuthHeaders() });
         const data = await res.json();
         if (data && data.success && Array.isArray(data.data)) {
           const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
@@ -47,7 +55,7 @@ export default function Attendance() {
     const fetchAttendance = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/attendance?groupName=${selectedGroup}&date=${selectedDate}`);
+        const res = await fetch(`/api/attendance?groupName=${selectedGroup}&date=${selectedDate}`, { headers: getAuthHeaders() });
         const result = await res.json();
         if (result?.success && Array.isArray(result.data?.records)) {
           const mapped = {};
@@ -158,7 +166,7 @@ export default function Attendance() {
     try {
       await fetch("/api/attendance", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           groupName: selectedGroup,
           date: selectedDate,
@@ -222,7 +230,9 @@ export default function Attendance() {
       setAttendanceRecords(updatedLocalRecords);
 
       const res = await fetch("/api/attendance", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        method: "POST", 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify(payload),
       });
       if (res.ok) setStatus({ type: "success", text: "Davomat saqlandi!" });
       setTimeout(() => setStatus({ type: "", text: "" }), 3000);
@@ -308,30 +318,10 @@ export default function Attendance() {
                 </div>
                 
                 <div className="grid grid-cols-2 lg:flex bg-slate-100 p-1 rounded-xl gap-1 w-full md:w-auto">
-                  <button
-                    onClick={() => handleManualStatus(s._id, "keldi")}
-                    className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
-                  >
-                    Keldi
-                  </button>
-                  <button
-                    onClick={() => handleManualStatus(s._id, "kechikdi")}
-                    className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kechikdi" ? "bg-amber-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
-                  >
-                    Kechikdi
-                  </button>
-                  <button
-                    onClick={() => handleManualStatus(s._id, "ketdi")}
-                    className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "ketdi" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
-                  >
-                    Ketdi
-                  </button>
-                  <button
-                    onClick={() => handleManualStatus(s._id, "kelmadi")}
-                    className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
-                  >
-                    Kelmadi
-                  </button>
+                  <button onClick={() => handleManualStatus(s._id, "keldi")} className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Keldi</button>
+                  <button onClick={() => handleManualStatus(s._id, "kechikdi")} className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kechikdi" ? "bg-amber-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Kechikdi</button>
+                  <button onClick={() => handleManualStatus(s._id, "ketdi")} className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "ketdi" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Ketdi</button>
+                  <button onClick={() => handleManualStatus(s._id, "kelmadi")} className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Kelmadi</button>
                 </div>
               </div>
             )
@@ -345,11 +335,7 @@ export default function Attendance() {
             {status.text}
           </div>
         )}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-indigo-600 text-white p-4 rounded-full shadow-xl hover:scale-105 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
-        >
+        <button onClick={handleSave} disabled={saving} className="bg-indigo-600 text-white p-4 rounded-full shadow-xl hover:scale-105 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
           {saving ? <Loader2 className="animate-spin" size={28} /> : <><Save size={28} /><span className="hidden md:inline font-bold pr-2">Saqlash</span></>}
         </button>
       </div>

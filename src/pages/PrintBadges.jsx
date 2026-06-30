@@ -11,10 +11,18 @@ export default function PrintBadges() {
   const [printMode, setPrintMode] = useState("front"); 
   const [selectedIds, setSelectedIds] = useState([]);
 
+  // 🔥 API himoya kalitlari
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-id": localStorage.getItem("userId") || "",
+    "x-parent-id": localStorage.getItem("parentTeacherId") || ""
+  });
+
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const res = await fetch("/api/students");
+        const res = await fetch("/api/students", { headers: getAuthHeaders() });
         const data = await res.json();
         if (data.success) {
           const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
@@ -234,7 +242,6 @@ export default function PrintBadges() {
         </div>
       </div>
 
-      {/* PORTAL VA CSS QISMI - BIR MARTA YOZILGAN */}
       {typeof document !== 'undefined' && createPortal(
         <>
           {printContent}
@@ -431,8 +438,6 @@ export default function PrintBadges() {
                 position: relative !important;
                 overflow: hidden !important;
                 
-                /* 🔥 Bejikning o'zini atrofidagi alohida chiziqni olib tashladik, 
-                   chunki endi orqasidagi to'r (matbaa setkasi) o'zi ko'rsatib turadi */
                 border: none !important; 
                 box-sizing: border-box !important;
 
