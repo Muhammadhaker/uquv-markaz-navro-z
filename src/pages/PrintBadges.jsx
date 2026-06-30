@@ -351,26 +351,42 @@ export default function PrintBadges() {
 
         /* --- 🖨️ PRINT BOSILGANDA ISHGA TUSHADIGAN QAT'IY QOIDALAR --- */
         @media print {
-          /* 1. Ekrandagi barcha ashyolarni TO'LIQ o'chirib tashlaymiz */
-          .no-print { display: none !important; }
-          .print-only { display: block !important; }
+          /* 1. Saytdagi hamma narsani ko'rinmas qilish (Navbar, Sidebar, hammasi) */
+          body * {
+            visibility: hidden !important;
+          }
 
-          /* Qog'oz chekkasidagi ssilkalar chiqmasligi uchun */
           @page { 
             size: A4 portrait; 
             margin: 0 !important; 
           }
           
-          /* Body foni toza OQ bo'lishini qat'iy talab qilamiz */
           html, body, #root {
             background-color: #ffffff !important;
             margin: 0 !important;
             padding: 0 !important;
+            height: 100% !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
-          /* 2. HAR BIR A4 VARAQNI YASASH */
+          /* 2. Faqat .print-only qutisini va uning ichidagilarni ko'rsatamiz */
+          .print-only, .print-only * {
+            visibility: visible !important;
+          }
+
+          /* 🔥 3. ENGINA MUHIM QISM: TEPADAGI NAVBAR O'RNINI YO'Q QILISH UCHUN ABSOLYUT JOYLASHUV! */
+          .print-only {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+          }
+
+          /* HAR BIR A4 VARAQNI YASASH */
           .print-page {
             width: 210mm !important;
             height: 297mm !important;
@@ -385,13 +401,12 @@ export default function PrintBadges() {
             padding-top: 35mm !important;
             gap: 5mm 4mm !important;
             
-            /* Har bir A4 dan keyin toza yangi bet ochish */
             page-break-after: always !important;
             break-after: page !important;
-            box-sizing: border-box;
+            box-sizing: border-box !important;
           }
 
-          /* 3. BEJIKLARNING ANIQ O'LCHAMI */
+          /* BEJIKLARNING ANIQ O'LCHAMI */
           .print-badge-card {
             width: 69mm !important;
             height: 111mm !important;
@@ -403,7 +418,6 @@ export default function PrintBadges() {
             position: relative !important;
             overflow: hidden !important;
             
-            /* Kesish uchun yengil qora chiziq */
             outline: 1px dashed #cbd5e1 !important; 
             box-shadow: none !important;
             border-radius: 0 !important;
