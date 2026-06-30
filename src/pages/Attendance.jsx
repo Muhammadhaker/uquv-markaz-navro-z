@@ -7,6 +7,8 @@ export default function Attendance() {
   const [groups, setGroups] = useState([]); 
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  
+  // 🔥 Endi faqat string emas, object saqlanadi: { status: "keldi", arrivalTime: "14:00", leaveTime: "16:00", lastScan: 123456789 }
   const [attendanceRecords, setAttendanceRecords] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -21,8 +23,9 @@ export default function Attendance() {
         const res = await fetch("/api/students");
         const data = await res.json();
         if (data && data.success && Array.isArray(data.data)) {
-          setStudents(data.data);
-          const allIndividualGroups = data.data.flatMap((s) => s.group ? s.group.split(",").map((g) => g.trim()) : []);
+          const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
+          setStudents(sortedStudents);
+          const allIndividualGroups = sortedStudents.flatMap((s) => s.group ? s.group.split(",").map((g) => g.trim()) : []);
           const uniqueGroups = [...new Set(allIndividualGroups)].filter(Boolean);
           
           setGroups(uniqueGroups);
@@ -46,7 +49,14 @@ export default function Attendance() {
         const result = await res.json();
         if (result?.success && Array.isArray(result.data?.records)) {
           const mapped = {};
-          result.data.records.forEach((r) => { mapped[r.studentId] = r.status; });
+          result.data.records.forEach((r) => { 
+            mapped[r.studentId] = {
+              status: r.status,
+              arrivalTime: r.arrivalTime,
+              leaveTime: r.leaveTime,
+              lastScan: r.lastScan || 0
+            }; 
+          });
           setAttendanceRecords(mapped);
         } else {
           setAttendanceRecords({});
@@ -70,18 +80,78 @@ export default function Attendance() {
 
   const markAllPresent = () => {
     const newRecords = { ...attendanceRecords };
-    currentGroupStudents.forEach((s) => { newRecords[s._id] = "keldi"; });
+    const now = Date.now();
+    const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+    
+    currentGroupStudents.forEach((s) => { 
+      if (!newRecords[s._id] || newRecords[s._id].status === "kelmadi") {
+        newRecords[s._id] = { status: "keldi", arrivalTime: timeStr, lastScan: now }; 
+      }
+    });
     setAttendanceRecords(newRecords);
   };
 
-  // 🔥 QR SKANERDAN KELADIGAN SIGNAL UCHUN FUNKSIYA
+  // 🔥 QR SKANER (BOLALAR O'YNAShINI BLOKLASH VA 30 MINUTLIK CHEKLOV)
   const handleScan = (scannedId) => {
+    const now = Date.now();
+    const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+    
     setAttendanceRecords((prev) => {
-      // Agar avval 'kelmadi' deb saqlangan bo'lsa, 'kechikdi' deb o'zgartiramiz, aks holda 'keldi'
-      const isAbsent = prev[scannedId] === "kelmadi";
+      const record = prev[scannedId] || { status: "kelmadi", lastScan: 0 };
+      const timeSinceLastScan = now - (record.lastScan || 0);
+
+      // Agar o'quvchi avvalroq skaner qilgan bo'lsa va 30 daqiqa (1800000 ms) o'tmagan bo'lsa:
+      if (record.status !== "kelmadi" && timeSinceLastScan < 1800000) {
+        setStatus({ type: "error", text: "❌ Ketma-ket skaner qilish mumkin emas! (Kamida 30 daqiqa kuting)" });
+        return prev; 
+      }
+
+      let newStatus = "keldi";
+      let arrTime = record.arrivalTime;
+      let levTime = record.leaveTime;
+
+      if (record.status === "kelmadi") {
+        newStatus = "keldi";
+        arrTime = timeStr; // Birinchi marta kelganda soat yoziladi
+      } else if (record.status === "keldi" || record.status === "kechikdi") {
+        newStatus = "ketdi";
+        levTime = timeStr; // Ketayotganda soat yoziladi
+      } else if (record.status === "ketdi") {
+        setStatus({ type: "error", text: "Bu o'quvchi allaqachon ketgan deb belgilangan!" });
+        return prev;
+      }
+
+      setStatus({ type: "success", text: `✅ Qabul qilindi: ${newStatus.toUpperCase()} (${timeStr})` });
+
       return {
         ...prev,
-        [scannedId]: isAbsent ? "kechikdi" : "keldi"
+        [scannedId]: {
+          ...record,
+          status: newStatus,
+          arrivalTime: arrTime,
+          leaveTime: levTime,
+          lastScan: now
+        }
+      };
+    });
+  };
+
+  // QO'LDA BOSHQARISH UCHUN FUNKSIYA (O'qituvchi xohlagan payt tahrirlay oladi)
+  const handleManualStatus = (studentId, newStatus) => {
+    const now = Date.now();
+    const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+    
+    setAttendanceRecords((prev) => {
+      const current = prev[studentId] || {};
+      return {
+        ...prev,
+        [studentId]: {
+          ...current,
+          status: newStatus,
+          arrivalTime: (newStatus === 'keldi' || newStatus === 'kechikdi') ? (current.arrivalTime || timeStr) : current.arrivalTime,
+          leaveTime: newStatus === 'ketdi' ? (current.leaveTime || timeStr) : current.leaveTime,
+          lastScan: now
+        }
       };
     });
   };
@@ -93,17 +163,21 @@ export default function Attendance() {
         groupName: selectedGroup,
         date: selectedDate,
         adminName: localStorage.getItem("username") || "Admin",
-        records: currentGroupStudents.map((s) => ({
-          studentId: s._id,
-          studentName: s.name,
-          // 🔥 Hech narsa belgilanmagan va skanerlanmaganlar avtomatik "kelmadi" ga aylanadi
-          status: attendanceRecords[s._id] || "kelmadi", 
-        })),
+        records: currentGroupStudents.map((s) => {
+          const rec = attendanceRecords[s._id] || {};
+          return {
+            studentId: s._id,
+            studentName: s.name,
+            status: rec.status || "kelmadi",
+            arrivalTime: rec.arrivalTime || null,
+            leaveTime: rec.leaveTime || null,
+            lastScan: rec.lastScan || null
+          };
+        }),
       };
       
-      // Mahalliy holatni ham birdaniga to'liq yangilab qo'yamiz (Kelmadi bo'lib qolganlarni ekranda qizartirish uchun)
       const updatedLocalRecords = {};
-      payload.records.forEach(r => { updatedLocalRecords[r.studentId] = r.status; });
+      payload.records.forEach(r => { updatedLocalRecords[r.studentId] = r; });
       setAttendanceRecords(updatedLocalRecords);
 
       const res = await fetch("/api/attendance", {
@@ -119,9 +193,8 @@ export default function Attendance() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto pb-24">
       
-      {/* 🔥 QR SKANER TUGMASI VA OYNASI */}
       <div className="mb-6">
         <button 
           onClick={() => setShowScanner(!showScanner)}
@@ -135,7 +208,6 @@ export default function Attendance() {
 
         {showScanner && (
           <div className="mt-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            {/* 🔥 onScan props orqali natijani qabul qilamiz */}
             <AttendanceScanner onScan={handleScan} />
           </div>
         )}
@@ -158,7 +230,7 @@ export default function Attendance() {
           />
           <button
             onClick={markAllPresent}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold transition-colors"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold transition-colors w-full sm:w-auto"
           >
             Hammasi Keldi
           </button>
@@ -179,48 +251,65 @@ export default function Attendance() {
         {currentGroupStudents.length === 0 ? (
           <div className="p-8 text-center text-slate-500 font-medium">Tanlangan guruhda o'quvchi topilmadi.</div>
         ) : (
-          currentGroupStudents.map((s) => (
-            <div key={s._id} className="p-4 border-b flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:bg-slate-50 transition-colors">
-              <span className="font-bold text-slate-700">{s.name}</span>
-              
-              {/* 🔥 UCHTA TUGMA QILINDI: KELDI, KECHIKDI, KELMADI */}
-              <div className="flex bg-slate-100 p-1 rounded-xl gap-1 w-full sm:w-auto">
-                <button
-                  onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: "keldi"})}
-                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-sm transition-all ${attendanceRecords[s._id] === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
-                >
-                  Keldi
-                </button>
-                <button
-                  onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: "kechikdi"})}
-                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-sm transition-all ${attendanceRecords[s._id] === "kechikdi" ? "bg-amber-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
-                >
-                  Kechikdi
-                </button>
-                <button
-                  onClick={() => setAttendanceRecords({...attendanceRecords, [s._id]: "kelmadi"})}
-                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-sm transition-all ${attendanceRecords[s._id] === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
-                >
-                  Kelmadi
-                </button>
+          currentGroupStudents.map((s) => {
+            const rec = attendanceRecords[s._id] || {};
+            const currentStatus = rec.status || "kelmadi";
+            
+            return (
+              <div key={s._id} className="p-4 border-b flex flex-col md:flex-row justify-between md:items-center gap-3 hover:bg-slate-50 transition-colors">
+                <div>
+                  <div className="font-bold text-slate-700 text-lg">{s.name}</div>
+                  <div className="text-xs text-slate-400 flex gap-3 mt-1">
+                    {rec.arrivalTime && <span>Keldi: {rec.arrivalTime}</span>}
+                    {rec.leaveTime && <span className="text-rose-500">Ketdi: {rec.leaveTime}</span>}
+                  </div>
+                </div>
+                
+                {/* 🔥 YORTITA TUGMA: KELDI, KECHIKDI, KETDI, KELMADI */}
+                <div className="grid grid-cols-2 lg:flex bg-slate-100 p-1 rounded-xl gap-1 w-full md:w-auto">
+                  <button
+                    onClick={() => handleManualStatus(s._id, "keldi")}
+                    className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                  >
+                    Keldi
+                  </button>
+                  <button
+                    onClick={() => handleManualStatus(s._id, "kechikdi")}
+                    className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kechikdi" ? "bg-amber-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                  >
+                    Kechikdi
+                  </button>
+                  <button
+                    onClick={() => handleManualStatus(s._id, "ketdi")}
+                    className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "ketdi" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                  >
+                    Ketdi
+                  </button>
+                  <button
+                    onClick={() => handleManualStatus(s._id, "kelmadi")}
+                    className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}
+                  >
+                    Kelmadi
+                  </button>
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 
-      <div className="fixed bottom-6 right-6 flex items-center gap-3 z-40">
+      <div className="fixed bottom-6 right-6 flex flex-col md:flex-row items-end md:items-center gap-3 z-40">
         {status.text && (
-          <div className={`px-4 py-2 rounded-xl font-bold text-sm shadow-sm ${status.type === "success" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+          <div className={`px-4 py-3 rounded-xl font-bold text-sm shadow-lg ${status.type === "success" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
             {status.text}
           </div>
         )}
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-indigo-600 text-white p-4 rounded-full shadow-xl hover:scale-105 hover:bg-indigo-700 transition-all"
+          className="bg-indigo-600 text-white p-4 rounded-full shadow-xl hover:scale-105 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
         >
-          {saving ? <Loader2 className="animate-spin" size={28} /> : <Save size={28} />}
+          {saving ? <Loader2 className="animate-spin" size={28} /> : <><Save size={28} /><span className="hidden md:inline font-bold pr-2">Saqlash</span></>}
         </button>
       </div>
     </div>

@@ -144,9 +144,9 @@ export default function PrintBadges() {
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">Bo'sh varaqlarsiz Bejiklar (69x111)</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Toza Simmetrik Bejiklar (69x111)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Endi ortiqcha bo'sh (pustoy) varaqlar chiqmaydi. Kesish chiziqlari qalinlashtirildi.
+              To'q qora qirqish chiziqlari bilan jihozlangan mukammal andoza.
             </p>
           </div>
 
@@ -257,7 +257,7 @@ export default function PrintBadges() {
               align-items: center;
               position: relative;
               overflow: hidden;
-              border: 1px dashed #94a3b8; /* Ekranda ham to'qroq chiziq */
+              border: 1px dashed #334155; 
               box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
               border-radius: 6px;
               justify-content: space-between;
@@ -403,8 +403,8 @@ export default function PrintBadges() {
                 position: relative !important;
                 overflow: hidden !important;
                 
-                /* 🔥 PRINTER UCHUN QALINROQ VA TO'QROQ QIRQISH CHIZIG'I */
-                border: 1px dashed #64748b !important; 
+                /* 🔥 MUTLOQ TO'Q QORA VA ANIQ QIRQISH CHIZIG'I */
+                border: 1px dashed #000000 !important; 
                 box-sizing: border-box !important;
 
                 box-shadow: none !important;

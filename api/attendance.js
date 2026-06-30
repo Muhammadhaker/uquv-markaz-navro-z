@@ -6,6 +6,7 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
+// 🔥 SChema vaqt va skaner tarixini qo'llab-quvvatlaydi
 const attendanceSchema = new mongoose.Schema({
   groupName: { type: String, required: true },
   date: { type: String, required: true },
@@ -14,7 +15,10 @@ const attendanceSchema = new mongoose.Schema({
     studentId: String,
     studentName: String,
     status: String,
-    messageId: Number 
+    messageId: Number,
+    arrivalTime: String,
+    leaveTime: String,
+    lastScan: Number
   }],
   createdAt: { type: Date, default: Date.now }
 });
@@ -47,6 +51,9 @@ export default async function handler(req, res) {
           studentId: r.studentId,
           studentName: r.studentName,
           status: r.status,
+          arrivalTime: r.arrivalTime || null,
+          leaveTime: r.leaveTime || null,
+          lastScan: r.lastScan || null,
           messageId: oldDataMap[r.studentId]?.messageId || null
       }));
 
@@ -71,20 +78,26 @@ export default async function handler(req, res) {
                    chatIdsMap[s._id.toString()] = s.telegramChatId;
                });
 
+               // 🔥 SANANI O'ZBEKCHA OYLARGA O'GIRISH VA FORMATLASH
+               const months = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
                const [yyyy, mm, dd] = date.split("-");
-               const formattedDate = `${dd}.${mm}.${yyyy}`;
+               const formattedDate = `${dd}-${months[parseInt(mm) - 1]}, ${yyyy}-yil`;
 
-               // 🔥 3 XIL STATUS UCHUN MATN TANLASH FUNKSIYASI
-               const getStatusText = (status) => {
-                  if (status === 'keldi') return '✅ Darsda qatnashdingiz';
-                  if (status === 'kechikdi') return '⏳ Darsga kechikib keldingiz';
-                  return '❌ Darsga kelmadingiz';
+               // 🔥 4 XIL STATUS VA VAQTLAR UCHUN MAXSUS MATN
+               const getStatusText = (record) => {
+                  const arr = record.arrivalTime || '--:--';
+                  const lev = record.leaveTime || '--:--';
+                  if (record.status === 'keldi') return `✅ Darsga keldi\n⏰ Kelgan vaqti: ${arr}`;
+                  if (record.status === 'kechikdi') return `⏳ Kechikib keldi\n⏰ Kelgan vaqti: ${arr}`;
+                  if (record.status === 'ketdi') return `🏠 Darsdan ketdi\n🟢 Kelgan vaqti: ${arr}\n🔴 Ketgan vaqti: ${lev}`;
+                  return '❌ Darsga kelmadi';
                };
 
                await Promise.all(changedRecords.map(async (record) => {
                    const chatId = chatIdsMap[record.studentId];
                    if (!chatId) return;
 
+                   // Eski xabarni tozalash
                    if (record.messageId) {
                        try {
                            await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
@@ -98,8 +111,8 @@ export default async function handler(req, res) {
                    const isCorrection = oldDataMap[record.studentId] !== undefined; 
                    
                    let text = isCorrection 
-                       ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*, sizning ${formattedDate} sanasidagi "${groupName}" fani bo'yicha davomatingiz tahrirlandi.\n\n📊 Yangi holat: *${getStatusText(record.status)}*`
-                       : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*, bugun (${formattedDate}) "${groupName}" fani bo'yicha davomat olindi.\n\n📊 Holat: *${getStatusText(record.status)}*`;
+                       ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(record)}*`
+                       : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(record)}*`;
 
                    try {
                        const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
