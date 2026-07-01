@@ -11,7 +11,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // 🔥 Multi-role uchun API xavfsizlik kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
     "x-user-role": localStorage.getItem("userRole") || "",
@@ -19,7 +18,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
 
-  // O'quvchining fanlarini ajratib olish
   const studentSubjects = student?.group
     ? student.group.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
@@ -28,7 +26,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     if (isOpen && student) {
       const today = new Date();
       
-      // 🗓️ 5-SANA LOGIKASI (Oyning birinchi 5 kunida avtomat o'tgan oyga o'rnatish)
       let year = today.getFullYear();
       let month = today.getMonth() + 1;
 
@@ -40,12 +37,10 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
         }
       }
 
+      // Default holat (Tavsiya etilgan oy)
       setPaymentMonth(`${year}-${String(month).padStart(2, "0")}`);
       
-      // Agar tashqaridan guruh nomi berilgan bo'lsa o'sha, yo'qsa birinchisi
       setGroup(groupName || (studentSubjects.length > 0 ? studentSubjects[0] : "Umumiy"));
-      
-      // Boshlang'ich holatni tozalash
       setAmount("");
       setSuccess(false);
       setErrorMessage("");
@@ -54,7 +49,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
 
   if (!isOpen || !student) return null;
 
-  // 💰 Summani yozayotganda probel bilan ajratish (Masalan: 350 000)
   const handleAmountChange = (e) => {
     let rawValue = e.target.value.replace(/\D/g, "");
     if (rawValue === "") {
@@ -65,7 +59,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     setAmount(formattedValue);
   };
 
-  // 🚀 TO'LOVNI TASDIQLASH VA SERVERTGA YUBORISH
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
@@ -82,20 +75,25 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
       return;
     }
 
+    if (!paymentMonth) {
+      setErrorMessage("Iltimos, to'lov qaysi oy uchun ekanligini tanlang!");
+      return;
+    }
+
     setLoading(true);
     try {
       const adminName = localStorage.getItem("username") || "Admin";
 
       const res = await fetch("/api/payments", {
         method: "POST",
-        headers: getAuthHeaders(), // 🔥 Yangilangan xavfsiz headers
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           studentId: student._id,
           studentName: student.name,
           groupName: group,
           amount: numericAmount, 
           paymentType: paymentType,
-          month: paymentMonth,
+          month: paymentMonth, // 🔥 ERKIN TANLANGAN OY JO'NATILADI
           adminName: adminName,
           telegramChatId: student.telegramChatId || null, 
         }),
@@ -105,12 +103,11 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
 
       if (res.ok && data.success) {
         setSuccess(true);
-        // Ota komponent ma'lumotlarini yangilash va modalni yopish
         setTimeout(() => {
           onClose();
         }, 1800);
       } else {
-        setErrorMessage(data.message || "To'lovni saqlashda xatolik yuz berdi. Qayta urinib ko'ring.");
+        setErrorMessage(data.message || "To'lovni saqlashda xatolik yuz berdi.");
       }
     } catch (err) {
       console.error("Payment error:", err);
@@ -122,11 +119,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-end sm:items-center z-[70] p-4 transition-all duration-300">
-      
-      {/* Modal oyna qutisi */}
       <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 shadow-2xl border border-slate-100 relative">
-        
-        {/* Yopish tugmasi */}
         <button
           type="button"
           onClick={onClose}
@@ -136,7 +129,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
           <X size={18} />
         </button>
 
-        {/* 1-HOLAT: MUVAFFAQIYATLI TO'LOV OYNASI */}
         {success ? (
           <div className="p-8 text-center flex flex-col items-center justify-center min-h-[320px] animate-in fade-in duration-300">
             <div className="w-20 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-5 shadow-inner animate-bounce">
@@ -150,11 +142,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
             </p>
           </div>
         ) : (
-          
-          /* 2-HOLAT: ASOSIY TO'LOV FORMASI */
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
-            
-            {/* Sarlavha qismi */}
             <div className="border-b border-slate-100 pb-3 mt-1">
               <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
                 <CreditCard size={22} className="text-indigo-600" /> To'lov qabul qilish
@@ -164,7 +152,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
               </p>
             </div>
 
-            {/* Xatolik paneli */}
             {errorMessage && (
               <div className="bg-rose-50 border border-rose-100 text-rose-600 p-3.5 rounded-2xl text-xs font-bold text-center animate-in shake duration-200">
                 {errorMessage}
@@ -178,12 +165,10 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
               </label>
               
               {groupName ? (
-                // Agar o'quvchi kartasidan to'g'ridan-to'g'ri bitta guruh uchun bosilgan bo'lsa
                 <div className="w-full border border-indigo-100 p-3.5 rounded-xl font-bold text-indigo-700 bg-indigo-50/40 outline-none select-none">
                   {group}
                 </div>
               ) : studentSubjects.length > 1 ? (
-                // Agar o'quvchida bir nechta fan bo'lsa va umumiy oynadan bosilgan bo'lsa (Dropdown)
                 <div className="relative">
                   <select
                     className="w-full border border-slate-200 p-3.5 rounded-xl font-bold text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none bg-slate-50 hover:bg-white cursor-pointer transition-all shadow-sm appearance-none"
@@ -191,9 +176,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
                     onChange={(e) => setGroup(e.target.value)}
                   >
                     {studentSubjects.map((subj) => (
-                      <option key={subj} value={subj}>
-                        {subj}
-                      </option>
+                      <option key={subj} value={subj}>{subj}</option>
                     ))}
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
@@ -201,7 +184,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
                   </div>
                 </div>
               ) : (
-                // Agar faqat bitta fani bo'lsa
                 <div className="w-full border border-slate-200 p-3.5 rounded-xl font-bold text-slate-600 bg-slate-50/70 select-none">
                   {group || "Guruh aniqlanmadi"}
                 </div>
@@ -232,8 +214,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
 
             {/* INPUT 3 & 4: Turi va Oyi (Yonma-yon) */}
             <div className="grid grid-cols-2 gap-4">
-              
-              {/* To'lov turi */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
                   💡 Turi
@@ -255,7 +235,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
                 </div>
               </div>
 
-              {/* To'lov oyi */}
+              {/* 🔥 ERKIN OY TANLOVI (Qarzni yoki Avansni to'lash uchun) */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
                   <Calendar size={14} /> Qaysi oy uchun
@@ -266,17 +246,16 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
                   value={paymentMonth}
                   onChange={(e) => setPaymentMonth(e.target.value)}
                   required
+                  title="Qarz yoki oldindan to'lov qilish uchun oyni o'zgartiring"
                 />
               </div>
-
             </div>
 
-            {/* Tasdiqlash tugmasi */}
             <div className="pt-2">
               <button
                 type="submit"
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-60 disabled:cursor-not-allowed flex justify-center items-center gap-2 active:scale-[0.99] text-base"
-                disabled={loading || !amount}
+                disabled={loading || !amount || !paymentMonth}
               >
                 {loading ? (
                   <>
