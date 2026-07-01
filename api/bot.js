@@ -124,7 +124,7 @@ export default async function handler(req, res) {
         } else {
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: "Siz hali ro'yxatdan o'tmagansiz. Bejigingizdagi QR kodni skaner qiling." })
+                body: JSON.stringify({ chat_id: chatId, text: "Siz hali ro'yxatdan o'tmagansiz. Bejigingizdagi QR kodni skaner qiling yoki pastdan ro'yxatdan o'ting." })
             });
         }
         return res.status(200).send('OK');
