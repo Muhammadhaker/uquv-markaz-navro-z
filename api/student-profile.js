@@ -145,7 +145,7 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ 
         success: true, 
-        students: enrichedStudents // Endi ro'yxat (massiv) qaytaradi!
+        students: enrichedStudents 
       });
     } catch (error) {
       console.error("Profile API xatosi:", error);

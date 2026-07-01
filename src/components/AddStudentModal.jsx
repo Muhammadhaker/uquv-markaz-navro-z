@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Plus, DollarSign, Loader2 } from "lucide-react";
+import { X, Plus, DollarSign, Loader2, UserCheck } from "lucide-react";
 
 export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const getSafeDate = (dateStr) => {
@@ -23,14 +23,34 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   
   const [currentGroupInput, setCurrentGroupInput] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // 🔥 YANGI: Super Admin uchun ustozlar ro'yxati va tanlangan ustoz
+  const [teachers, setTeachers] = useState([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
 
-  // 🔥 CRITICAL FIX: API xavfsizlik va Multi-role kalitlari qo'shildi
+  const role = localStorage.getItem("userRole");
+  const currentUserId = localStorage.getItem("userId");
+
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
-    "x-user-role": localStorage.getItem("userRole") || "",
-    "x-user-id": localStorage.getItem("userId") || "",
+    "x-user-role": role || "",
+    "x-user-id": currentUserId || "",
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
+
+  // Ustozlar ro'yxatini faqat Super Admin uchun yuklash
+  useEffect(() => {
+    if (isOpen && role === "super_admin") {
+      fetch("/api/auth", { headers: getAuthHeaders() })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setTeachers(data.data.filter(u => u.role === "teacher"));
+          }
+        })
+        .catch(err => console.error("Ustozlarni yuklashda xato:", err));
+    }
+  }, [isOpen, role]);
 
   useEffect(() => {
     if (studentToEdit) {
@@ -49,8 +69,11 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         groupsData: parsedGroups,
         addedAt: getSafeDate(studentToEdit.addedAt),
       });
+      // Tahrirlashda o'quvchining joriy ustozini tanlab qo'yish
+      setSelectedTeacherId(studentToEdit.teacherId || "");
     } else {
       setFormData({ name: "", parentName: "", phone: "+998 ", groupsData: [], addedAt: getSafeDate() });
+      setSelectedTeacherId("");
     }
     setCurrentGroupInput(""); 
   }, [studentToEdit, isOpen]);
@@ -104,7 +127,12 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Mobil telefonlar uchun aqlli saqlash logikasi
+    // Super Admin o'quvchi qo'shayotganda/tahrirlayotganda albatta ustozni tanlashi shart
+    if (role === "super_admin" && !selectedTeacherId) {
+      alert("Iltimos, o'quvchi qaysi ustozga tegishli ekanini tanlang!");
+      return;
+    }
+
     let currentGroups = [...formData.groupsData];
     const trimmedInput = currentGroupInput.trim();
 
@@ -135,8 +163,12 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
       groupsData: currentGroups
     };
 
+    // 🔥 Agar Super Admin bo'lsa, tanlangan ustoz ID sini jo'natamiz (Transfer/Assign funksiyasi)
+    if (role === "super_admin") {
+      body.teacherId = selectedTeacherId;
+    }
+
     try {
-      // 🔥 FIX: Bu yerga getAuthHeaders() qo'shildi! Endi backend xato qaytarmaydi
       const response = await fetch("/api/students", {
         method: method,
         headers: getAuthHeaders(),
@@ -144,7 +176,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
       });
       
       if (response.ok) {
-        const adminName = localStorage.getItem("username") || "Admin";
+        const adminName = localStorage.getItem("userFullName") || "Admin";
         await fetch("/api/logs", {
           method: "POST",
           headers: getAuthHeaders(),
@@ -155,7 +187,6 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
           })
         });
         
-        // Hammasi muvaffaqiyatli bo'lsa, oynani xavfsiz yopamiz
         onClose();
       } else {
         alert("Xatolik: Server ma'lumotni qabul qilmadi.");
@@ -177,39 +208,63 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
           <h2 className="text-xl font-bold text-slate-800">
             {studentToEdit ? "Tahrirlash" : "Yangi o'quvchi"}
           </h2>
-          <button type="button" onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full"><X size={18} /></button>
+          <button type="button" onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full bg-slate-50 hover:bg-slate-100 transition-colors"><X size={18} /></button>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             required
-            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
+            className="w-full p-3.5 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
             placeholder="O'quvchi F.I.SH"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
           <input
             required
-            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
+            className="w-full p-3.5 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
             placeholder="Ota-ona F.I.SH"
             value={formData.parentName}
             onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
           />
           <input
-            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
+            className="w-full p-3.5 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50 tracking-wide"
             placeholder="Telefon (ixtiyoriy)"
             value={formData.phone}
             onChange={handlePhoneChange}
             maxLength={17}
           />
 
-          <div className="grid grid-cols-1 gap-3">
+          {/* 🔥 FAQAT SUPER ADMIN UCHUN USTOZ TANLASH / O'ZGARTIRISH (TRANSFER) */}
+          {role === "super_admin" && (
+            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 mt-2">
+              <label className="text-xs font-bold text-indigo-700 uppercase flex items-center gap-2 mb-2">
+                <UserCheck size={16} /> O'quvchi ustozi kim?
+              </label>
+              <select 
+                className="w-full border border-indigo-200 p-3 rounded-xl outline-none focus:border-indigo-500 bg-white font-bold text-slate-700 cursor-pointer shadow-sm"
+                value={selectedTeacherId}
+                onChange={(e) => setSelectedTeacherId(e.target.value)}
+                required
+              >
+                <option value="" disabled>-- Ustozni tanlang (yoki o'zgartiring) --</option>
+                {teachers.length === 0 && <option value="" disabled>Tizimda ustozlar yo'q!</option>}
+                {teachers.map(t => (
+                  <option key={t._id} value={t._id}>{t.fullName || t.username}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-500 mt-2 font-medium leading-tight">
+                * Agar botdan ro'yxatdan o'tgan bo'lsa yoki boshqa ustozga o'tgan bo'lsa, shu yerdan ulab (transfer qilib) yuborasiz.
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 pt-2">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Qo'shilgan sana:</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Qo'shilgan sana:</label>
               <input
                 type="date"
                 required
-                className="w-full mt-1 p-3.5 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
+                className="w-full mt-1 p-3.5 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50 cursor-pointer"
                 value={formData.addedAt}
                 onChange={(e) => setFormData({ ...formData, addedAt: e.target.value })}
               />
@@ -217,12 +272,12 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
           </div>
 
           <div className="space-y-3 pt-2 border-t pt-4">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Guruhlarni kiriting:</label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Guruhlarni kiriting:</label>
             
             <div className="flex gap-2">
               <input
                 type="text"
-                className="flex-1 p-3 border rounded-xl outline-none focus:border-indigo-500 text-sm font-medium"
+                className="flex-1 p-3.5 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 text-sm font-medium bg-slate-50"
                 placeholder="Mas: Matematika 1-guruh"
                 value={currentGroupInput}
                 onChange={(e) => setCurrentGroupInput(e.target.value)}
@@ -231,28 +286,28 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
               <button
                 type="button"
                 onClick={addGroup}
-                className="bg-indigo-100 text-indigo-700 px-4 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center gap-1"
+                className="bg-indigo-100 text-indigo-700 px-4 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center gap-1 active:scale-95"
               >
                 <Plus size={18} /> Qo'shish
               </button>
             </div>
             
             {formData.groupsData.length > 0 && (
-              <div className="space-y-2 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <p className="text-[11px] text-slate-400 font-medium mb-2">Tanlangan guruhlar narxini o'zgartirishingiz mumkin:</p>
+              <div className="space-y-2 mt-4 bg-slate-50 p-3.5 rounded-xl border border-slate-100 shadow-inner">
+                <p className="text-[11px] text-slate-400 font-bold mb-2 uppercase tracking-wider">Tanlangan guruhlar va to'lov:</p>
                 {formData.groupsData.map((g, index) => (
-                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-white p-2 border rounded-lg shadow-sm">
-                    <div className="flex items-center gap-2 max-w-[50%]">
-                      <button type="button" onClick={() => removeGroup(g.name)} className="text-rose-400 hover:text-rose-600 transition-colors p-1">
+                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-2.5 border border-slate-100 rounded-xl shadow-sm">
+                    <div className="flex items-center gap-2 max-w-[100%] sm:max-w-[50%]">
+                      <button type="button" onClick={() => removeGroup(g.name)} className="text-rose-400 bg-rose-50 hover:text-rose-600 hover:bg-rose-100 transition-colors p-1.5 rounded-lg">
                         <X size={16} />
                       </button>
                       <span className="text-sm font-bold text-slate-700 truncate">{g.name}</span>
                     </div>
-                    <div className="flex items-center relative w-full sm:w-auto mt-2 sm:mt-0">
+                    <div className="flex items-center relative w-full sm:w-auto mt-1 sm:mt-0">
                       <input 
                         type="text" 
                         inputMode="numeric"
-                        className="w-full sm:w-32 py-1.5 pl-3 pr-8 border rounded outline-none focus:border-emerald-500 text-sm font-bold text-emerald-600 bg-emerald-50"
+                        className="w-full sm:w-32 py-2 pl-3 pr-8 border border-emerald-100 rounded-lg outline-none focus:border-emerald-500 text-sm font-bold text-emerald-700 bg-emerald-50/50"
                         value={g.price === 0 ? "" : g.price.toLocaleString("ru-RU")}
                         onChange={(e) => handlePriceChange(g.name, e.target.value)}
                       />
@@ -264,9 +319,9 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             )}
           </div>
 
-          <div className="flex gap-2 pt-4">
-            <button type="button" onClick={onClose} className="w-full py-3.5 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors">Bekor qilish</button>
-            <button type="submit" disabled={loading} className="w-full py-3.5 bg-indigo-600 font-bold text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-70 flex justify-center items-center shadow-lg shadow-indigo-600/20">
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={onClose} className="w-full py-4 bg-slate-100 font-bold text-slate-600 rounded-xl hover:bg-slate-200 transition-colors active:scale-95">Bekor qilish</button>
+            <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 font-bold text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-70 flex justify-center items-center shadow-lg shadow-indigo-600/20 active:scale-95">
               {loading ? <Loader2 className="animate-spin" size={20} /> : "Saqlash"}
             </button>
           </div>

@@ -6,7 +6,7 @@ const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoos
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: "Faqat POST" });
 
-  const { chatId, text, paymentId } = req.body; // paymentId ni ham qabul qildik
+  const { chatId, text, paymentId } = req.body; 
   const token = process.env.TELEGRAM_BOT_TOKEN;
 
   if (!chatId) return res.status(400).json({ success: false, error: "Chat ID yo'q" });

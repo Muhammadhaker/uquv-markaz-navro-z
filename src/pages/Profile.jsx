@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Phone, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays, QrCode, MoreVertical, LogOut, Users, ChevronRight } from "lucide-react";
+import { User, Phone, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays, QrCode, MoreVertical, LogOut, Users, ChevronRight, UserCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 export default function Profile() {
@@ -16,10 +16,9 @@ export default function Profile() {
 
   const defaultMonthStr = getTargetMonth();
 
-  // 🔥 YANGI HOLATLAR (STATE)
-  const [studentsList, setStudentsList] = useState([]); // Barcha bolalar ro'yxati
-  const [selectedIdx, setSelectedIdx] = useState(null); // Qaysi bolani ko'ryapti
-  const [showMenu, setShowMenu] = useState(false); // Burchakdagi menyu
+  const [studentsList, setStudentsList] = useState([]);
+  const [selectedIdx, setSelectedIdx] = useState(null);
+  const [showMenu, setShowMenu] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -30,16 +29,20 @@ export default function Profile() {
   useEffect(() => {
     const fetchProfile = async () => {
       let currentChatId = null;
-
       const params = new URLSearchParams(window.location.search);
       currentChatId = params.get('chatId');
 
+      // 🔥 Telegram Web App ni xavfsiz (crash'larsiz) yuklash
       if (window.Telegram?.WebApp) {
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-        tg.setHeaderColor("#4f46e5");
-        if (!currentChatId) currentChatId = tg.initDataUnsafe?.user?.id;
+        try {
+          const tg = window.Telegram.WebApp;
+          tg.ready();
+          tg.expand();
+          tg.setHeaderColor("#4f46e5");
+          if (!currentChatId) currentChatId = tg.initDataUnsafe?.user?.id;
+        } catch (e) {
+          console.warn("Telegram xatosi bloklandi", e);
+        }
       }
 
       if (!currentChatId) {
@@ -66,10 +69,7 @@ export default function Profile() {
         const data = await res.json();
         if (data.success && data.students.length > 0) {
           setStudentsList(data.students);
-          // Agar faqat 1 ta bola bo'lsa, to'g'ridan-to'g'ri uning profiliga kiradi
-          if (data.students.length === 1) {
-            setSelectedIdx(0);
-          }
+          if (data.students.length === 1) setSelectedIdx(0);
         } else {
           setDebugMsg(`Baza topmadi: ${data.message}`);
           setError(true);
@@ -85,7 +85,6 @@ export default function Profile() {
     fetchProfile();
   }, []);
 
-  // 🔥 PROFILNI UZISH FUNKSIYASI
   const handleDisconnect = async () => {
     if (!window.confirm("Haqiqatan ham bu profilni hisobingizdan uzib tashlamoqchimisiz?")) return;
     
@@ -95,26 +94,22 @@ export default function Profile() {
 
     try {
       const res = await fetch('/api/student-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'disconnect', studentId: currentStudent.data._id })
       });
       const result = await res.json();
       
       if (result.success) {
-        // Muvaffaqiyatli uzilsa, shu bolani ro'yxatdan olib tashlaymiz
         const newList = studentsList.filter((_, idx) => idx !== selectedIdx);
         setStudentsList(newList);
         
         if (newList.length === 1) setSelectedIdx(0);
-        else if (newList.length > 1) setSelectedIdx(null); // Tanlash ekraniga qaytadi
+        else if (newList.length > 1) setSelectedIdx(null);
         else {
-          setError(true); // Agar umuman bola qolmasa, xato ekrani chiqadi
+          setError(true);
           setDebugMsg("Sizda ulangan profillar qolmadi.");
         }
-      } else {
-        alert("Xatolik: " + result.message);
-      }
+      } else alert("Xatolik: " + result.message);
     } catch (error) {
       alert("Internet xatosi!");
     } finally {
@@ -129,9 +124,7 @@ export default function Profile() {
     return `${names[parseInt(mm) - 1]} ${y}`;
   };
 
-  if (loading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" size={40} /></div>;
-  }
+  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" size={40} /></div>;
 
   if (error || studentsList.length === 0) {
     return (
@@ -146,7 +139,7 @@ export default function Profile() {
   }
 
   // ==========================================
-  // 🔥 1. PROFIL TANLASH EKRANI (KIRISH QISMI)
+  // 🔥 1. PROFIL TANLASH EKRANI
   // ==========================================
   if (selectedIdx === null) {
     return (
@@ -162,20 +155,15 @@ export default function Profile() {
         <div className="space-y-4 max-w-md mx-auto w-full">
           {studentsList.map((st, idx) => (
             <button 
-              key={st.data._id} 
-              onClick={() => setSelectedIdx(idx)}
+              key={st.data._id} onClick={() => setSelectedIdx(idx)}
               className="w-full bg-white p-5 rounded-2xl shadow-sm border border-slate-100 text-left flex items-center gap-4 hover:border-indigo-300 hover:shadow-md transition-all active:scale-[0.98]"
             >
-              <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <User size={24} />
-              </div>
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center flex-shrink-0"><User size={24} /></div>
               <div className="flex-1 overflow-hidden">
                 <h3 className="font-bold text-lg text-slate-800 truncate">{st.data.name}</h3>
-                <p className="text-sm text-slate-500 truncate">{st.data.group || "Guruhsiz"}</p>
+                <p className="text-sm text-slate-500 truncate">{st.data.group || "Yangi ro'yxatdan o'tgan"}</p>
               </div>
-              <div className="text-slate-300">
-                <ChevronRight size={24} />
-              </div>
+              <div className="text-slate-300"><ChevronRight size={24} /></div>
             </button>
           ))}
         </div>
@@ -184,7 +172,7 @@ export default function Profile() {
   }
 
   // ==========================================
-  // 🔥 2. ASOSIY PROFIL EKRANI (TANLANGANDAN SO'NG)
+  // 🔥 2. ASOSIY PROFIL EKRANI
   // ==========================================
   const currentProfile = studentsList[selectedIdx];
   const student = currentProfile.data;
@@ -196,13 +184,11 @@ export default function Profile() {
   const totalPaid = currentProfile.totalPaid;
   const coursePrice = currentProfile.coursePrice;
   const debtDetails = currentProfile.debtDetails; 
+  const teacherName = currentProfile.teacherName; // API dan olingan ustoz ismi
 
   let statusConfig = {
-    iconBg: "bg-rose-100 text-rose-600",
-    badgeBg: "bg-rose-500 text-white",
-    text: "Qarzdor",
-    subText: `Jami to'lanmagan qarz: ${coursePrice.toLocaleString()} so'm`,
-    icon: <CreditCard size={20} />
+    iconBg: "bg-rose-100 text-rose-600", badgeBg: "bg-rose-500 text-white", text: "Qarzdor",
+    subText: `Jami to'lanmagan qarz: ${coursePrice.toLocaleString()} so'm`, icon: <CreditCard size={20} />
   };
 
   if (paymentStatus === "paid") {
@@ -224,7 +210,6 @@ export default function Profile() {
         
         <div className="bg-indigo-600 px-6 py-10 text-center rounded-b-[3rem] relative overflow-visible">
           
-          {/* 🔥 BURCHAKDAGI MENYU (ALMASHTIRISH / UZISH) */}
           <div className="absolute top-4 right-4 z-50">
             <button 
               onClick={() => setShowMenu(!showMenu)} 
@@ -267,6 +252,15 @@ export default function Profile() {
 
         <div className="p-6 -mt-6 relative z-20 space-y-4">
           
+          {/* 🔥 YANGI: USTOZNI KO'RSATUVCHI BLOK */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><UserCheck size={20} /></div>
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Sizning Ustozingiz</p>
+              <p className="font-bold text-slate-800 text-lg leading-tight">{teacherName}</p>
+            </div>
+          </div>
+
           <button onClick={() => setShowQR(!showQR)} className="w-full bg-slate-800 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between hover:bg-slate-900 transition-colors">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-xl"><QrCode size={20} /></div>
@@ -292,7 +286,7 @@ export default function Profile() {
               <div className="flex items-center gap-3">
                 <div className={`p-3 rounded-full ${statusConfig.iconBg}`}>{statusConfig.icon}</div>
                 <div>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">To'lov holati</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">To'lov holati</p>
                   <p className="font-bold text-slate-800">{formatMonthName(month)}</p>
                 </div>
               </div>
@@ -337,7 +331,7 @@ export default function Profile() {
           <div className="bg-white rounded-2xl p-5 border shadow-sm flex items-center gap-4">
             <div className="p-3 bg-slate-50 text-slate-500 rounded-xl"><Phone size={20} /></div>
             <div>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">Telefon raqam</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Telefon raqam</p>
               <p className="font-bold text-slate-700">{student?.phone || "Kiritilmagan"}</p>
             </div>
           </div>
