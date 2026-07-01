@@ -21,9 +21,9 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const logs = await Log.find({
-        createdAt: { $gte: new Date(Date.now() - 48 * 60 * 60 * 1000) }
-      }).sort({ createdAt: -1 });
+      // 🔥 48 soatlik cheklov OLIB TASHLANDI! 
+      // Endi barcha tarix chiqadi (xotira to'lib qolmasligi uchun oxirgi 2000 tasi)
+      const logs = await Log.find({}).sort({ createdAt: -1 }).limit(2000);
       return res.status(200).json({ success: true, data: logs });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 🔥 YANGI QO'SHILGAN QISM: Tarixni butunlay tozalash
+  // Tarixni butunlay tozalash
   if (req.method === 'DELETE') {
     try {
       await Log.deleteMany({}); // Bazadagi hamma loglarni o'chiradi

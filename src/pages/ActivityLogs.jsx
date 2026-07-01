@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Loader2, Trash2, Edit, PlusCircle, Clock, ShieldAlert, RotateCcw, AlertOctagon } from "lucide-react";
+import { Loader2, Trash2, Edit, PlusCircle, Clock, ShieldAlert, RotateCcw, AlertOctagon, Search, CreditCard, UserCheck } from "lucide-react";
 
 export default function ActivityLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -56,7 +57,7 @@ export default function ActivityLogs() {
     }
   };
 
-  // 🔥 YANGI: BARCHA TARIXNI O'CHIRISH
+  // BARCHA TARIXNI O'CHIRISH
   const handleClearAll = async () => {
     if (!window.confirm("Barcha harakatlar tarixini o'chirib tashlamoqchimisiz? Bu amalni orqaga qaytarib bo'lmaydi!")) return;
 
@@ -66,7 +67,7 @@ export default function ActivityLogs() {
       if (res.ok) {
         setLogs([]);
       } else {
-        alert("Xatolik! Backend fayli (api/logs.js) yangilanmagan bo'lishi mumkin.");
+        alert("Xatolik! Backend bilan bog'lanib bo'lmadi.");
       }
     } catch (error) {
       alert("Internet aloqasida muammo.");
@@ -75,18 +76,22 @@ export default function ActivityLogs() {
     }
   };
 
-  // Harakat turiga qarab dizayn tanlash
-  const getActionStyles = (type) => {
-    switch (type) {
-      case "delete":
-        return { icon: <Trash2 size={18} />, color: "text-rose-500", bg: "bg-rose-100", label: "O'chirish" };
-      case "create":
-        return { icon: <PlusCircle size={18} />, color: "text-emerald-500", bg: "bg-emerald-100", label: "Qo'shish" };
-      case "update":
-        return { icon: <Edit size={18} />, color: "text-blue-500", bg: "bg-blue-100", label: "Tahrirlash" };
-      default:
-        return { icon: <ShieldAlert size={18} />, color: "text-slate-500", bg: "bg-slate-100", label: "Boshqa" };
-    }
+  // Harakat turiga qarab dizayn tanlash (Aqlli tahlil)
+  const getActionStyles = (type, details) => {
+    const text = (type + " " + details).toLowerCase();
+    
+    if (text.includes("delete") || text.includes("o'chiril")) 
+      return { icon: <Trash2 size={18} />, color: "text-rose-500", bg: "bg-rose-100", label: "O'chirish" };
+    if (text.includes("create") || text.includes("yangi") || text.includes("qo'shildi")) 
+      return { icon: <PlusCircle size={18} />, color: "text-emerald-500", bg: "bg-emerald-100", label: "Qo'shish" };
+    if (text.includes("update") || text.includes("tahrir") || text.includes("tiklandi")) 
+      return { icon: <Edit size={18} />, color: "text-blue-500", bg: "bg-blue-100", label: "Tahrirlash" };
+    if (text.includes("to'lov") || text.includes("pay")) 
+      return { icon: <CreditCard size={18} />, color: "text-amber-500", bg: "bg-amber-100", label: "To'lov" };
+    if (text.includes("davomat") || text.includes("keldi") || text.includes("ketdi")) 
+      return { icon: <UserCheck size={18} />, color: "text-indigo-500", bg: "bg-indigo-100", label: "Davomat" };
+      
+    return { icon: <ShieldAlert size={18} />, color: "text-slate-500", bg: "bg-slate-100", label: "Boshqa" };
   };
 
   const formatTime = (dateString) => {
@@ -96,6 +101,11 @@ export default function ActivityLogs() {
     });
   };
 
+  const filteredLogs = logs.filter(log => 
+    log.details.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    log.adminName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-4">
@@ -103,10 +113,9 @@ export default function ActivityLogs() {
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Clock className="text-indigo-600" /> Harakatlar tarixi
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Oxirgi 48 soat ichidagi o'zgarishlar va amallar</p>
+          <p className="text-sm text-slate-500 mt-1">Barcha tizim o'zgarishlari va amallar ro'yxati</p>
         </div>
 
-        {/* HAMMASINI O'CHIRISH TUGMASI */}
         {logs.length > 0 && (
           <button
             onClick={handleClearAll}
@@ -119,24 +128,36 @@ export default function ActivityLogs() {
         )}
       </div>
 
+      {/* QIDIRUV QISMI */}
+      <div className="mb-6 relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+        <input 
+          type="text" 
+          placeholder="Harakat turi, ism yoki admin bo'yicha qidiring..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium transition-all shadow-sm"
+        />
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="animate-spin text-indigo-600" size={40} />
         </div>
-      ) : logs.length === 0 ? (
-        <div className="text-center py-16 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+      ) : filteredLogs.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-3xl border-2 border-dashed border-slate-200 shadow-sm">
           <Clock className="mx-auto text-slate-300 mb-4" size={48} />
-          <p className="text-slate-500 font-bold text-lg">Hozircha tarix bo'm-bo'sh.</p>
-          <p className="text-sm text-slate-400 mt-1">Harakatlar amalga oshirilganda bu yerda ko'rinadi.</p>
+          <p className="text-slate-500 font-bold text-lg">Harakatlar topilmadi.</p>
+          <p className="text-sm text-slate-400 mt-1">Qidiruv so'zini o'zgartiring yoki amallar bajarilishini kuting.</p>
         </div>
       ) : (
         <div className="grid gap-4">
-          {logs.map((log) => {
-            const style = getActionStyles(log.actionType);
+          {filteredLogs.map((log) => {
+            const style = getActionStyles(log.actionType, log.details);
             return (
               <div
                 key={log._id}
-                className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4 transition-all hover:shadow-md"
+                className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4 transition-all hover:shadow-md hover:border-indigo-100"
               >
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
@@ -144,7 +165,7 @@ export default function ActivityLogs() {
                       {style.icon}
                     </div>
                     <div>
-                      <p className="text-[11px] font-bold text-slate-400 uppercase">Admin</p>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase">Kim bajardi:</p>
                       <p className="font-bold text-slate-700">{log.adminName}</p>
                     </div>
                   </div>
@@ -154,18 +175,17 @@ export default function ActivityLogs() {
                 </div>
 
                 <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100">
-                  <p className="text-sm font-medium text-slate-800 leading-snug">
+                  <p className="text-sm font-medium text-slate-800 leading-snug break-words">
                     {log.details}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3 justify-between items-center border-t border-slate-50 pt-3">
-                  <span className="text-xs text-slate-400 flex items-center gap-1 font-medium">
+                  <span className="text-xs text-slate-400 flex items-center gap-1 font-medium bg-slate-50 px-2 py-1 rounded-lg">
                     <Clock size={14} />
                     {formatTime(log.createdAt)}
                   </span>
 
-                  {/* TIKLASH TUGMASI - Faqat o'chirilgan va xotirasi bor obyektlar uchun chiqadi */}
                   {log.actionType === "delete" && log.deletedData && (
                     <button
                       onClick={() => handleRestore(log)}
