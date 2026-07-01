@@ -37,7 +37,6 @@ export default async function handler(req, res) {
     const currentDay = today.getDate(); 
     const targetMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 
-    // 🔥 YANGI: Hisoblagich o'rniga aniq ro'yxat yig'amiz!
     let sentStudents = [];
     let failedStudents = [];
 
@@ -77,44 +76,52 @@ export default async function handler(req, res) {
         if(qarz > 0) overallDebt += qarz;
       }
 
-      if (overallDebt > 0) {
-        let messageText = "";
+      // 🔥 KUN HISOBLASH MANTIG'I (Oy oxiridagi kunlarni ham avtomat to'g'rilaydi)
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + 2);
+      const isWarningDay = (targetDate.getDate() === joinedDay);
 
-        if (currentDay === joinedDay - 2) {
-          messageText = `🟡 *TO'LOV VAQTI YAQINLASHMOQDA*\n\n👤 *O'quvchi:* ${student.name}\n\nEslatib o'tamiz, 2 kundan so'ng sizning navbatdagi oylik to'lov vaqtingiz keladi.\n💰 *Hozirgi qoldiq qarz:* ${overallDebt.toLocaleString()} so'm\n\n_Iltimos, to'lovni o'z vaqtida amalga oshirishni unutmang._`;
-        } 
-        else if (currentDay > joinedDay && currentDay % 2 !== 0) {
-          messageText = `🔴 *QARZDORLIK ESLATMASI!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Holat:* To'lov muddati o'tgan!\n\n💰 *Jami qarzingiz:* ${overallDebt.toLocaleString()} so'm\n\n_Sizning to'lov vaqtingiz o'tib ketgan. Iltimos, darslardan chetlatilmaslik uchun to'lovni zudlik bilan amalga oshiring._`;
+      let messageText = "";
+
+      // SHART 1: Roppa-rosa 2 kun qoldi (Qarzi bor-yo'qligidan qat'i nazar!)
+      if (isWarningDay) {
+        // Kelasi oy uchun oldindan avans to'langanmi?
+        const hasPaidAvans = payments.some(p => p.studentId === student._id.toString() && p.month === targetMonthStr);
+        
+        // Agar avans to'lab qo'ymagan bo'lsa (yoki qarz bo'lsa), xabar beramiz
+        if (overallDebt > 0 || !hasPaidAvans) {
+          messageText = `🟡 *TO'LOV VAQTI YAQINLASHMOQDA*\n\n👤 *O'quvchi:* ${student.name}\n\nEslatib o'tamiz, 2 kundan so'ng sizning navbatdagi oylik to'lov vaqtingiz keladi.\n\n_Iltimos, darslardan uzilish bo'lmasligi uchun to'lovni o'z vaqtida amalga oshirishni unutmang._`;
         }
+      } 
+      // SHART 2: Qarz bor VA to'lov kuni o'tib ketgan VA bugun toq sana
+      else if (overallDebt > 0 && currentDay > joinedDay && currentDay % 2 !== 0) {
+        messageText = `🔴 *QARZDORLIK ESLATMASI!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Holat:* To'lov muddati o'tgan!\n\n💰 *Jami qarzingiz:* ${overallDebt.toLocaleString()} so'm\n\n_Sizning to'lov vaqtingiz o'tib ketgan. Iltimos, darslardan chetlatilmaslik uchun to'lovni zudlik bilan amalga oshiring._`;
+      }
 
-        if (messageText) {
-          try {
-            // Telegramga so'rov yuboramiz
-            const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: student.telegramChatId, text: messageText, parse_mode: 'Markdown' })
-            });
-            
-            const tgData = await tgRes.json();
-            
-            // 🔥 TELEGRAM QABUL QILDIMI YUQMI TEKSHIRAMIZ
-            if (tgData.ok) {
-               sentStudents.push(student.name);
-            } else {
-               failedStudents.push({ 
-                 name: student.name, 
-                 error: tgData.description // Nega xatolik berganini yozadi
-               });
-            }
-          } catch (err) {
-             failedStudents.push({ name: student.name, error: err.message });
+      if (messageText) {
+        try {
+          const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: student.telegramChatId, text: messageText, parse_mode: 'Markdown' })
+          });
+          
+          const tgData = await tgRes.json();
+          
+          if (tgData.ok) {
+             sentStudents.push(student.name);
+          } else {
+             failedStudents.push({ 
+               name: student.name, 
+               error: tgData.description 
+             });
           }
+        } catch (err) {
+           failedStudents.push({ name: student.name, error: err.message });
         }
       }
     }
 
-    // Brauzerga hamma ro'yxatni chiroyli qilib chiqaramiz
     return res.status(200).json({ 
         success: true, 
         message: `${sentStudents.length} ta o'quvchiga muvaffaqiyatli yuborildi.`,
