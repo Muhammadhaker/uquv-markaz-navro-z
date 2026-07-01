@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   UserPlus, Shield, ShieldAlert, Trash2, Key, Loader2, X, User,
-  Smartphone, Monitor, Clock, History, CheckSquare, Square, Mail
+  Smartphone, Monitor, Clock, History, CheckSquare, Square, Mail, BookOpen
 } from "lucide-react";
 
 export default function Admins() {
@@ -13,12 +13,14 @@ export default function Admins() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("assistant");
+  
+  // 🔥 YANGI: Ustoz qo'shilayotganda kiritiladigan Fan
+  const [subject, setSubject] = useState(""); 
+  
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const [permissions, setPermissions] = useState(["attendance"]);
-  
-  // 🔥 YANGI: Yordamchini qaysi ustozga biriktirish uchun state
   const [parentTeacherId, setParentTeacherId] = useState("");
 
   const currentUserId = localStorage.getItem("userId");
@@ -38,8 +40,6 @@ export default function Admins() {
       const data = await res.json();
       if (data.success) {
         setAdmins(data.data || []);
-        
-        // Avtomatik ravishda birinchi ustozni tanlab qo'yish
         const teachers = data.data.filter(a => a.role === "teacher");
         if (teachers.length > 0) {
           setParentTeacherId(teachers[0]._id);
@@ -65,9 +65,14 @@ export default function Admins() {
     setSubmitting(true);
     setError("");
     
-    // Agar yordamchi bo'lsa-yu ustoz tanlanmagan bo'lsa xato beradi
     if (role === "assistant" && !parentTeacherId) {
       setError("Iltimos, yordamchini qaysi ustozga biriktirishni tanlang!");
+      setSubmitting(false);
+      return;
+    }
+
+    if (role === "teacher" && !subject) {
+      setError("Ustoz qaysi fandan dars berishini kiriting!");
       setSubmitting(false);
       return;
     }
@@ -79,6 +84,7 @@ export default function Admins() {
         username,
         password,
         role,
+        subject: role === "teacher" ? subject : undefined, // 🔥 Ustoz bo'lsa fanni jo'natamiz
         parentTeacherId: role === "assistant" ? parentTeacherId : null,
         permissions: role === "assistant" ? permissions : ['all']
       };
@@ -93,6 +99,7 @@ export default function Admins() {
         setUsername("");
         setPassword("");
         setRole("assistant");
+        setSubject(""); // Qayta tozalash
         setPermissions(["attendance"]);
         setIsOpen(false);
         fetchAdmins();
@@ -155,7 +162,6 @@ export default function Admins() {
     );
   };
 
-  // Ustozlar ro'yxatini ajratib olish (Yordamchi biriktirish uchun kerak)
   const teachersList = admins.filter(a => a.role === "teacher");
 
   return (
@@ -193,10 +199,16 @@ export default function Admins() {
                   <tr key={a._id} className="hover:bg-slate-50 transition-colors align-top">
                     <td className="px-6 py-4 pt-5">
                       <div className="flex flex-col gap-1">
-                        <div className="font-bold text-slate-800 text-base">
+                        <div className="font-bold text-slate-800 text-base flex items-center gap-2">
                           {a.username === "Muhammad" ? "Tursunov Muhammad" : a.username === "Navroz" ? "G'ulomov Navro'z" : (a.fullName || a.username)}
                         </div>
-                        <div className="text-xs text-slate-500 flex items-center gap-1 font-mono bg-slate-100 px-2 py-0.5 rounded w-fit">
+                        {/* 🔥 Ustoz fani (faqat teacher bo'lsa chiqadi) */}
+                        {a.role === "teacher" && a.subject && a.subject !== "N/A" && (
+                          <div className="text-xs text-indigo-600 font-bold flex items-center gap-1 mt-0.5">
+                            <BookOpen size={12}/> Fan: {a.subject}
+                          </div>
+                        )}
+                        <div className="text-xs text-slate-500 flex items-center gap-1 font-mono bg-slate-100 px-2 py-0.5 rounded w-fit mt-1">
                           <Mail size={12} /> {a.username}
                         </div>
                       </div>
@@ -213,7 +225,6 @@ export default function Admins() {
                             {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</> : a.role === "teacher" ? <><Shield size={12} /> USTOZ (ADMIN)</> : <><User size={12} /> YORDAMCHI</>}
                           </span>
                           
-                          {/* 🔥 Yordamchi qaysi ustozga tegishliligini ko'rsatish */}
                           {a.role === "assistant" && a.parentTeacherId && (
                             <span className="text-[10px] text-slate-500 font-medium ml-1">
                               Ustoz: {admins.find(t => t._id === a.parentTeacherId)?.fullName || "Noma'lum"}
@@ -224,7 +235,6 @@ export default function Admins() {
                     </td>
                     <td className="px-6 py-3">{renderLoginHistory(a.loginHistory)}</td>
                     <td className="px-6 py-4 text-right pt-5">
-                      {/* 🔥 HIMOYA: Muhammad o'chirish tugmasi yashirildi */}
                       {a.username !== "Muhammad" && (
                         <button onClick={() => handleDeleteAdmin(a._id, a.username)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors">
                           <Trash2 size={18} />
@@ -247,6 +257,14 @@ export default function Admins() {
                       <User size={18} className="text-indigo-500 min-w-[18px]" />
                       {a.username === "Muhammad" ? "Tursunov Muhammad" : a.username === "Navroz" ? "G'ulomov Navro'z" : (a.fullName || a.username)}
                     </h3>
+                    
+                    {/* 🔥 Ustoz fani (mobil ko'rinish) */}
+                    {a.role === "teacher" && a.subject && a.subject !== "N/A" && (
+                       <div className="text-xs text-indigo-600 font-bold flex items-center gap-1 mt-1 mb-1">
+                          <BookOpen size={12}/> Fan: {a.subject}
+                       </div>
+                    )}
+                    
                     <div className="text-xs text-slate-500 flex items-center gap-1 font-mono bg-slate-100 px-2 py-0.5 rounded w-fit mt-1 mb-2">
                       <Mail size={12} /> {a.username}
                     </div>
@@ -265,7 +283,6 @@ export default function Admins() {
                         : a.role === "teacher" ? <><Shield size={12} /> USTOZ</>
                         : <><User size={12} /> YORDAMCHI</>}
                       </span>
-                      {/* 🔥 Yordamchi qaysi ustozga tegishliligini ko'rsatish (Mobil) */}
                       {a.role === "assistant" && a.parentTeacherId && (
                         <span className="text-[10px] text-slate-500 font-medium">
                           Ustoz: {admins.find(t => t._id === a.parentTeacherId)?.fullName || "Noma'lum"}
@@ -274,7 +291,6 @@ export default function Admins() {
                     </div>
                   </div>
                   
-                  {/* 🔥 HIMOYA: Muhammad o'chirish tugmasi yashirildi (Mobil) */}
                   {a.username !== "Muhammad" && (
                     <button
                       onClick={() => handleDeleteAdmin(a._id, a.username)}
@@ -333,7 +349,21 @@ export default function Admins() {
                 </select>
               </div>
 
-              {/* 🔥 YANGI: Yordamchini ustozi tanlanadigan oyna */}
+              {/* 🔥 YANGI: Agar Ustoz bo'lsa, Qaysi fandan dars berishini so'raydi */}
+              {role === "teacher" && (
+                <div className="space-y-1 mt-4 animate-in slide-in-from-top-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Qaysi fandan dars beradi?</label>
+                  <input 
+                    required 
+                    placeholder="Masalan: Ona tili, Ingliz tili..." 
+                    className="w-full border-2 border-indigo-100 p-3 rounded-xl outline-none focus:border-indigo-500 bg-indigo-50/30 text-indigo-900 font-bold" 
+                    value={subject} 
+                    onChange={(e) => setSubject(e.target.value)} 
+                  />
+                </div>
+              )}
+
+              {/* Yordamchini ustozi tanlanadigan oyna */}
               {role === "assistant" && (
                 <>
                   <div className="space-y-1 mt-4">

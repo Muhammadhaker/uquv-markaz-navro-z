@@ -8,6 +8,9 @@ const connectDB = async () => {
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 const Attendance = mongoose.models.Attendance || mongoose.model('Attendance', new mongoose.Schema({}, { strict: false }), 'attendances');
 
+// 🔥 Ustozlar modelini chaqiramiz (Ismi va Fanini topish uchun)
+const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({}, { strict: false }));
+
 const formatDate = (dateString) => {
   if (!dateString) return "Noma'lum";
   const d = new Date(dateString);
@@ -61,12 +64,21 @@ export default async function handler(req, res) {
                     $or: [ { telegramChatId: chatId }, { telegramChatId: Number(chatId) } ] 
                 });
 
+                // 🔥 Yangi ulanishda Ustoz ismini o'quvchiga ko'rsatish
+                let teacherDetails = "";
+                if(studentToLink.teacherId) {
+                  const teacherInfo = await User.findById(studentToLink.teacherId);
+                  if(teacherInfo) {
+                    teacherDetails = `\n👨‍🏫 *Sizning ustozingiz:* ${teacherInfo.fullName || "Noma'lum"}\n📚 *Ustozingiz fani:* ${teacherInfo.subject || "Umumiy fan"}\n`;
+                  }
+                }
+
                 await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         chat_id: chatId,
-                        text: `✅ *Yangi profil ulandi!*\n\nTabriklaymiz, *${studentToLink.name}* ham sizning hisobingizga qo'shildi. Endi siz ${totalLinked} ta o'quvchini nazorat qilasiz.`,
+                        text: `✅ *Yangi profil ulandi!*\n\nTabriklaymiz, *${studentToLink.name}* ham sizning hisobingizga qo'shildi. ${teacherDetails}\nEndi siz jami ${totalLinked} ta o'quvchini nazorat qilasiz.`,
                         parse_mode: 'Markdown',
                         reply_markup: {
                             keyboard: [
@@ -91,9 +103,7 @@ export default async function handler(req, res) {
         }
     }
 
-    // =========================================================
-    // ODDIY KOMANDALAR UCHUN (Barcha ulangan o'quvchilarni olish)
-    // =========================================================
+    // Barcha ulangan o'quvchilarni olish
     const linkedStudents = await Student.find({ 
         $or: [ { telegramChatId: chatId }, { telegramChatId: Number(chatId) } ] 
     });
@@ -111,10 +121,23 @@ export default async function handler(req, res) {
     if (text === "📋 Mening ma'lumotlarim") {
         if (linkedStudents.length > 0) {
             let msg = `👥 *Sizning hisobingizdagi o'quvchilar (${linkedStudents.length} ta):*\n\n`;
-            linkedStudents.forEach((st, idx) => {
+            
+            // 🔥 Har bir o'quvchining ustozini bazadan topish (Tarixlar bilan birga chiqarish uchun)
+            for (let i = 0; i < linkedStudents.length; i++) {
+                const st = linkedStudents[i];
                 const regDate = formatDate(st.addedAt);
-                msg += `${idx + 1}. *Ism:* ${st.name}\n📚 *Fanlar:* ${st.group || 'Guruhsiz'}\n📱 *Telefon:* ${st.phone || 'Kiritilmagan'}\n🗓 *Qo'shilgan sana:* ${regDate}\n\n`;
-            });
+                
+                let teacherDetails = "Noma'lum";
+                if(st.teacherId) {
+                  const teacherInfo = await User.findById(st.teacherId);
+                  if(teacherInfo) {
+                     teacherDetails = `${teacherInfo.fullName || "Noma'lum"} (${teacherInfo.subject || "Fan ko'rsatilmagan"})`;
+                  }
+                }
+
+                msg += `${i + 1}. *Ism:* ${st.name}\n👨‍🏫 *Ustozingiz:* ${teacherDetails}\n📚 *Fanlar:* ${st.group || 'Guruhsiz'}\n📱 *Telefon:* ${st.phone || 'Kiritilmagan'}\n🗓 *Qo'shilgan sana:* ${regDate}\n\n`;
+            }
+
             msg += `_To'lovlarni ko'rish va hisoblarni boshqarish uchun pastdagi "👤 Shaxsiy Kabinet" tugmasini bosing!_`;
             
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -173,7 +196,6 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    // 🔥 5-QISM: /start BUYRUG'I VA MINI APP NI CHIQARISH
     if (text === '/start') {
         let replyText = "";
         let keyboard = {};
@@ -192,7 +214,6 @@ export default async function handler(req, res) {
             replyText = `Assalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Profilingizni ulash uchun bejigingizdagi QR kodni kameraga tuting yoki pastdan ro'yxatdan o'ting 👇`;
             keyboard = {
                 keyboard: [
-                    // 🔥 MIN APP (WEB APP) SHU YERDA QAYTARILDI!
                     [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }],
                     [{ text: "ℹ️ O'quv markaz haqida" }]
                 ],
