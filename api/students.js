@@ -6,7 +6,7 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// 🔥 YANGI: teacherId maydoni qo'shildi
+// 🔥 teacherId endi required emas, chunki u POST logikasi orqali tayinlanadi
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   parentName: { type: String, required: true },
@@ -16,7 +16,7 @@ const studentSchema = new mongoose.Schema({
   groupsData: { type: Array, default: [] },
   isNewStudent: { type: Boolean, default: true },
   exceptionMonths: { type: [String], default: [] },
-  teacherId: { type: String, required: true }, // Kim yaratgan bo'lsa o'shaning ID si tushadi
+  teacherId: { type: String, required: true }, 
   addedAt: { type: Date, default: Date.now }
 }, { strict: false }); 
 
@@ -26,7 +26,6 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
-    // Headers orqali kim so'rayotganini aniqlash
     const role = req.headers['x-user-role'];
     const userId = req.headers['x-user-id'];
     const parentId = req.headers['x-parent-id'];
@@ -35,40 +34,39 @@ export default async function handler(req, res) {
       const { telegramChatId } = req.query;
       if (telegramChatId) {
         const student = await Student.findOne({ 
-            $or: [
-                { telegramChatId: telegramChatId },
-                { telegramChatId: String(telegramChatId) },
-                { telegramChatId: Number(telegramChatId) }
-            ] 
+            $or: [ { telegramChatId: telegramChatId }, { telegramChatId: String(telegramChatId) }, { telegramChatId: Number(telegramChatId) } ] 
         });
         return res.status(200).json({ exists: !!student });
       }
       
-      // 🔥 FILTRLASH LOGIKASI
       let query = {};
-      if (role === 'teacher') {
-         query = { teacherId: userId };
-      } else if (role === 'assistant') {
-         query = { teacherId: parentId };
-      }
-      // Agar super_admin bo'lsa query bo'sh qoladi va hammasi qaytadi
+      if (role === 'teacher') query = { teacherId: userId };
+      else if (role === 'assistant') query = { teacherId: parentId };
 
       const students = await Student.find(query).sort({ addedAt: -1 });
       return res.status(200).json({ success: true, data: students });
     }
 
     if (req.method === 'POST') {
-      // Yordamchi yaratsa ham uning ustoziga yoziladi
-      const ownerId = role === 'assistant' ? parentId : userId;
-      const newStudent = await Student.create({ ...req.body, teacherId: ownerId });
+      // 🔥 ASOSIY TUZATISH SHU YERDA:
+      // 1. Agar teacherId req.body da kelsa (Botdan), o'shani ishlatamiz.
+      // 2. Agar kelmasa (Dashboard), oldingi logikani (ownerId) ishlatamiz.
+      let finalTeacherId = req.body.teacherId; 
+      
+      if (!finalTeacherId && role) {
+        finalTeacherId = role === 'assistant' ? parentId : userId;
+      }
 
+      const newStudent = await Student.create({ ...req.body, teacherId: finalTeacherId });
+
+      // Bot orqali xabar yuborish
       if (newStudent.telegramChatId && newStudent.telegramChatId.trim() !== "") {
         try {
           await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: newStudent.telegramChatId,
-              text: `🎉 *Tabriklaymiz, ${newStudent.name}!*\n\nSiz ro'yxatdan o'tdingiz.\n\n📚 *Fan:* ${newStudent.group}\n\n👇 _Pastki menyudan Shaxsiy Kabinetingizga kirishingiz mumkin!_`,
+              text: `🎉 *Tabriklaymiz, ${newStudent.name}!*\n\nSiz ro'yxatdan o'tdingiz.\n\n👇 _Pastki menyudan Shaxsiy Kabinetingizga kirishingiz mumkin!_`,
               parse_mode: 'Markdown',
               reply_markup: {
                 keyboard: [
