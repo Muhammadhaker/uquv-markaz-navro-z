@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, Trash2, Edit, PlusCircle, Clock, ShieldAlert, RotateCcw, AlertOctagon, Search, CreditCard, UserCheck } from "lucide-react";
+import { Loader2, Trash2, Edit, PlusCircle, Clock, ShieldAlert, RotateCcw, AlertOctagon, Search, CreditCard, UserCheck, CheckCircle2 } from "lucide-react";
 
 export default function ActivityLogs() {
   const [logs, setLogs] = useState([]);
@@ -26,7 +26,6 @@ export default function ActivityLogs() {
     fetchLogs();
   }, []);
 
-  // TIKLASH (RESTORE) FUNKSIYASI
   const handleRestore = async (log) => {
     if (!window.confirm("Bu ma'lumotni haqiqatan ham tiklaysizmi?")) return;
     try {
@@ -57,7 +56,6 @@ export default function ActivityLogs() {
     }
   };
 
-  // BARCHA TARIXNI O'CHIRISH
   const handleClearAll = async () => {
     if (!window.confirm("Barcha harakatlar tarixini o'chirib tashlamoqchimisiz? Bu amalni orqaga qaytarib bo'lmaydi!")) return;
 
@@ -76,29 +74,47 @@ export default function ActivityLogs() {
     }
   };
 
-  // Harakat turiga qarab dizayn tanlash (Aqlli tahlil)
   const getActionStyles = (type, details) => {
     const text = (type + " " + details).toLowerCase();
     
     if (text.includes("delete") || text.includes("o'chiril")) 
-      return { icon: <Trash2 size={18} />, color: "text-rose-500", bg: "bg-rose-100", label: "O'chirish" };
-    if (text.includes("create") || text.includes("yangi") || text.includes("qo'shildi")) 
-      return { icon: <PlusCircle size={18} />, color: "text-emerald-500", bg: "bg-emerald-100", label: "Qo'shish" };
+      return { icon: <Trash2 size={16} />, color: "text-rose-600", bg: "bg-rose-100", label: "O'chirilgan" };
+    if (text.includes("create") || text.includes("yangi") || text.includes("qo'shil") || text.includes("saqlandi")) 
+      return { icon: <PlusCircle size={16} />, color: "text-emerald-600", bg: "bg-emerald-100", label: "Qo'shilgan" };
     if (text.includes("update") || text.includes("tahrir") || text.includes("tiklandi")) 
-      return { icon: <Edit size={18} />, color: "text-blue-500", bg: "bg-blue-100", label: "Tahrirlash" };
+      return { icon: <Edit size={16} />, color: "text-blue-600", bg: "bg-blue-100", label: "Tahrirlangan" };
     if (text.includes("to'lov") || text.includes("pay")) 
-      return { icon: <CreditCard size={18} />, color: "text-amber-500", bg: "bg-amber-100", label: "To'lov" };
+      return { icon: <CreditCard size={16} />, color: "text-amber-600", bg: "bg-amber-100", label: "To'lov" };
     if (text.includes("davomat") || text.includes("keldi") || text.includes("ketdi")) 
-      return { icon: <UserCheck size={18} />, color: "text-indigo-500", bg: "bg-indigo-100", label: "Davomat" };
+      return { icon: <UserCheck size={16} />, color: "text-indigo-600", bg: "bg-indigo-100", label: "Davomat" };
       
-    return { icon: <ShieldAlert size={18} />, color: "text-slate-500", bg: "bg-slate-100", label: "Boshqa" };
+    return { icon: <CheckCircle2 size={16} />, color: "text-slate-600", bg: "bg-slate-100", label: "Harakat" };
   };
 
   const formatTime = (dateString) => {
     const d = new Date(dateString);
-    return d.toLocaleString("uz-UZ", {
-      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
-    });
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}.${month}.${year}, ${hours}:${minutes}`;
+  };
+
+  // 🔥 Matnni chiroyli qilib ikki qismga bo'lish (O'qish oson bo'lishi uchun)
+  const renderFormattedDetails = (detailsText) => {
+    if (!detailsText.includes(':')) {
+      return <span className="font-bold text-slate-800">{detailsText}</span>;
+    }
+    const [action, ...rest] = detailsText.split(':');
+    const target = rest.join(':').trim();
+
+    return (
+      <span className="leading-snug">
+        <span className="text-slate-500 font-medium">{action}: </span>
+        <span className="font-bold text-slate-800">{target}</span>
+      </span>
+    );
   };
 
   const filteredLogs = logs.filter(log => 
@@ -107,10 +123,12 @@ export default function ActivityLogs() {
   );
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto pb-20">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-4">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24">
+      
+      {/* HEADER QISMI */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
             <Clock className="text-indigo-600" /> Harakatlar tarixi
           </h1>
           <p className="text-sm text-slate-500 mt-1">Barcha tizim o'zgarishlari va amallar ro'yxati</p>
@@ -120,9 +138,9 @@ export default function ActivityLogs() {
           <button
             onClick={handleClearAll}
             disabled={clearing}
-            className="flex items-center gap-2 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 w-full sm:w-auto justify-center"
+            className="flex items-center justify-center gap-2 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 px-5 py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 w-full sm:w-auto shadow-sm"
           >
-            {clearing ? <Loader2 size={16} className="animate-spin" /> : <AlertOctagon size={16} />}
+            {clearing ? <Loader2 size={18} className="animate-spin" /> : <AlertOctagon size={18} />}
             Tarixni tozalash
           </button>
         )}
@@ -133,10 +151,10 @@ export default function ActivityLogs() {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
         <input 
           type="text" 
-          placeholder="Harakat turi, ism yoki admin bo'yicha qidiring..."
+          placeholder="Harakat turi, ism yoki xodim bo'yicha qidiring..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium transition-all shadow-sm"
+          className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 font-medium transition-all shadow-sm text-slate-700"
         />
       </div>
 
@@ -145,43 +163,46 @@ export default function ActivityLogs() {
           <Loader2 className="animate-spin text-indigo-600" size={40} />
         </div>
       ) : filteredLogs.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-3xl border-2 border-dashed border-slate-200 shadow-sm">
-          <Clock className="mx-auto text-slate-300 mb-4" size={48} />
-          <p className="text-slate-500 font-bold text-lg">Harakatlar topilmadi.</p>
-          <p className="text-sm text-slate-400 mt-1">Qidiruv so'zini o'zgartiring yoki amallar bajarilishini kuting.</p>
+        <div className="text-center py-20 bg-white rounded-3xl border border-slate-100 shadow-sm">
+          <Clock className="mx-auto text-slate-300 mb-4" size={56} />
+          <p className="text-slate-600 font-bold text-xl">Harakatlar topilmadi.</p>
+          <p className="text-sm text-slate-400 mt-2">Qidiruv so'zini o'zgartiring yoki tizimda amal bajaring.</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="flex flex-col gap-3">
           {filteredLogs.map((log) => {
             const style = getActionStyles(log.actionType, log.details);
             return (
               <div
                 key={log._id}
-                className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4 transition-all hover:shadow-md hover:border-indigo-100"
+                className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all flex flex-col"
               >
-                <div className="flex justify-between items-start">
+                {/* 1. Tepa qism (Admin va Holati) */}
+                <div className="flex justify-between items-center px-4 py-3 border-b border-slate-50/80 bg-slate-50/50">
                   <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-full ${style.bg} ${style.color} shrink-0`}>
+                    <div className={`p-2 rounded-lg ${style.bg} ${style.color}`}>
                       {style.icon}
                     </div>
                     <div>
-                      <p className="text-[11px] font-bold text-slate-400 uppercase">Kim bajardi:</p>
-                      <p className="font-bold text-slate-700">{log.adminName}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">KIM BAJARDI:</p>
+                      <p className="text-sm font-bold text-slate-800">{log.adminName}</p>
                     </div>
                   </div>
-                  <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md ${style.bg} ${style.color}`}>
+                  <span className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold uppercase tracking-wider ${style.bg} ${style.color}`}>
                     {style.label}
                   </span>
                 </div>
 
-                <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100">
-                  <p className="text-sm font-medium text-slate-800 leading-snug break-words">
-                    {log.details}
+                {/* 2. Markaziy qism (Asosiy harakat matni) */}
+                <div className="px-4 py-4 sm:px-5">
+                  <p className="text-sm sm:text-base text-slate-700">
+                    {renderFormattedDetails(log.details)}
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-3 justify-between items-center border-t border-slate-50 pt-3">
-                  <span className="text-xs text-slate-400 flex items-center gap-1 font-medium bg-slate-50 px-2 py-1 rounded-lg">
+                {/* 3. Pastki qism (Vaqt va Tiklash tugmasi) */}
+                <div className="flex justify-between items-center px-4 py-3 bg-slate-50/50 border-t border-slate-50/80">
+                  <span className="text-[11px] sm:text-xs font-bold text-slate-400 flex items-center gap-1.5">
                     <Clock size={14} />
                     {formatTime(log.createdAt)}
                   </span>
@@ -189,7 +210,7 @@ export default function ActivityLogs() {
                   {log.actionType === "delete" && log.deletedData && (
                     <button
                       onClick={() => handleRestore(log)}
-                      className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
+                      className="bg-white border border-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors flex items-center gap-1.5 shadow-sm"
                     >
                       <RotateCcw size={14} /> Tiklash
                     </button>
