@@ -7,16 +7,6 @@ const connectDB = async () => {
 
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 const Attendance = mongoose.models.Attendance || mongoose.model('Attendance', new mongoose.Schema({}, { strict: false }), 'attendances');
-const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({}, { strict: false }));
-
-// 🔥 YANGI: Bot qadamlarini xotirada saqlash uchun maxsus model
-const botStateSchema = new mongoose.Schema({
-  chatId: { type: String, required: true },
-  step: { type: String, default: 'NONE' },
-  name: { type: String, default: '' },
-  phone: { type: String, default: '' }
-});
-const BotState = mongoose.models.BotState || mongoose.model('BotState', botStateSchema);
 
 const formatDate = (dateString) => {
   if (!dateString) return "Noma'lum";
@@ -30,76 +20,6 @@ export default async function handler(req, res) {
     const update = req.body;
     const token = process.env.TELEGRAM_BOT_TOKEN;
 
-    try {
-        await connectDB();
-    } catch (error) {
-        console.error("MongoDB ulanishda xato:", error);
-        return res.status(200).send('OK');
-    }
-
-    // =========================================================
-    // 🔥 YANGI MANTIQ: TUGMALAR BOSILGANDA (USTOZ TANLASH)
-    // =========================================================
-    if (update.callback_query) {
-        const callbackQuery = update.callback_query;
-        const chatId = String(callbackQuery.message.chat.id);
-        const data = callbackQuery.data;
-
-        if (data.startsWith('teacher_')) {
-            const teacherId = data.split('_')[1];
-            const state = await BotState.findOne({ chatId });
-
-            if (state && state.step === 'AWAITING_TEACHER') {
-                const teacher = await User.findById(teacherId);
-                
-                // O'quvchini yaratamiz va tanlangan ustozga bog'laymiz!
-                await Student.create({
-                    name: state.name,
-                    parentName: "Kiritilmagan",
-                    phone: state.phone,
-                    telegramChatId: chatId,
-                    teacherId: teacherId, 
-                    group: "Yangi ro'yxatdan o'tgan",
-                    groupsData: [{ name: "Yangi", price: 300000 }],
-                    addedAt: new Date(),
-                    exceptionMonths: []
-                });
-
-                // Xotirani tozalaymiz
-                await BotState.deleteOne({ chatId });
-
-                const teacherName = teacher?.fullName || teacher?.username || "Ustoz";
-                
-                // Menyuni qaytarib tabriklaymiz
-                const keyboard = {
-                    keyboard: [
-                        [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }],
-                        [{ text: "📊 Oylik hisobot" }],
-                        [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }]
-                    ],
-                    resize_keyboard: true, is_persistent: true
-                };
-
-                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        chat_id: chatId, 
-                        text: `🎉 *Tabriklaymiz, ${state.name}!*\n\nSiz *${teacherName}* guruhiga muvaffaqiyatli ro'yxatdan o'tdingiz.\n\n_Pastdagi menyudan foydalanishingiz mumkin 👇_`, 
-                        parse_mode: 'Markdown',
-                        reply_markup: keyboard
-                    })
-                });
-            }
-        }
-        
-        await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ callback_query_id: callbackQuery.id })
-        });
-        
-        return res.status(200).send('OK');
-    }
-
     if (!update.message || !update.message.text) return res.status(200).send('OK');
 
     const message = update.message;
@@ -107,84 +27,20 @@ export default async function handler(req, res) {
     const text = message.text;
     const firstName = message.from.first_name || "O'quvchi";
 
+    try {
+        await connectDB();
+    } catch (error) {
+        console.error("MongoDB ulanishda xato:", error);
+        return res.status(200).send('OK');
+    }
+
     let payload = null;
     if (text.startsWith('/start ') && text.length > 7) {
         payload = text.split(' ')[1].trim();
     }
 
     // =========================================================
-    // 🔥 YANGI MANTIQ: QADAM-BA-QADAM RO'YXATDAN O'TISH
-    // =========================================================
-    const state = await BotState.findOne({ chatId });
-
-    if (text === "📝 Ro'yxatdan o'tish" || text === "/register") {
-        await BotState.findOneAndUpdate(
-            { chatId },
-            { step: 'AWAITING_NAME', name: '', phone: '' },
-            { upsert: true, new: true }
-        );
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                chat_id: chatId, 
-                text: "✍️ Iltimos, to'liq *Ism va Familiyangizni* kiriting:\n\n_(Masalan: Aliyev Vali)_", 
-                parse_mode: 'Markdown', 
-                reply_markup: { remove_keyboard: true } 
-            })
-        });
-        return res.status(200).send('OK');
-    }
-
-    if (state) {
-        if (state.step === 'AWAITING_NAME') {
-            state.name = text;
-            state.step = 'AWAITING_PHONE';
-            await state.save();
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: chatId, 
-                    text: "📱 Zo'r! Endi *telefon raqamingizni* kiriting:\n\n_(Masalan: +998901234567)_", 
-                    parse_mode: 'Markdown' 
-                })
-            });
-            return res.status(200).send('OK');
-        }
-
-        if (state.step === 'AWAITING_PHONE') {
-            state.phone = text;
-            state.step = 'AWAITING_TEACHER';
-            await state.save();
-
-            const teachers = await User.find({ role: 'teacher' });
-            if (teachers.length === 0) {
-                await BotState.deleteOne({ chatId });
-                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, text: "Kechirasiz, tizimda hozircha ustozlar yo'q." })
-                });
-                return res.status(200).send('OK');
-            }
-
-            const inlineKeyboard = teachers.map(t => [
-                { text: `👨‍🏫 ${t.fullName || t.username}`, callback_data: `teacher_${t._id}` }
-            ]);
-
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: chatId, 
-                    text: "🎓 Ajoyib! Endi qaysi *Fanga (Ustozga)* yozilmoqchisiz?\nQuyidagilardan birini tanlang:", 
-                    parse_mode: 'Markdown',
-                    reply_markup: { inline_keyboard: inlineKeyboard }
-                })
-            });
-            return res.status(200).send('OK');
-        }
-    }
-
-    // =========================================================
-    // ESKI MANTIQ: QR KOD ORQALI RO'YXATDAN O'TISH
+    // 1-QISM: QR KOD ORQALI RO'YXATDAN O'TISH
     // =========================================================
     if (payload) {
         try {
@@ -317,6 +173,7 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
+    // 🔥 5-QISM: /start BUYRUG'I VA MINI APP NI CHIQARISH
     if (text === '/start') {
         let replyText = "";
         let keyboard = {};
@@ -335,7 +192,8 @@ export default async function handler(req, res) {
             replyText = `Assalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Profilingizni ulash uchun bejigingizdagi QR kodni kameraga tuting yoki pastdan ro'yxatdan o'ting 👇`;
             keyboard = {
                 keyboard: [
-                    [{ text: "📝 Ro'yxatdan o'tish" }], // Botni ichida ro'yxatdan o'tish
+                    // 🔥 MIN APP (WEB APP) SHU YERDA QAYTARILDI!
+                    [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }],
                     [{ text: "ℹ️ O'quv markaz haqida" }]
                 ],
                 resize_keyboard: true, is_persistent: true

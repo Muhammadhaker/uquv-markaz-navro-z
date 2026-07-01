@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { User, Phone, Users, BookOpen, CheckCircle2, Loader2 } from "lucide-react";
+import { User, Phone, Users, BookOpen, CheckCircle2, Loader2, UserCheck } from "lucide-react";
 
 export default function BotRegister() {
   const [formData, setFormData] = useState({
     name: "",
     parentName: "",
     phone: "",
-    groups: [],
   });
 
   const [chatId, setChatId] = useState(null);
@@ -16,40 +15,61 @@ export default function BotRegister() {
   const [loading, setLoading] = useState(true); 
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
+  // 🔥 YANGI STATES: Ustozlarni dinamik yuklash va tanlash uchun
+  const [teachers, setTeachers] = useState([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
+
   useEffect(() => {
-    // 1. ENG ISHONCHLI USUL: URL'dan ID ni qidirish
+    // 1. URL'dan chatId ni qidirish
     const params = new URLSearchParams(window.location.search);
     let currentId = params.get('chatId');
 
     if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-      tg.setHeaderColor("#4f46e5");
-      
-      // Agar ssilkada bo'lmasa, Telegramdan qidiramiz
-      if (!currentId) {
-        currentId = tg.initDataUnsafe?.user?.id || null;
+      try {
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor("#4f46e5");
+        
+        if (!currentId) {
+          currentId = tg.initDataUnsafe?.user?.id || null;
+        }
+      } catch (e) {
+        console.warn("Telegram WebApp yuklanish xatosi chetlab o'tildi.");
       }
     }
 
     setChatId(currentId);
 
-    // BAZADAN TEKSHIRUV: O'quvchi avval ro'yxatdan o'tganmi?
-    if (currentId) {
-      fetch(`/api/students?telegramChatId=${currentId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.exists) {
+    // 2. BAZADAN USTOZLARNI VA O'QUVCHINI TEKSHIRISH
+    const initFetch = async () => {
+      try {
+        // Ustozlar ro'yxatini yuklaymiz
+        const authRes = await fetch("/api/auth");
+        const authData = await authRes.json();
+        if (authData.success) {
+          // Faqat ustoz roliga ega xodimlarni ajratib olamiz
+          const activeTeachers = authData.data.filter(u => u.role === "teacher");
+          setTeachers(activeTeachers);
+        }
+
+        // O'quvchi allaqachon mavjudligini tekshiramiz
+        if (currentId) {
+          const studentRes = await fetch(`/api/students?telegramChatId=${currentId}`);
+          const studentData = await studentRes.json();
+          if (studentData.exists) {
             setAlreadyRegistered(true);
             setIsSuccess(true);
           }
-        })
-        .catch((err) => console.error("Tekshiruvda xatolik:", err))
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+        }
+      } catch (err) {
+        console.error("Ma'lumotlarni yuklashda xatolik:", err);
+      } {
+        setLoading(false);
+      }
+    };
+
+    initFetch();
   }, []);
 
   const requestPhoneFromTelegram = () => {
@@ -71,18 +91,6 @@ export default function BotRegister() {
     }
   };
 
-  const toggleGroup = (groupName) => {
-    setFormData((prev) => {
-      const isSelected = prev.groups.includes(groupName);
-      return {
-        ...prev,
-        groups: isSelected
-          ? prev.groups.filter((g) => g !== groupName)
-          : [...prev.groups, groupName],
-      };
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -91,8 +99,8 @@ export default function BotRegister() {
       return;
     }
 
-    if (formData.groups.length === 0) {
-      alert("Iltimos, kamida bitta guruhni tanlang!");
+    if (!selectedTeacherId) {
+      alert("Iltimos, darsiga qatnashmoqchi bo'lgan ustozingizni tanlang!");
       return;
     }
 
@@ -106,8 +114,9 @@ export default function BotRegister() {
           name: formData.name,
           parentName: formData.parentName,
           phone: formData.phone,
-          group: formData.groups.join(", "),
-          telegramChatId: chatId, // Ssilkadan olingan aniq ID ketadi!
+          group: "Yangi ro'yxatdan o'tgan", // Boshlang'ich holat (Ustoz guruhga qo'shadi)
+          teacherId: selectedTeacherId, // 🔥 DYNAMIC FIX: Avtomat tanlangan ustozga birikadi!
+          telegramChatId: chatId, 
         }),
       });
 
@@ -123,10 +132,10 @@ export default function BotRegister() {
           );
         }
       } else {
-        alert("Saqlashda xatolik!");
+        alert("Saqlashda xatolik yuz berdi!");
       }
     } catch (error) {
-      alert("Internet bilan muammo.");
+      alert("Internet bilan muammo yuz berdi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -150,7 +159,7 @@ export default function BotRegister() {
         <p className="text-slate-500 mt-2">
           {alreadyRegistered 
             ? "Siz allaqachon ro'yxatdan o'tgansiz." 
-            : "Siz ro'yxatdan o'tdingiz."}
+            : "Arizangiz qabul qilindi. Tez orada ustozingiz bog'lanadi!"}
         </p>
       </div>
     );
@@ -159,16 +168,17 @@ export default function BotRegister() {
   return (
     <div className="min-h-screen bg-slate-50 pb-20 animate-in fade-in duration-300">
       <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg">
-        <div className="bg-indigo-600 p-8 text-white text-center rounded-b-[3rem] mb-6">
-          <h1 className="text-2xl font-bold">Navro'z O'quv Markazi</h1>
+        <div className="bg-indigo-600 p-8 text-white text-center rounded-b-[3rem] mb-6 shadow-md">
+          <h1 className="text-2xl font-black tracking-wide">O'QUV MARKAZI</h1>
+          <p className="text-indigo-100 text-xs mt-1 font-medium">Yangi o'quvchilarni ro'yxatdan o'tkazish anketasi</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-500 uppercase ml-1">O'quvchi ismi</label>
+            <label className="text-xs font-bold text-slate-500 uppercase ml-1">O'quvchi ismi (F.I.SH)</label>
             <input
               required
-              className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-500 transition-colors"
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 transition-colors font-medium text-slate-700"
               placeholder="Masalan: Tursunov Muhammad"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -176,63 +186,74 @@ export default function BotRegister() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-500 uppercase ml-1">Ota-onasi ismi</label>
+            <label className="text-xs font-bold text-slate-500 uppercase ml-1">Ota-onasi ismi (F.I.SH)</label>
             <input
               required
-              className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-500 transition-colors"
-              placeholder="Masalan: Eshmatov Eshmat"
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 transition-colors font-medium text-slate-700"
+              placeholder="Masalan: G'ulomov Navro'z"
               value={formData.parentName}
               onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-500 uppercase ml-1">Telefon raqam (Majburiy)</label>
+            <label className="text-xs font-bold text-slate-500 uppercase ml-1">Telefon raqam (Tasdiqlash)</label>
             <input
               required
-              readOnly
-              className="w-full p-4 bg-slate-100 border border-slate-200 rounded-2xl outline-none text-slate-600 font-medium cursor-not-allowed"
-              placeholder="Pastdagi tugmani bosing 👇"
+              disabled
+              className="w-full p-4 bg-slate-100 border border-slate-200 rounded-2xl outline-none text-slate-600 font-bold tracking-wide cursor-not-allowed"
+              placeholder="Pastdagi ko'k tugmani bosing 👇"
               value={formData.phone}
             />
             
             <button
               type="button"
               onClick={requestPhoneFromTelegram}
-              className="mt-2 w-full flex justify-center items-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 py-3.5 rounded-xl text-sm font-bold transition-all border border-indigo-200 shadow-sm"
+              className="mt-2 w-full flex justify-center items-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 py-3.5 rounded-xl text-sm font-bold transition-all border border-indigo-200 shadow-sm active:scale-95"
             >
-              📱 Telegram raqamni ulashish
+              📱 Telegram raqamni yuborish
             </button>
           </div>
 
-          <div>
-            <p className="text-[13px] text-slate-500 font-medium text-center mb-3 px-4">
-              Qaysi fanlarga qatnashasiz? <br />
-              <span className="text-[11px] opacity-80">(Ikkalasini ham tanlashingiz mumkin)</span>
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              {["Matematika", "Ingliz tili"].map((fan) => (
+          {/* 🔥 DINAMIK USTUN: USTOZLAR VA FANLAR SELEKTI */}
+          <div className="space-y-3 pt-2">
+            <label className="text-xs font-bold text-slate-500 uppercase ml-1 block text-center">
+              Qaysi ustoz (fan) guruhiga yozilmoqchisiz?
+            </label>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {teachers.map((t) => (
                 <div
-                  key={fan}
-                  onClick={() => toggleGroup(fan)}
-                  className={`p-4 text-center rounded-2xl border-2 cursor-pointer transition-all ${
-                    formData.groups.includes(fan)
-                      ? "border-indigo-600 bg-indigo-50"
-                      : "border-slate-100"
+                  key={t._id}
+                  onClick={() => setSelectedTeacherId(t._id)}
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-3 ${
+                    selectedTeacherId === t._id
+                      ? "border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm scale-[1.01]"
+                      : "border-slate-100 bg-slate-50/50 text-slate-700 hover:border-slate-200"
                   }`}
                 >
-                  <span className="font-bold text-sm">{fan}</span>
+                  <div className={`p-2 rounded-xl transition-colors ${selectedTeacherId === t._id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                    <UserCheck size={18} />
+                  </div>
+                  <div className="text-left overflow-hidden flex-1">
+                    <span className="font-bold text-sm block truncate">{t.fullName || t.username}</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Faol Ustoz</span>
+                  </div>
                 </div>
               ))}
+              
+              {teachers.length === 0 && (
+                <p className="text-center text-xs text-slate-400 py-4 font-medium italic">Hozircha ro'yxatdan o'tish uchun ustozlar mavjud emas.</p>
+              )}
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-emerald-700 transition-colors disabled:opacity-70"
+            disabled={isSubmitting || teachers.length === 0}
+            className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-base"
           >
-            {isSubmitting ? "Yuborilmoqda..." : "Tasdiqlash"}
+            {isSubmitting ? "Yuborilmoqda..." : "Tasdiqlash va Yuborish"}
           </button>
         </form>
       </div>
