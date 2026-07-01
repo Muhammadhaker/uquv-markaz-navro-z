@@ -30,7 +30,8 @@ export default async function handler(req, res) {
     await connectDB();
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     
-    const students = await Student.find({ telegramChatId: { $ne: null } });
+    // 🔥 O'ZGARISH: Endi istisnosiz hamma o'quvchini bazadan olamiz!
+    const students = await Student.find({});
     const payments = await Payment.find({});
     
     const today = new Date();
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
 
     let sentStudents = [];
     let failedStudents = [];
+    let unlinkedStudents = []; // 🔥 YANGI: Botga ulanmaganlar ro'yxati
 
     for (const student of students) {
       if (student.exceptionMonths && student.exceptionMonths.includes(targetMonthStr)) continue;
@@ -76,29 +78,30 @@ export default async function handler(req, res) {
         if(qarz > 0) overallDebt += qarz;
       }
 
-      // 🔥 KUN HISOBLASH MANTIG'I (Oy oxiridagi kunlarni ham avtomat to'g'rilaydi)
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + 2);
       const isWarningDay = (targetDate.getDate() === joinedDay);
 
       let messageText = "";
 
-      // SHART 1: Roppa-rosa 2 kun qoldi (Qarzi bor-yo'qligidan qat'i nazar!)
+      // Shartlar (2 kun qolganda yoki qarz bo'lib, sana toq bo'lganda)
       if (isWarningDay) {
-        // Kelasi oy uchun oldindan avans to'langanmi?
         const hasPaidAvans = payments.some(p => p.studentId === student._id.toString() && p.month === targetMonthStr);
-        
-        // Agar avans to'lab qo'ymagan bo'lsa (yoki qarz bo'lsa), xabar beramiz
         if (overallDebt > 0 || !hasPaidAvans) {
           messageText = `🟡 *TO'LOV VAQTI YAQINLASHMOQDA*\n\n👤 *O'quvchi:* ${student.name}\n\nEslatib o'tamiz, 2 kundan so'ng sizning navbatdagi oylik to'lov vaqtingiz keladi.\n\n_Iltimos, darslardan uzilish bo'lmasligi uchun to'lovni o'z vaqtida amalga oshirishni unutmang._`;
         }
       } 
-      // SHART 2: Qarz bor VA to'lov kuni o'tib ketgan VA bugun toq sana
       else if (overallDebt > 0 && currentDay > joinedDay && currentDay % 2 !== 0) {
         messageText = `🔴 *QARZDORLIK ESLATMASI!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Holat:* To'lov muddati o'tgan!\n\n💰 *Jami qarzingiz:* ${overallDebt.toLocaleString()} so'm\n\n_Sizning to'lov vaqtingiz o'tib ketgan. Iltimos, darslardan chetlatilmaslik uchun to'lovni zudlik bilan amalga oshiring._`;
       }
 
       if (messageText) {
+        // 🔥 TELEGRAMCHATID TEKSHIRUVI SHU YERDA:
+        if (!student.telegramChatId || student.telegramChatId.toString().trim() === "") {
+            unlinkedStudents.push(student.name);
+            continue; // Ulanmaganlarga xabar yuborib vaqt yo'qotmaydi!
+        }
+
         try {
           const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: 'POST',
@@ -124,9 +127,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ 
         success: true, 
-        message: `${sentStudents.length} ta o'quvchiga muvaffaqiyatli yuborildi.`,
+        hisobot: "Tizim to'liq tahlil qilindi!",
         muvaffaqiyatli_yuborildi: sentStudents,
-        xatolik_berdi: failedStudents
+        xatolik_berdi: failedStudents,
+        botga_ulanmaganlar: unlinkedStudents // Bular endi aniq ko'rinadi
     });
 
   } catch (error) {
