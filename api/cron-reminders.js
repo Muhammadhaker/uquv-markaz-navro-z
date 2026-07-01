@@ -5,60 +5,113 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
+const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
+const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
+
+// O'quvchi qo'shilgandan beri necha oy (sikl) o'tganini hisoblaydi
+const calculateCycles = (addedAtStr) => {
+  if (!addedAtStr) return 1;
+  const added = new Date(addedAtStr);
+  if (isNaN(added.getTime())) return 1;
+  
+  const today = new Date();
+  let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
+  if (today.getDate() < added.getDate()) m--;
+  return Math.max(1, m + 1);
+};
+
 export default async function handler(req, res) {
-  // Xavfsizlik uchun faqat GET so'rovni qabul qilamiz
+  // Vercel Cron faqat GET so'rov orqali ishlaydi
   if (req.method !== 'GET') return res.status(405).send('Ruxsat yoq');
 
-  const today = new Date();
-  const day = today.getDate();
-
-  // Agar juft kun bo'lsa (2, 4, 6...) kodni shu yerda to'xtatamiz. Faqat toq kunlari ishlaydi (1, 3, 5...)
-  if (day % 2 === 0) {
-    return res.status(200).json({ message: "Juft kun, xabar yuborilmaydi." });
+  // Vercel Cron xavfsizlik tekshiruvi (Ixtiyoriy)
+  if (process.env.CRON_SECRET && req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ success: false, message: 'Ruxsat etilmagan!' });
   }
 
   try {
     await connectDB();
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
     
-    // Joriy oyni aniqlash (Masalan: "2026-06")
-    const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-
-    // Barcha o'quvchilar va joriy oydagi barcha to'lovlarni tortib olamiz
-    const db = mongoose.connection.db;
-    const students = await db.collection('students').find({ telegramChatId: { $ne: null } }).toArray();
-    const currentMonthPayments = await db.collection('payments').find({ month: currentMonthStr }).toArray();
-
-    // To'lov qilgan o'quvchilarning ID larini ajratib olamiz
-    const paidStudentIds = currentMonthPayments.map(p => p.studentId.toString());
+    // Barcha ulangan o'quvchilarni va to'lovlarni bazadan olamiz
+    const students = await Student.find({ telegramChatId: { $ne: null } });
+    const payments = await Payment.find({});
+    
+    const today = new Date();
+    const currentDay = today.getDate(); // Bugungi sana
+    const targetMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 
     let sentCount = 0;
 
     for (const student of students) {
-      const studentId = student._id.toString();
-      
-      // 1. Agar to'lov qilgan bo'lsa -> O'tkazib yuborish
-      if (paidStudentIds.includes(studentId)) continue;
+      // 1. Agar admin bu o'quvchiga joriy oy "Istisno" (ruxsat) bergan bo'lsa, xabar bormaydi
+      if (student.exceptionMonths && student.exceptionMonths.includes(targetMonthStr)) continue;
 
-      // 2. Agar admin bu oy uchun "Istisno" qilgan bo'lsa -> O'tkazib yuborish
-      if (student.exceptionMonths && student.exceptionMonths.includes(currentMonthStr)) continue;
+      const addedDate = new Date(student.addedAt || today);
+      const joinedDay = addedDate.getDate(); // O'QUVCHI QO'SHILGAN SANA (Masalan: 15)
+      const activeCycles = calculateCycles(student.addedAt); // Necha oylik qarzi borligi
 
-      // 3. Demak, to'lov qilmagan va istisno qilinmagan. Unga ogohlantirish yuboramiz:
-      const warningText = `⚠️ *DIQQAT: TO'LOV MUDDATI*\n\nAssalomu alaykum, hurmatli ${student.name}ning ota-onasi!\n\nJoriy oy uchun to'lovni amalga oshirishingizni so'raymiz. \n\n❗️ *Agar to'lov amalga oshirilmasa, o'quvchi darsga kiritilmasligi mumkin.*\n\n_(Agar to'lovni kechiktirishga uzrli sababingiz bo'lsa, iltimos, ma'muriyat bilan bog'laning)_`;
+      // QARZNI HISOBLASH
+      const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+      let overallDebt = 0;
 
-      try {
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: student.telegramChatId, text: warningText, parse_mode: 'Markdown' })
+      const getPrice = (groupName) => {
+        if (student.groupsData && Array.isArray(student.groupsData)) {
+          const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
+          if (match && match.price !== undefined) return Number(match.price);
+        }
+        return 300000; 
+      };
+
+      if (studentGroups.length > 0) {
+        studentGroups.forEach(g => {
+          const expectedTotal = getPrice(g) * activeCycles;
+          const totalPaid = payments
+            .filter(p => p.studentId === student._id.toString() && (p.groupName === g || !p.groupName))
+            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+          const qarz = expectedTotal - totalPaid;
+          if (qarz > 0) overallDebt += qarz;
         });
-        sentCount++;
-      } catch (err) {
-        console.error("Xatolik:", err);
+      } else {
+        const expectedTotal = 300000 * activeCycles;
+        const totalPaid = payments
+            .filter(p => p.studentId === student._id.toString())
+            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const qarz = expectedTotal - totalPaid;
+        if(qarz > 0) overallDebt += qarz;
+      }
+
+      // 🔥 ASOSIY MANTIQ: Agar qarz qolgan bo'lsa
+      if (overallDebt > 0) {
+        let messageText = "";
+
+        // SHART 1: Qo'shilgan kuniga roppa-rosa 2 kun qolganida ogohlantirish (Masalan 15 - 2 = 13 chisloda ishlaydi)
+        if (currentDay === joinedDay - 2) {
+          messageText = `🟡 *TO'LOV VAQTI YAQINLASHMOQDA*\n\n👤 *O'quvchi:* ${student.name}\n\nEslatib o'tamiz, 2 kundan so'ng sizning navbatdagi oylik to'lov vaqtingiz keladi.\n💰 *Hozirgi qoldiq qarz:* ${overallDebt.toLocaleString()} so'm\n\n_Iltimos, to'lovni o'z vaqtida amalga oshirishni unutmang._`;
+        } 
+        
+        // SHART 2: Qo'shilgan kunidan O'TIB KETGAN bo'lsa va bugun TOQ SANA bo'lsa (Masalan 15 dan o'tdi: 17, 19, 21...)
+        else if (currentDay > joinedDay && currentDay % 2 !== 0) {
+          messageText = `🔴 *QARZDORLIK ESLATMASI!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Holat:* To'lov muddati o'tgan!\n\n💰 *Jami qarzingiz:* ${overallDebt.toLocaleString()} so'm\n\n_Sizning to'lov vaqtingiz o'tib ketgan. Iltimos, darslardan chetlatilmaslik uchun to'lovni zudlik bilan amalga oshiring._`;
+        }
+
+        // Agar shu ikkita shartdan biriga tushsa, Telegramga jo'natamiz
+        if (messageText) {
+          try {
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: student.telegramChatId, text: messageText, parse_mode: 'Markdown' })
+            });
+            sentCount++;
+          } catch (err) {
+             console.error("Bot xabari ketmadi:", err);
+          }
+        }
       }
     }
 
-    return res.status(200).json({ success: true, message: `${sentCount} ta o'quvchiga ogohlantirish yuborildi.` });
+    return res.status(200).json({ success: true, message: `${sentCount} ta o'quvchiga avtomatik ogohlantirish yuborildi.` });
 
   } catch (error) {
     return res.status(500).json({ error: error.message });

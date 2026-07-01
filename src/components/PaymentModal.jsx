@@ -26,19 +26,11 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     if (isOpen && student) {
       const today = new Date();
       
-      let year = today.getFullYear();
-      let month = today.getMonth() + 1;
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, "0");
 
-      if (today.getDate() <= 5) {
-        month = month - 1;
-        if (month === 0) {
-          month = 12;
-          year = year - 1;
-        }
-      }
-
-      // Default holat (Tavsiya etilgan oy)
-      setPaymentMonth(`${year}-${String(month).padStart(2, "0")}`);
+      // 🔥 5 kunlik qoida olib tashlandi. Endi doim JO'RIY OYni tanlaydi
+      setPaymentMonth(`${year}-${month}`);
       
       setGroup(groupName || (studentSubjects.length > 0 ? studentSubjects[0] : "Umumiy"));
       setAmount("");
@@ -93,7 +85,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
           groupName: group,
           amount: numericAmount, 
           paymentType: paymentType,
-          month: paymentMonth, // 🔥 ERKIN TANLANGAN OY JO'NATILADI
+          month: paymentMonth, 
           adminName: adminName,
           telegramChatId: student.telegramChatId || null, 
         }),
@@ -158,7 +150,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
               </div>
             )}
 
-            {/* INPUT 1: Guruh / Fan tanlash */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
                 <BookOpen size={14} /> Guruh / Fan
@@ -190,7 +181,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
               )}
             </div>
 
-            {/* INPUT 2: To'lov summasi */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
                 <DollarSign size={14} /> To'lov summasi
@@ -212,7 +202,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
               </div>
             </div>
 
-            {/* INPUT 3 & 4: Turi va Oyi (Yonma-yon) */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
@@ -235,7 +224,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
                 </div>
               </div>
 
-              {/* 🔥 ERKIN OY TANLOVI (Qarzni yoki Avansni to'lash uchun) */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
                   <Calendar size={14} /> Qaysi oy uchun
