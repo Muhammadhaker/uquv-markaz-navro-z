@@ -65,7 +65,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const isExcepted = localException.includes(targetMonth);
   const activeCycles = calculateCycles(student.addedAt);
 
-  // 🔥 QAT'IY HIMOYA: Ustoz ismini avtomat aniqlash
   const role = localStorage.getItem("userRole");
   let teacherName = localStorage.getItem("userFullName") || localStorage.getItem("username");
   
@@ -202,7 +201,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   };
 
   const shareReceipt = async (p) => {
-    const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${student.name}\n📚 *Fan:* ${p.groupName || student.group}\n💰 *Summa:* ${Number(p.amount).toLocaleString()} so'm\n💳 *Turi:* ${p.paymentType}\n📅 *To'lov vaqti:* ${new Date(p.date).toLocaleString("ru-RU")}\n\n✅ _To'lov qabul qilindi!_`;
+    const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${student.name}\n📚 *Fan:* ${p.groupName || student.group}\n💰 *Summa:* ${Number(p.amount).toLocaleString()} so'm\n💳 *Turi:* ${p.paymentType}\n📅 *Oy:* ${formatMonth(p.month)}\n📅 *To'lov vaqti:* ${new Date(p.date).toLocaleString("ru-RU")}\n\n✅ _To'lov qabul qilindi!_`;
 
     if (student.telegramChatId) {
       try {
@@ -340,7 +339,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               line-height: 1.1;
             }
             .st-group { font-size: 10px; color: #4f46e5; font-weight: 700; }
-            /* 🔥 USTOZ ISMI UCHUN CSS */
             .st-teacher { font-size: 8px; color: #64748b !important; font-weight: 800; margin-top: 3px; text-transform: uppercase; }
           </style>
         </head>
@@ -360,7 +358,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             <div class="student-details">
               <div class="st-name">${student.name}</div>
               <div class="st-group">📚 ${student.group || "Guruhsiz"}</div>
-              <div class="st-teacher">USTOZ: ${teacherName}</div> </div>
+              <div class="st-teacher">USTOZ: ${teacherName}</div> 
+            </div>
           </div>
           <script>
             window.onload = () => {
@@ -375,6 +374,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     `);
     printWindow.document.close();
   };
+
   return (
     <>
       <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center p-4 z-50">
@@ -427,7 +427,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                       <BookOpen size={16} className="text-indigo-500 min-w-[16px]" />
                       <div>
                         {g} <br />
-                        <span className="text-[10px] text-slate-400 font-medium">Jami to'lashi kerak: {EXPECTED_TOTAL.toLocaleString()} so'm</span>
+                        <span className="text-[10px] text-slate-400 font-medium">Asosiy qarz: {qarz > 0 ? qarz.toLocaleString() : 0} so'm</span>
                       </div>
                     </div>
 
@@ -440,14 +440,14 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                         <span className="bg-rose-100 text-rose-700 px-2 py-1.5 rounded-lg text-xs font-bold">To'lanmagan</span>
                       )}
 
-                      {!isGroupPaid && (
-                        <button
-                          onClick={() => setPayGroup(g)}
-                          className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1 justify-center whitespace-nowrap"
-                        >
-                          <CreditCard size={14} /> To'lash
-                        </button>
-                      )}
+                      {/* 🔥 To'lash tugmasi endi HAR DOIM ko'rinadi */}
+                      <button
+                        onClick={() => setPayGroup(g)}
+                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1 justify-center whitespace-nowrap"
+                        title="Avans yoki qarzni to'lash"
+                      >
+                        <CreditCard size={14} /> To'lash
+                      </button>
                     </div>
                   </div>
                 );
