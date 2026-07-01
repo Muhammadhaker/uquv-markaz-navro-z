@@ -17,11 +17,13 @@ export default function Admins() {
   const [error, setError] = useState("");
 
   const [permissions, setPermissions] = useState(["attendance"]);
+  
+  // 🔥 YANGI: Yordamchini qaysi ustozga biriktirish uchun state
+  const [parentTeacherId, setParentTeacherId] = useState("");
 
   const currentUserId = localStorage.getItem("userId");
   const currentUserRole = localStorage.getItem("userRole");
 
-  // 🔥 API himoya kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
     "x-user-role": currentUserRole || "",
@@ -34,7 +36,15 @@ export default function Admins() {
     try {
       const res = await fetch("/api/auth", { headers: getAuthHeaders() });
       const data = await res.json();
-      if (data.success) setAdmins(data.data || []);
+      if (data.success) {
+        setAdmins(data.data || []);
+        
+        // Avtomatik ravishda birinchi ustozni tanlab qo'yish
+        const teachers = data.data.filter(a => a.role === "teacher");
+        if (teachers.length > 0) {
+          setParentTeacherId(teachers[0]._id);
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -54,6 +64,14 @@ export default function Admins() {
     e.preventDefault();
     setSubmitting(true);
     setError("");
+    
+    // Agar yordamchi bo'lsa-yu ustoz tanlanmagan bo'lsa xato beradi
+    if (role === "assistant" && !parentTeacherId) {
+      setError("Iltimos, yordamchini qaysi ustozga biriktirishni tanlang!");
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const payload = {
         action: "create",
@@ -61,7 +79,7 @@ export default function Admins() {
         username,
         password,
         role,
-        parentTeacherId: role === "assistant" ? currentUserId : null,
+        parentTeacherId: role === "assistant" ? parentTeacherId : null,
         permissions: role === "assistant" ? permissions : ['all']
       };
 
@@ -88,16 +106,14 @@ export default function Admins() {
     }
   };
 
-// Fayl ichidagi xuddi shu handleDeleteAdmin funksiyasini almashtiring:
-
-const handleDeleteAdmin = async (id, name) => {
-  if (name === "Muhammad") return alert("Super Adminni o'chirib bo'lmaydi!"); // 🔥 Muhammad himoyalandi
-  if (!window.confirm(`${name} ni o'chirmoqchimisiz?`)) return;
-  await fetch("/api/auth", {
-    method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id }),
-  });
-  fetchAdmins();
-};
+  const handleDeleteAdmin = async (id, name) => {
+    if (name === "Muhammad") return alert("Super Adminni o'chirib bo'lmaydi!");
+    if (!window.confirm(`${name} ni o'chirmoqchimisiz?`)) return;
+    await fetch("/api/auth", {
+      method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id }),
+    });
+    fetchAdmins();
+  };
 
   const formatTime = (dateStr) => {
     if (!dateStr) return "";
@@ -139,6 +155,9 @@ const handleDeleteAdmin = async (id, name) => {
     );
   };
 
+  // Ustozlar ro'yxatini ajratib olish (Yordamchi biriktirish uchun kerak)
+  const teachersList = admins.filter(a => a.role === "teacher");
+
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -174,9 +193,8 @@ const handleDeleteAdmin = async (id, name) => {
                   <tr key={a._id} className="hover:bg-slate-50 transition-colors align-top">
                     <td className="px-6 py-4 pt-5">
                       <div className="flex flex-col gap-1">
-                        {/* 🔥 Navroz logini uchun avtomat ism chiqarish */}
                         <div className="font-bold text-slate-800 text-base">
-                          {a.username === "Navroz" ? "G'ulomov Navro'z" : (a.fullName || a.username)}
+                          {a.username === "Muhammad" ? "Tursunov Muhammad" : a.username === "Navroz" ? "G'ulomov Navro'z" : (a.fullName || a.username)}
                         </div>
                         <div className="text-xs text-slate-500 flex items-center gap-1 font-mono bg-slate-100 px-2 py-0.5 rounded w-fit">
                           <Mail size={12} /> {a.username}
@@ -188,16 +206,26 @@ const handleDeleteAdmin = async (id, name) => {
                         <div className="flex items-center gap-2 font-mono text-slate-500 text-sm">
                           <Key size={14} className="text-slate-400" /> {a.password}
                         </div>
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 w-fit ${
-                          a.role === "super_admin" ? "bg-purple-50 text-purple-700" : a.role === "teacher" ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"
-                        }`}>
-                          {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</> : a.role === "teacher" ? <><Shield size={12} /> USTOZ (ADMIN)</> : <><User size={12} /> YORDAMCHI</>}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 w-fit ${
+                            a.role === "super_admin" ? "bg-purple-50 text-purple-700" : a.role === "teacher" ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"
+                          }`}>
+                            {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</> : a.role === "teacher" ? <><Shield size={12} /> USTOZ (ADMIN)</> : <><User size={12} /> YORDAMCHI</>}
+                          </span>
+                          
+                          {/* 🔥 Yordamchi qaysi ustozga tegishliligini ko'rsatish */}
+                          {a.role === "assistant" && a.parentTeacherId && (
+                            <span className="text-[10px] text-slate-500 font-medium ml-1">
+                              Ustoz: {admins.find(t => t._id === a.parentTeacherId)?.fullName || "Noma'lum"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-3">{renderLoginHistory(a.loginHistory)}</td>
                     <td className="px-6 py-4 text-right pt-5">
-                      {a.username !== "Navroz" && (
+                      {/* 🔥 HIMOYA: Muhammad o'chirish tugmasi yashirildi */}
+                      {a.username !== "Muhammad" && (
                         <button onClick={() => handleDeleteAdmin(a._id, a.username)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors">
                           <Trash2 size={18} />
                         </button>
@@ -217,8 +245,7 @@ const handleDeleteAdmin = async (id, name) => {
                   <div>
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                       <User size={18} className="text-indigo-500 min-w-[18px]" />
-                      {/* 🔥 Navroz logini uchun avtomat ism chiqarish */}
-                      {a.username === "Navroz" ? "G'ulomov Navro'z" : (a.fullName || a.username)}
+                      {a.username === "Muhammad" ? "Tursunov Muhammad" : a.username === "Navroz" ? "G'ulomov Navro'z" : (a.fullName || a.username)}
                     </h3>
                     <div className="text-xs text-slate-500 flex items-center gap-1 font-mono bg-slate-100 px-2 py-0.5 rounded w-fit mt-1 mb-2">
                       <Mail size={12} /> {a.username}
@@ -226,19 +253,29 @@ const handleDeleteAdmin = async (id, name) => {
                     <div className="flex items-center gap-2 text-slate-500 font-mono text-sm mb-2">
                       <Key size={14} /> {a.password}
                     </div>
-                    <span
-                      className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 w-fit ${
-                        a.role === "super_admin" ? "bg-purple-50 text-purple-700"
-                        : a.role === "teacher" ? "bg-indigo-50 text-indigo-700"
-                        : "bg-orange-50 text-orange-700"
-                      }`}
-                    >
-                      {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</>
-                      : a.role === "teacher" ? <><Shield size={12} /> USTOZ</>
-                      : <><User size={12} /> YORDAMCHI</>}
-                    </span>
+                    <div className="flex flex-col gap-1 items-start">
+                      <span
+                        className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 w-fit ${
+                          a.role === "super_admin" ? "bg-purple-50 text-purple-700"
+                          : a.role === "teacher" ? "bg-indigo-50 text-indigo-700"
+                          : "bg-orange-50 text-orange-700"
+                        }`}
+                      >
+                        {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</>
+                        : a.role === "teacher" ? <><Shield size={12} /> USTOZ</>
+                        : <><User size={12} /> YORDAMCHI</>}
+                      </span>
+                      {/* 🔥 Yordamchi qaysi ustozga tegishliligini ko'rsatish (Mobil) */}
+                      {a.role === "assistant" && a.parentTeacherId && (
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          Ustoz: {admins.find(t => t._id === a.parentTeacherId)?.fullName || "Noma'lum"}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {a.username !== "Navroz" && (
+                  
+                  {/* 🔥 HIMOYA: Muhammad o'chirish tugmasi yashirildi (Mobil) */}
+                  {a.username !== "Muhammad" && (
                     <button
                       onClick={() => handleDeleteAdmin(a._id, a.username)}
                       className="text-rose-500 bg-rose-50 p-2.5 rounded-xl hover:bg-rose-100 transition-colors"
@@ -296,20 +333,39 @@ const handleDeleteAdmin = async (id, name) => {
                 </select>
               </div>
 
+              {/* 🔥 YANGI: Yordamchini ustozi tanlanadigan oyna */}
               {role === "assistant" && (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2 space-y-3">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase">Qaysi bo'limlarga ruxsat berasiz?</label>
-                  <div className="flex flex-col gap-2">
-                    {[{ val: "attendance", label: "Davomat" }, { val: "groups", label: "Guruhlar va To'lovlar" }, { val: "dashboard", label: "Umumiy Statistika" }, { val: "badges", label: "Bejiklar chiqarish" }].map(item => (
-                      <label key={item.val} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-100 rounded-lg">
-                        <div onClick={() => handleTogglePermission(item.val)}>
-                          {permissions.includes(item.val) ? <CheckSquare className="text-indigo-600" size={20} /> : <Square className="text-slate-300" size={20} />}
-                        </div>
-                        <span className="text-sm font-medium text-slate-700" onClick={() => handleTogglePermission(item.val)}>{item.label}</span>
-                      </label>
-                    ))}
+                <>
+                  <div className="space-y-1 mt-4">
+                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Qaysi ustozga biriktiriladi?</label>
+                    <select 
+                      className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 bg-slate-50 font-medium cursor-pointer" 
+                      value={parentTeacherId} 
+                      onChange={(e) => setParentTeacherId(e.target.value)}
+                      required
+                    >
+                      <option value="" disabled>-- Ustozni tanlang --</option>
+                      {teachersList.length === 0 && <option value="" disabled>Oldin Ustoz yarating!</option>}
+                      {teachersList.map(t => (
+                        <option key={t._id} value={t._id}>{t.fullName || t.username}</option>
+                      ))}
+                    </select>
                   </div>
-                </div>
+
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2 space-y-3">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase">Qaysi bo'limlarga ruxsat berasiz?</label>
+                    <div className="flex flex-col gap-2">
+                      {[{ val: "attendance", label: "Davomat" }, { val: "groups", label: "Guruhlar va To'lovlar" }, { val: "dashboard", label: "Umumiy Statistika" }, { val: "badges", label: "Bejiklar chiqarish" }].map(item => (
+                        <label key={item.val} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-100 rounded-lg">
+                          <div onClick={() => handleTogglePermission(item.val)}>
+                            {permissions.includes(item.val) ? <CheckSquare className="text-indigo-600" size={20} /> : <Square className="text-slate-300" size={20} />}
+                          </div>
+                          <span className="text-sm font-medium text-slate-700" onClick={() => handleTogglePermission(item.val)}>{item.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
 
               <button type="submit" disabled={submitting} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 shadow-md mt-2 flex justify-center">
