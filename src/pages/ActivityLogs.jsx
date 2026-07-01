@@ -101,11 +101,20 @@ export default function ActivityLogs() {
     return `${day}.${month}.${year}, ${hours}:${minutes}`;
   };
 
-  // 🔥 Matnni chiroyli qilib ikki qismga bo'lish (O'qish oson bo'lishi uchun)
-  const renderFormattedDetails = (detailsText) => {
+  // 🔥 AQLLI MATN CHIQARUVCHI: Agar o'chirilgan narsa ichida summa bo'lsa uni tutib olib ko'rsatadi
+  const renderFormattedDetails = (log) => {
+    let detailsText = log.details;
+
+    // Agar o'chirilgan ma'lumot (deletedData) ichida pul miqdori bo'lsa va hali matnga yozilmagan bo'lsa
+    if (log.deletedData && log.deletedData.amount && !detailsText.includes('so\'m')) {
+      const formattedAmount = Number(log.deletedData.amount).toLocaleString('ru-RU');
+      detailsText += ` (${formattedAmount} so'm)`;
+    }
+
     if (!detailsText.includes(':')) {
       return <span className="font-bold text-slate-800">{detailsText}</span>;
     }
+    
     const [action, ...rest] = detailsText.split(':');
     const target = rest.join(':').trim();
 
@@ -123,7 +132,7 @@ export default function ActivityLogs() {
   );
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto pb-24">
       
       {/* HEADER QISMI */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -169,39 +178,42 @@ export default function ActivityLogs() {
           <p className="text-sm text-slate-400 mt-2">Qidiruv so'zini o'zgartiring yoki tizimda amal bajaring.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        // 🔥 KOMPYUTERDA 2 TA QATOR (grid-cols-2), TELEFONDA 1 TA QATOR (grid-cols-1)
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredLogs.map((log) => {
             const style = getActionStyles(log.actionType, log.details);
             return (
               <div
                 key={log._id}
-                className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all flex flex-col"
+                className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all flex flex-col justify-between h-full"
               >
-                {/* 1. Tepa qism (Admin va Holati) */}
-                <div className="flex justify-between items-center px-4 py-3 border-b border-slate-50/80 bg-slate-50/50">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${style.bg} ${style.color}`}>
-                      {style.icon}
+                <div>
+                  {/* 1. Tepa qism (Admin va Holati) */}
+                  <div className="flex justify-between items-center px-4 py-3 border-b border-slate-50/80 bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${style.bg} ${style.color}`}>
+                        {style.icon}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">KIM BAJARDI:</p>
+                        <p className="text-sm font-bold text-slate-800">{log.adminName}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">KIM BAJARDI:</p>
-                      <p className="text-sm font-bold text-slate-800">{log.adminName}</p>
-                    </div>
+                    <span className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold uppercase tracking-wider ${style.bg} ${style.color}`}>
+                      {style.label}
+                    </span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold uppercase tracking-wider ${style.bg} ${style.color}`}>
-                    {style.label}
-                  </span>
-                </div>
 
-                {/* 2. Markaziy qism (Asosiy harakat matni) */}
-                <div className="px-4 py-4 sm:px-5">
-                  <p className="text-sm sm:text-base text-slate-700">
-                    {renderFormattedDetails(log.details)}
-                  </p>
+                  {/* 2. Markaziy qism (Asosiy harakat matni) */}
+                  <div className="px-4 py-5">
+                    <p className="text-[15px] text-slate-700">
+                      {renderFormattedDetails(log)}
+                    </p>
+                  </div>
                 </div>
 
                 {/* 3. Pastki qism (Vaqt va Tiklash tugmasi) */}
-                <div className="flex justify-between items-center px-4 py-3 bg-slate-50/50 border-t border-slate-50/80">
+                <div className="flex justify-between items-center px-4 py-3 bg-slate-50/50 border-t border-slate-50/80 mt-auto">
                   <span className="text-[11px] sm:text-xs font-bold text-slate-400 flex items-center gap-1.5">
                     <Clock size={14} />
                     {formatTime(log.createdAt)}
