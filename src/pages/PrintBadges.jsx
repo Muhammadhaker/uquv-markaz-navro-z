@@ -10,6 +10,8 @@ export default function PrintBadges() {
   
   const [printMode, setPrintMode] = useState("front"); 
   const [selectedIds, setSelectedIds] = useState([]);
+  
+  // 🔥 YANGI: Ekranda qaysi tarafni ko'rsatishni belgilovchi state
   const [previewMode, setPreviewMode] = useState("front"); 
 
   const role = localStorage.getItem("userRole");
@@ -114,19 +116,10 @@ export default function PrintBadges() {
             const actualIndex = printMode === 'front' ? slot : (slot % 2 === 0 ? slot + 1 : slot - 1);
             const student = pageStudents[actualIndex];
 
-            // 🔥 ASOSIY YECHIM: Har bir bejikning qog'ozdagi aniq millimetrli joylashuvi
-            const positions = [
-              { left: '34mm', top: '35mm' },   // 1-chi (Tepa chap)
-              { left: '107mm', top: '35mm' },  // 2-chi (Tepa o'ng)
-              { left: '34mm', top: '151mm' },  // 3-chi (Past chap)
-              { left: '107mm', top: '151mm' }, // 4-chi (Past o'ng)
-            ];
-            const pos = positions[slot];
-
-            if (!student) return <div key={slot} className="print-badge-card empty-slot" style={{ left: pos.left, top: pos.top }}></div>;
+            if (!student) return <div key={slot} className="print-badge-card empty-slot"></div>;
 
             return (
-              <div key={slot} className="print-badge-card" style={{ left: pos.left, top: pos.top }}>
+              <div key={slot} className="print-badge-card">
                 {printMode === 'front' ? (
                   <>
                     <div className="header-section">
@@ -145,7 +138,7 @@ export default function PrintBadges() {
                     </div>
                   </>
                 ) : (
-                  <div className="back-side w-full h-full relative">
+                  <div className="back-side">
                     <div className="logo-wrapper">
                       <img src="/icon-192.png" className="logo-img" alt="Logo" />
                     </div>
@@ -165,7 +158,7 @@ export default function PrintBadges() {
                       </div>
                     </div>
 
-                    <div className="footer-strip absolute bottom-0 left-0 w-full">Mantiq • Bilim • Natija</div>
+                    <div className="footer-strip">Mantiq • Bilim • Natija</div>
                   </div>
                 )}
               </div>
@@ -229,6 +222,7 @@ export default function PrintBadges() {
               </select>
             </div>
 
+            {/* 🔥 YANGI: Ekranda ko'rsatishni almashtirish (Preview Mode) */}
             <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto border border-slate-200">
               <button 
                 onClick={() => setPreviewMode('front')} 
@@ -270,6 +264,7 @@ export default function PrintBadges() {
                   {isSelected ? <CheckSquare className="text-indigo-600" size={18} /> : <Square className="text-slate-400" size={18} />}
                 </div>
 
+                {/* 🔥 EKRANDA KO'RINISHLARNI ALMASHTIRISH MANTIQI */}
                 {previewMode === 'front' ? (
                   <>
                     <div className="header-section">
@@ -336,7 +331,7 @@ export default function PrintBadges() {
               flex-wrap: wrap;
               gap: 15px; 
               justify-content: center;
-              perspective: 1000px;
+              perspective: 1000px; /* Chiroyli aylanish effekti uchun */
             }
 
             .screen-badge-card {
@@ -503,7 +498,6 @@ export default function PrintBadges() {
                 print-color-adjust: exact !important;
               }
 
-              /* 🔥 BU YERDA FLEXBOX OLIB TASHLANDI VA RELATIVE QILINDI */
               .print-page {
                 width: 210mm !important;
                 height: 297mm !important;
@@ -511,7 +505,14 @@ export default function PrintBadges() {
                 overflow: hidden !important;
                 background-color: #ffffff !important;
                 position: relative !important;
-                display: block !important; /* Flex emas */
+                
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-content: flex-start !important;
+                
+                padding-left: 34mm !important;
+                padding-top: 35mm !important;
+                gap: 5mm 4mm !important;
                 
                 page-break-after: always !important;
                 break-after: page !important;
@@ -546,9 +547,7 @@ export default function PrintBadges() {
                 break-after: auto !important;
               }
 
-              /* 🔥 HAR BIR BEJIK ENDI ABSOLUTE POZITSIYADA QOTIRILDI */
               .print-badge-card {
-                position: absolute !important;
                 width: 69mm !important;
                 height: 111mm !important;
                 background-color: #ffffff !important;
@@ -556,12 +555,16 @@ export default function PrintBadges() {
                 flex-direction: column !important;
                 align-items: center !important;
                 justify-content: space-between !important;
+                position: relative !important;
                 overflow: hidden !important;
                 
                 border: none !important; 
                 box-sizing: border-box !important;
+
                 box-shadow: none !important;
                 border-radius: 0 !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
               }
 
               .empty-slot {
