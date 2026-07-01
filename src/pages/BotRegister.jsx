@@ -19,43 +19,50 @@ export default function BotRegister() {
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
 
   useEffect(() => {
-    // 1. URL'dan chatId ni qidirish
-    const params = new URLSearchParams(window.location.search);
-    let currentId = params.get('chatId');
+    let currentId = null;
 
-    if (window.Telegram?.WebApp) {
-      try {
+    // 🔥 HIMOYA: Telegram WebApp obyekti borligini xavfsiz tekshirish
+    try {
+      if (typeof window !== "undefined" && window.Telegram && window.Telegram.WebApp) {
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-        tg.setHeaderColor("#4f46e5");
+        // Rangi brauzerda ishlamasligi mumkin, shuning uchun uni ham try ichiga oldik
+        try { tg.setHeaderColor("#4f46e5"); } catch (e) {} 
         
-        if (!currentId) {
-          currentId = tg.initDataUnsafe?.user?.id || null;
-        }
-      } catch (e) {
-        console.warn("Telegram WebApp yuklanish xatosi chetlab o'tildi.");
+        currentId = tg.initDataUnsafe?.user?.id || null;
       }
+    } catch (e) {
+      console.warn("Telegram WebApp obyekti topilmadi yoki xato:", e);
+    }
+
+    // URL'dan qidirish (Agar WebApp'dan topa olmasa)
+    if (!currentId) {
+      const params = new URLSearchParams(window.location.search);
+      currentId = params.get('chatId');
     }
 
     setChatId(currentId);
 
-    // 2. BAZADAN USTOZLARNI VA O'QUVCHINI TEKSHIRISH
     const initFetch = async () => {
       try {
         const authRes = await fetch("/api/auth");
-        const authData = await authRes.json();
-        if (authData.success) {
-          const activeTeachers = authData.data.filter(u => u.role === "teacher");
-          setTeachers(activeTeachers);
+        if(authRes.ok) {
+           const authData = await authRes.json();
+           if (authData.success && Array.isArray(authData.data)) {
+             const activeTeachers = authData.data.filter(u => u.role === "teacher");
+             setTeachers(activeTeachers);
+           }
         }
 
         if (currentId) {
           const studentRes = await fetch(`/api/students?telegramChatId=${currentId}`);
-          const studentData = await studentRes.json();
-          if (studentData.exists) {
-            setAlreadyRegistered(true);
-            setIsSuccess(true);
+          if(studentRes.ok) {
+             const studentData = await studentRes.json();
+             if (studentData.exists) {
+               setAlreadyRegistered(true);
+               setIsSuccess(true);
+             }
           }
         }
       } catch (err) {
@@ -66,24 +73,29 @@ export default function BotRegister() {
     };
 
     initFetch();
-  }, [currentId]);
+  }, []);
 
   const requestPhoneFromTelegram = () => {
-    const tg = window.Telegram?.WebApp;
-    
-    if (tg && tg.requestContact) {
-      tg.requestContact((shared, data) => {
-        if (shared && data?.responseUnsafe?.contact?.phone_number) {
-          setFormData((prev) => ({
-            ...prev,
-            phone: data.responseUnsafe.contact.phone_number
-          }));
-        } else {
-          alert("Ro'yxatdan o'tish uchun raqamni ulashish majburiy!");
-        }
-      });
-    } else {
-      alert("Iltimos, anketani Telegram bot orqali oching.");
+    try {
+      const tg = window.Telegram?.WebApp;
+      
+      if (tg && tg.requestContact) {
+        tg.requestContact((shared, data) => {
+          if (shared && data?.responseUnsafe?.contact?.phone_number) {
+            setFormData((prev) => ({
+              ...prev,
+              phone: data.responseUnsafe.contact.phone_number
+            }));
+          } else {
+            alert("Ro'yxatdan o'tish uchun raqamni ulashish majburiy!");
+          }
+        });
+      } else {
+        alert("Iltimos, anketani Telegram bot orqali oching.");
+      }
+    } catch (error) {
+       console.error("Telegram kontakt so'rash xatosi:", error);
+       alert("Telefon raqamni avtomatik olishning iloji bo'lmadi. Dasturni Telegram orqali qayta oching.");
     }
   };
 
@@ -118,15 +130,17 @@ export default function BotRegister() {
 
       if (res.ok) {
         setIsSuccess(true);
-        if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.HapticFeedback?.notificationOccurred("success");
-          window.Telegram.WebApp.showAlert(
-            "🎉 Muvaffaqiyatli ro'yxatdan o'tdingiz!", 
-            () => {
-              window.Telegram.WebApp.close(); 
-            }
-          );
-        }
+        try {
+          if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            window.Telegram.WebApp.HapticFeedback?.notificationOccurred("success");
+            window.Telegram.WebApp.showAlert(
+              "🎉 Muvaffaqiyatli ro'yxatdan o'tdingiz!", 
+              () => {
+                window.Telegram.WebApp.close(); 
+              }
+            );
+          }
+        } catch(e) { console.log(e); }
       } else {
         alert("Saqlashda xatolik yuz berdi!");
       }
@@ -233,7 +247,6 @@ export default function BotRegister() {
                   <div className="text-left overflow-hidden flex-1">
                     <span className="font-bold text-sm block truncate">{t.fullName || t.username}</span>
                     
-                    {/* 🔥 USTOZ FANI SHU YERDA CHIQADI */}
                     <span className="text-[11px] text-indigo-500 font-bold flex items-center gap-1 mt-0.5">
                       <BookOpen size={12} /> {t.subject || "Umumiy Fan"}
                     </span>
