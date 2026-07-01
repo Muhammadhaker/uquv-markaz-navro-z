@@ -7,14 +7,14 @@ export default function PrintBadges() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState("Barchasi");
-
-  const [printMode, setPrintMode] = useState("front");
+  
+  const [printMode, setPrintMode] = useState("front"); 
   const [selectedIds, setSelectedIds] = useState([]);
-  const [previewMode, setPreviewMode] = useState("front");
+  const [previewMode, setPreviewMode] = useState("front"); 
 
   const role = localStorage.getItem("userRole");
   let teacherName = localStorage.getItem("userFullName") || localStorage.getItem("username");
-
+  
   if (role === "super_admin" || teacherName === "Navroz") {
     teacherName = "G'ulomov Navro'z";
   } else if (!teacherName) {
@@ -36,7 +36,7 @@ export default function PrintBadges() {
         if (data.success) {
           const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
           setStudents(sortedStudents);
-          setSelectedIds(sortedStudents.map(s => s._id));
+          setSelectedIds(sortedStudents.map(s => s._id)); 
         }
       } catch (err) {
         console.error("O'quvchilarni yuklashda xato:", err);
@@ -61,7 +61,7 @@ export default function PrintBadges() {
   const handleGroupChange = (e) => {
     const newGroup = e.target.value;
     setSelectedGroup(newGroup);
-
+    
     const newFiltered = students.filter((s) => {
       if (newGroup === "Barchasi") return true;
       const sGroups = s.group ? s.group.split(",").map((g) => g.trim()) : [];
@@ -71,16 +71,16 @@ export default function PrintBadges() {
   };
 
   const toggleSelection = (id) => {
-    setSelectedIds(prev =>
+    setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
   const toggleAll = () => {
     if (selectedIds.length === filteredStudents.length) {
-      setSelectedIds([]);
+      setSelectedIds([]); 
     } else {
-      setSelectedIds(filteredStudents.map(s => s._id));
+      setSelectedIds(filteredStudents.map(s => s._id)); 
     }
   };
 
@@ -92,11 +92,10 @@ export default function PrintBadges() {
     }, 300);
   };
 
-  // 🔥 1-QADAM: Endi har bir qog'ozga 4 ta emas, 5 ta o'quvchi kesib olinadi
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id));
   const printPages = [];
-  for (let i = 0; i < selectedStudents.length; i += 5) {
-    printPages.push(selectedStudents.slice(i, i + 5));
+  for (let i = 0; i < selectedStudents.length; i += 4) {
+    printPages.push(selectedStudents.slice(i, i + 4));
   }
 
   if (loading) {
@@ -111,40 +110,23 @@ export default function PrintBadges() {
     <div className="print-only">
       {printPages.map((pageStudents, pageIndex) => (
         <div key={pageIndex} className="print-page">
-          {[0, 1, 2, 3, 4].map((slot) => {
-            // 🔥 2-QADAM: Qog'oz orqasi uchun joylashuvni to'g'irlash (0 bilan 1 o'zgaradi, 2 bilan 3 o'zgaradi, 4 joyida qoladi)
-            let actualIndex;
-            if (printMode === 'front') {
-              actualIndex = slot;
-            } else {
-              if (slot === 0) actualIndex = 1;
-              else if (slot === 1) actualIndex = 0;
-              else if (slot === 2) actualIndex = 3;
-              else if (slot === 3) actualIndex = 2;
-              else if (slot === 4) actualIndex = 4;
-            }
-
+          {[0, 1, 2, 3].map((slot) => {
+            const actualIndex = printMode === 'front' ? slot : (slot % 2 === 0 ? slot + 1 : slot - 1);
             const student = pageStudents[actualIndex];
 
-            // 🔥 3-QADAM: 5 TA KARTA UCHUN ANIQ KOORDINATALAR (A4 = 210x297mm)
+            // 🔥 ASOSIY YECHIM: Har bir bejikning qog'ozdagi aniq millimetrli joylashuvi
             const positions = [
-              { left: '34mm', top: '2mm' },
-              { left: '107mm', top: '2mm' },
-              { left: '34mm', top: '115mm' },
-              { left: '107mm', top: '115mm' },
-              { left: '70.5mm', top: '206mm' } // 5-karta: Yotqizilgani uchun Markazi shu nuqtada bo'ladi
+              { left: '34mm', top: '35mm' },   // 1-chi (Tepa chap)
+              { left: '107mm', top: '35mm' },  // 2-chi (Tepa o'ng)
+              { left: '34mm', top: '151mm' },  // 3-chi (Past chap)
+              { left: '107mm', top: '151mm' }, // 4-chi (Past o'ng)
             ];
             const pos = positions[slot];
 
-            // 🔥 5-Karta uchun yotqizish burchagini aniqlash
-            const isFifth = slot === 4;
-            // Agar orqa tomon chop etilayotgan bo'lsa, yotqizilgan kartani ham teskari aylantiramiz (qog'oz ochilganda to'g'ri kelishi uchun)
-            const transform = isFifth ? (printMode === 'front' ? 'rotate(-90deg)' : 'rotate(90deg)') : 'none';
-
-            if (!student) return <div key={slot} className="print-badge-card empty-slot" style={{ left: pos.left, top: pos.top, transform }}></div>;
+            if (!student) return <div key={slot} className="print-badge-card empty-slot" style={{ left: pos.left, top: pos.top }}></div>;
 
             return (
-              <div key={slot} className="print-badge-card" style={{ left: pos.left, top: pos.top, transform }}>
+              <div key={slot} className="print-badge-card" style={{ left: pos.left, top: pos.top }}>
                 {printMode === 'front' ? (
                   <>
                     <div className="header-section">
@@ -167,7 +149,7 @@ export default function PrintBadges() {
                     <div className="logo-wrapper">
                       <img src="/icon-192.png" className="logo-img" alt="Logo" />
                     </div>
-
+                    
                     <div className="social-qr-wrapper">
                       <div className="social-qr-item">
                         <div className="qr-border border-sky">
@@ -199,33 +181,33 @@ export default function PrintBadges() {
       <div className="no-print p-4 md:p-8 max-w-6xl mx-auto pb-24">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6 border-b border-slate-200 pb-6">
           <div>
-            <button
-              onClick={() => window.history.back()}
+            <button 
+              onClick={() => window.history.back()} 
               className="flex items-center gap-2 text-sm text-slate-500 hover:text-indigo-600 font-bold mb-3 transition-colors w-fit px-3 py-1.5 -ml-3 rounded-lg hover:bg-slate-100"
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">Yotqizilgan Super Bejiklar (1 varaqqa 5 ta)</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Toza Simmetrik Bejiklar (69x111)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Qog'ozni tejash uchun pastda yana 1 ta gorizontal karta chiqadi. O'lcham: (69x111).
+              Tipografiya usulidagi butun varaq bo'ylab tortilgan qirqish chiziqlari.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <button
+            <button 
               onClick={() => handlePrint('front')}
               disabled={selectedIds.length === 0}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <Printer size={20} /> <span>Oldi (QR) - {Math.ceil(selectedIds.length / 5)} varaq</span>
+              <Printer size={20} /> <span>Oldi (QR) - {selectedIds.length} ta</span>
             </button>
 
-            <button
+            <button 
               onClick={() => handlePrint('back')}
               disabled={selectedIds.length === 0}
               className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <ImageIcon size={20} /> <span>Orqasi (Logo) - {Math.ceil(selectedIds.length / 5)} varaq</span>
+              <ImageIcon size={20} /> <span>Orqasi (Logo) - {selectedIds.length} ta</span>
             </button>
           </div>
         </div>
@@ -248,14 +230,14 @@ export default function PrintBadges() {
             </div>
 
             <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto border border-slate-200">
-              <button
-                onClick={() => setPreviewMode('front')}
+              <button 
+                onClick={() => setPreviewMode('front')} 
                 className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${previewMode === 'front' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 Oldi tarafi
               </button>
-              <button
-                onClick={() => setPreviewMode('back')}
+              <button 
+                onClick={() => setPreviewMode('back')} 
                 className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${previewMode === 'back' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <RefreshCw size={14} className={previewMode === 'back' ? 'animate-spin-once' : ''} />
@@ -264,7 +246,7 @@ export default function PrintBadges() {
             </div>
           </div>
 
-          <button
+          <button 
             onClick={toggleAll}
             className="text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition-colors w-full md:w-auto text-center"
           >
@@ -276,8 +258,8 @@ export default function PrintBadges() {
           {filteredStudents.map((student) => {
             const isSelected = selectedIds.includes(student._id);
             return (
-              <div
-                key={student._id}
+              <div 
+                key={student._id} 
                 onClick={() => toggleSelection(student._id)}
                 className={`screen-badge-card cursor-pointer transition-all duration-300 
                   ${isSelected ? 'ring-2 ring-indigo-500 shadow-md' : 'opacity-40 grayscale-[40%] scale-95'}
@@ -312,7 +294,7 @@ export default function PrintBadges() {
                     <div className="logo-wrapper">
                       <img src="/icon-192.png" className="logo-img" alt="Logo" />
                     </div>
-
+                    
                     <div className="social-qr-wrapper">
                       <div className="social-qr-item">
                         <div className="qr-border border-sky">
@@ -521,6 +503,7 @@ export default function PrintBadges() {
                 print-color-adjust: exact !important;
               }
 
+              /* 🔥 BU YERDA FLEXBOX OLIB TASHLANDI VA RELATIVE QILINDI */
               .print-page {
                 width: 210mm !important;
                 height: 297mm !important;
@@ -528,11 +511,34 @@ export default function PrintBadges() {
                 overflow: hidden !important;
                 background-color: #ffffff !important;
                 position: relative !important;
-                display: block !important; 
+                display: block !important; /* Flex emas */
                 
                 page-break-after: always !important;
                 break-after: page !important;
                 box-sizing: border-box !important;
+
+                background-image: 
+                  linear-gradient(to right, #000 50%, transparent 50%),
+                  linear-gradient(to right, #000 50%, transparent 50%),
+                  linear-gradient(to right, #000 50%, transparent 50%),
+                  linear-gradient(to right, #000 50%, transparent 50%),
+                  
+                  linear-gradient(to bottom, #000 50%, transparent 50%),
+                  linear-gradient(to bottom, #000 50%, transparent 50%),
+                  linear-gradient(to bottom, #000 50%, transparent 50%),
+                  linear-gradient(to bottom, #000 50%, transparent 50%) !important;
+
+                background-size: 
+                  8px 1px, 8px 1px, 8px 1px, 8px 1px, 
+                  1px 8px, 1px 8px, 1px 8px, 1px 8px !important; 
+                
+                background-position: 
+                  0 35mm, 0 146mm, 0 151mm, 0 262mm, 
+                  34mm 0, 103mm 0, 107mm 0, 176mm 0 !important; 
+                  
+                background-repeat: 
+                  repeat-x, repeat-x, repeat-x, repeat-x, 
+                  repeat-y, repeat-y, repeat-y, repeat-y !important; 
               }
 
               .print-page:last-child {
@@ -540,7 +546,7 @@ export default function PrintBadges() {
                 break-after: auto !important;
               }
 
-              /* 🔥 5 TA BEJIK UCHUN AROFIDAN RAMKA QILIB QIRQISH CHIZIQLARI */
+              /* 🔥 HAR BIR BEJIK ENDI ABSOLUTE POZITSIYADA QOTIRILDI */
               .print-badge-card {
                 position: absolute !important;
                 width: 69mm !important;
@@ -552,9 +558,7 @@ export default function PrintBadges() {
                 justify-content: space-between !important;
                 overflow: hidden !important;
                 
-                /* 🔥 Qirqish oson bo'lishi uchun faqat shu qotirilgan kartalar atrofi teshik-teshik chiziq bo'ladi */
-                border: 1px dashed #94a3b8 !important; 
-                
+                border: none !important; 
                 box-sizing: border-box !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
