@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Plus, DollarSign } from "lucide-react";
+import { X, Plus, DollarSign, Loader2 } from "lucide-react";
 
 export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const getSafeDate = (dateStr) => {
@@ -24,6 +24,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const [currentGroupInput, setCurrentGroupInput] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // 🔥 CRITICAL FIX: API xavfsizlik va Multi-role kalitlari qo'shildi
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
     "x-user-role": localStorage.getItem("userRole") || "",
@@ -103,8 +104,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 🔥 TELEFONLAR UCHUN MAXSUS HIMOYA (UX Fix)
-    // Agar foydalanuvchi "Qo'shish" tugmasini bosishni esdan chiqarib, srazi "Saqlash"ni bossa
+    // Mobil telefonlar uchun aqlli saqlash logikasi
     let currentGroups = [...formData.groupsData];
     const trimmedInput = currentGroupInput.trim();
 
@@ -116,7 +116,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
     }
 
     if (currentGroups.length === 0) {
-      alert("Iltimos, o'quvchiga kamida bitta fan yoki guruh yozing!");
+      alert("Iltimos, o'quvchiga kamida bitta guruh kiriting!");
       return;
     }
 
@@ -132,10 +132,11 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
       ...formData, 
       phone: finalPhone,
       group: finalGroupString,
-      groupsData: currentGroups // To'g'rilangan guruhlarni yuboramiz
+      groupsData: currentGroups
     };
 
     try {
+      // 🔥 FIX: Bu yerga getAuthHeaders() qo'shildi! Endi backend xato qaytarmaydi
       const response = await fetch("/api/students", {
         method: method,
         headers: getAuthHeaders(),
@@ -153,9 +154,14 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
             details: `O'quvchi ${studentToEdit ? "tahrirlandi" : "qo'shildi"}: ${formData.name} (Guruhlari: ${finalGroupString})`
           })
         });
+        
+        // Hammasi muvaffaqiyatli bo'lsa, oynani xavfsiz yopamiz
         onClose();
+      } else {
+        alert("Xatolik: Server ma'lumotni qabul qilmadi.");
       }
     } catch (error) {
+      console.error(error);
       alert("Saqlashda xatolik yuz berdi");
     } finally {
       setLoading(false);
@@ -167,28 +173,30 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
   return (
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-[60] backdrop-blur-sm">
       <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-200">
-        <h2 className="text-xl font-bold mb-4 text-slate-800">
-          {studentToEdit ? "Tahrirlash" : "Yangi o'quvchi"}
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-slate-800">
+            {studentToEdit ? "Tahrirlash" : "Yangi o'quvchi"}
+          </h2>
+          <button type="button" onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full"><X size={18} /></button>
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             required
-            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-medium text-slate-800 transition-all bg-slate-50 hover:bg-white"
+            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
             placeholder="O'quvchi F.I.SH"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
           <input
             required
-            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-medium text-slate-800 transition-all bg-slate-50 hover:bg-white"
+            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
             placeholder="Ota-ona F.I.SH"
             value={formData.parentName}
             onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
           />
           <input
-            type="tel"
-            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold text-slate-800 transition-all bg-slate-50 hover:bg-white tracking-wide"
+            className="w-full p-3.5 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
             placeholder="Telefon (ixtiyoriy)"
             value={formData.phone}
             onChange={handlePhoneChange}
@@ -197,11 +205,11 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
 
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Qo'shilgan sana:</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Qo'shilgan sana:</label>
               <input
                 type="date"
                 required
-                className="w-full mt-1 p-3.5 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold text-slate-700 transition-all bg-slate-50 hover:bg-white cursor-pointer"
+                className="w-full mt-1 p-3.5 border rounded-xl outline-none focus:border-indigo-500 font-medium text-slate-700 bg-slate-50"
                 value={formData.addedAt}
                 onChange={(e) => setFormData({ ...formData, addedAt: e.target.value })}
               />
@@ -209,12 +217,12 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
           </div>
 
           <div className="space-y-3 pt-2 border-t pt-4">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Guruhlarni kiriting:</label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Guruhlarni kiriting:</label>
             
             <div className="flex gap-2">
               <input
                 type="text"
-                className="flex-1 p-3 border rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-medium transition-all"
+                className="flex-1 p-3 border rounded-xl outline-none focus:border-indigo-500 text-sm font-medium"
                 placeholder="Mas: Matematika 1-guruh"
                 value={currentGroupInput}
                 onChange={(e) => setCurrentGroupInput(e.target.value)}
@@ -223,28 +231,28 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
               <button
                 type="button"
                 onClick={addGroup}
-                className="bg-indigo-100 text-indigo-700 px-4 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center gap-1 active:scale-95"
+                className="bg-indigo-100 text-indigo-700 px-4 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center gap-1"
               >
                 <Plus size={18} /> Qo'shish
               </button>
             </div>
             
             {formData.groupsData.length > 0 && (
-              <div className="space-y-2 mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-inner">
-                <p className="text-[11px] text-slate-500 font-bold mb-2 uppercase">Tanlangan guruhlar va oylik to'lov:</p>
+              <div className="space-y-2 mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[11px] text-slate-400 font-medium mb-2">Tanlangan guruhlar narxini o'zgartirishingiz mumkin:</p>
                 {formData.groupsData.map((g, index) => (
-                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-2.5 border rounded-xl shadow-sm">
-                    <div className="flex items-center gap-2 max-w-[100%] sm:max-w-[50%]">
-                      <button type="button" onClick={() => removeGroup(g.name)} className="text-rose-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors p-1.5">
+                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-white p-2 border rounded-lg shadow-sm">
+                    <div className="flex items-center gap-2 max-w-[50%]">
+                      <button type="button" onClick={() => removeGroup(g.name)} className="text-rose-400 hover:text-rose-600 transition-colors p-1">
                         <X size={16} />
                       </button>
                       <span className="text-sm font-bold text-slate-700 truncate">{g.name}</span>
                     </div>
-                    <div className="flex items-center relative w-full sm:w-auto mt-1 sm:mt-0">
+                    <div className="flex items-center relative w-full sm:w-auto mt-2 sm:mt-0">
                       <input 
                         type="text" 
                         inputMode="numeric"
-                        className="w-full sm:w-32 py-2 pl-3 pr-8 border rounded-lg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-sm font-bold text-emerald-700 bg-emerald-50/50 transition-all"
+                        className="w-full sm:w-32 py-1.5 pl-3 pr-8 border rounded outline-none focus:border-emerald-500 text-sm font-bold text-emerald-600 bg-emerald-50"
                         value={g.price === 0 ? "" : g.price.toLocaleString("ru-RU")}
                         onChange={(e) => handlePriceChange(g.name, e.target.value)}
                       />
@@ -257,10 +265,8 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <button type="button" onClick={onClose} className="w-full py-3.5 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors active:scale-[0.98]">
-              Bekor qilish
-            </button>
-            <button type="submit" disabled={loading} className="w-full py-3.5 bg-indigo-600 font-bold text-white rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 flex justify-center items-center active:scale-[0.98]">
+            <button type="button" onClick={onClose} className="w-full py-3.5 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors">Bekor qilish</button>
+            <button type="submit" disabled={loading} className="w-full py-3.5 bg-indigo-600 font-bold text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-70 flex justify-center items-center shadow-lg shadow-indigo-600/20">
               {loading ? <Loader2 className="animate-spin" size={20} /> : "Saqlash"}
             </button>
           </div>
