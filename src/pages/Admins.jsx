@@ -172,7 +172,10 @@ export default function Admins() {
                   <tr key={a._id} className="hover:bg-slate-50 transition-colors align-top">
                     <td className="px-6 py-4 pt-5">
                       <div className="flex flex-col gap-1">
-                        <div className="font-bold text-slate-800 text-base">{a.fullName || a.username}</div>
+                        {/* 🔥 Navroz logini uchun avtomat ism chiqarish */}
+                        <div className="font-bold text-slate-800 text-base">
+                          {a.username === "Navroz" ? "G'ulomov Navro'z" : (a.fullName || a.username)}
+                        </div>
                         <div className="text-xs text-slate-500 flex items-center gap-1 font-mono bg-slate-100 px-2 py-0.5 rounded w-fit">
                           <Mail size={12} /> {a.username}
                         </div>
@@ -183,9 +186,9 @@ export default function Admins() {
                         <div className="flex items-center gap-2 font-mono text-slate-500 text-sm">
                           <Key size={14} className="text-slate-400" /> {a.password}
                         </div>
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 w-fit ${a.role === "super_admin" ? "bg-purple-50 text-purple-700" : a.role === "teacher" ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"
-                          }`}
-                        >
+                        <span className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 w-fit ${
+                          a.role === "super_admin" ? "bg-purple-50 text-purple-700" : a.role === "teacher" ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"
+                        }`}>
                           {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</> : a.role === "teacher" ? <><Shield size={12} /> USTOZ (ADMIN)</> : <><User size={12} /> YORDAMCHI</>}
                         </span>
                       </div>
@@ -211,8 +214,9 @@ export default function Admins() {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                      <User size={18} className="text-indigo-500" />
-                      {a.fullName || a.username}
+                      <User size={18} className="text-indigo-500 min-w-[18px]" />
+                      {/* 🔥 Navroz logini uchun avtomat ism chiqarish */}
+                      {a.username === "Navroz" ? "G'ulomov Navro'z" : (a.fullName || a.username)}
                     </h3>
                     <div className="text-xs text-slate-500 flex items-center gap-1 font-mono bg-slate-100 px-2 py-0.5 rounded w-fit mt-1 mb-2">
                       <Mail size={12} /> {a.username}
@@ -221,14 +225,15 @@ export default function Admins() {
                       <Key size={14} /> {a.password}
                     </div>
                     <span
-                      className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 w-fit ${a.role === "super_admin" ? "bg-purple-50 text-purple-700"
-                          : a.role === "teacher" ? "bg-indigo-50 text-indigo-700"
-                            : "bg-orange-50 text-orange-700"
-                        }`}
+                      className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 w-fit ${
+                        a.role === "super_admin" ? "bg-purple-50 text-purple-700"
+                        : a.role === "teacher" ? "bg-indigo-50 text-indigo-700"
+                        : "bg-orange-50 text-orange-700"
+                      }`}
                     >
                       {a.role === "super_admin" ? <><ShieldAlert size={12} /> SUPER ADMIN</>
-                        : a.role === "teacher" ? <><Shield size={12} /> USTOZ</>
-                          : <><User size={12} /> YORDAMCHI</>}
+                      : a.role === "teacher" ? <><Shield size={12} /> USTOZ</>
+                      : <><User size={12} /> YORDAMCHI</>}
                     </span>
                   </div>
                   {a.username !== "Navroz" && (
@@ -240,7 +245,7 @@ export default function Admins() {
                     </button>
                   )}
                 </div>
-
+                
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
                     <History size={12} /> Kirishlar tarixi:
