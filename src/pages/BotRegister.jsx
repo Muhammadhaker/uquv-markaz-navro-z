@@ -15,7 +15,6 @@ export default function BotRegister() {
   const [loading, setLoading] = useState(true); 
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
-  // 🔥 YANGI STATES: Ustozlarni dinamik yuklash va tanlash uchun
   const [teachers, setTeachers] = useState([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
 
@@ -44,16 +43,13 @@ export default function BotRegister() {
     // 2. BAZADAN USTOZLARNI VA O'QUVCHINI TEKSHIRISH
     const initFetch = async () => {
       try {
-        // Ustozlar ro'yxatini yuklaymiz
         const authRes = await fetch("/api/auth");
         const authData = await authRes.json();
         if (authData.success) {
-          // Faqat ustoz roliga ega xodimlarni ajratib olamiz
           const activeTeachers = authData.data.filter(u => u.role === "teacher");
           setTeachers(activeTeachers);
         }
 
-        // O'quvchi allaqachon mavjudligini tekshiramiz
         if (currentId) {
           const studentRes = await fetch(`/api/students?telegramChatId=${currentId}`);
           const studentData = await studentRes.json();
@@ -64,13 +60,13 @@ export default function BotRegister() {
         }
       } catch (err) {
         console.error("Ma'lumotlarni yuklashda xatolik:", err);
-      } {
+      } finally {
         setLoading(false);
       }
     };
 
     initFetch();
-  }, []);
+  }, [currentId]);
 
   const requestPhoneFromTelegram = () => {
     const tg = window.Telegram?.WebApp;
@@ -114,8 +110,8 @@ export default function BotRegister() {
           name: formData.name,
           parentName: formData.parentName,
           phone: formData.phone,
-          group: "Yangi ro'yxatdan o'tgan", // Boshlang'ich holat (Ustoz guruhga qo'shadi)
-          teacherId: selectedTeacherId, // 🔥 DYNAMIC FIX: Avtomat tanlangan ustozga birikadi!
+          group: "Yangi ro'yxatdan o'tgan",
+          teacherId: selectedTeacherId, 
           telegramChatId: chatId, 
         }),
       });
@@ -215,7 +211,6 @@ export default function BotRegister() {
             </button>
           </div>
 
-          {/* 🔥 DINAMIK USTUN: USTOZLAR VA FANLAR SELEKTI */}
           <div className="space-y-3 pt-2">
             <label className="text-xs font-bold text-slate-500 uppercase ml-1 block text-center">
               Qaysi ustoz (fan) guruhiga yozilmoqchisiz?
@@ -237,7 +232,11 @@ export default function BotRegister() {
                   </div>
                   <div className="text-left overflow-hidden flex-1">
                     <span className="font-bold text-sm block truncate">{t.fullName || t.username}</span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Faol Ustoz</span>
+                    
+                    {/* 🔥 USTOZ FANI SHU YERDA CHIQADI */}
+                    <span className="text-[11px] text-indigo-500 font-bold flex items-center gap-1 mt-0.5">
+                      <BookOpen size={12} /> {t.subject || "Umumiy Fan"}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -251,9 +250,11 @@ export default function BotRegister() {
           <button
             type="submit"
             disabled={isSubmitting || teachers.length === 0}
-            className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-base"
+            className="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-base flex items-center justify-center gap-2"
           >
-            {isSubmitting ? "Yuborilmoqda..." : "Tasdiqlash va Yuborish"}
+            {isSubmitting ? (
+              <><Loader2 className="animate-spin" size={20}/> Yuborilmoqda...</>
+            ) : "Tasdiqlash va Yuborish"}
           </button>
         </form>
       </div>

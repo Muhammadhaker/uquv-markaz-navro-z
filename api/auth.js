@@ -24,11 +24,12 @@ export default async function handler(req, res) {
   await connectDB();
 
   try {
+   // 1. G'ulomov Navro'z profilini Ustoz (teacher) roliga o'tkazish
     let navrozUser = await User.findOne({ username: "Navroz" });
     if (navrozUser) {
       navrozUser.role = "teacher";
       navrozUser.fullName = "G'ulomov Navro'z";
-      if(!navrozUser.subject) navrozUser.subject = "Matematika"; // Default fanni berish
+      navrozUser.subject = "Matematika"; // 🔥 MAJBURIY qilib qo'ydik (Oldingi narsani ezib yozadi)
       await navrozUser.save();
     } else {
       navrozUser = await User.create({
