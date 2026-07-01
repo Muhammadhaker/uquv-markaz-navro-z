@@ -1,12 +1,16 @@
 import { Menu, Bell, User, LogOut } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 export default function Header({ setIsOpen }) {
-  const navigate = useNavigate();
   
-  // 🔥 Xotiradan to'liq ism va rolni olamiz
-  const fullName = localStorage.getItem("userFullName") || localStorage.getItem("username") || "Xodim";
   const role = localStorage.getItem("userRole");
+  let fullName = localStorage.getItem("userFullName") || localStorage.getItem("username");
+
+  // 🔥 QAT'IY HIMOYA: Agar Super Admin bo'lsa yoki logini Navroz bo'lsa, avtomat G'ulomov Navro'z chiqadi!
+  if (role === "super_admin" || fullName === "Navroz") {
+    fullName = "G'ulomov Navro'z";
+  } else if (!fullName) {
+    fullName = "Xodim";
+  }
 
   const roleLabels = {
     super_admin: "Super Admin",
@@ -17,6 +21,7 @@ export default function Header({ setIsOpen }) {
   const handleLogout = (e) => {
     e.preventDefault(); 
     if (window.confirm("Tizimdan chiqmoqchimisiz?")) {
+      // 1. Xotirani tozalaymiz
       localStorage.removeItem("userId");
       localStorage.removeItem("userRole");
       localStorage.removeItem("username");
@@ -24,12 +29,13 @@ export default function Header({ setIsOpen }) {
       localStorage.removeItem("userPermissions");
       localStorage.removeItem("parentTeacherId");
 
-      navigate("/", { replace: true });
-      window.location.reload(); 
+      // 2. 🔥 TO'QNASHUVNING OLDINI OLISH:
+      // Hech qanday navigate() ishlatmasdan to'g'ridan-to'g'ri bosh sahifaga otamiz.
+      // Bu kompyuterda oq ekran bo'lib qotib qolish muammosini 100% yo'q qiladi!
+      window.location.replace("/"); 
     }
   };
 
-  // 🔥 Qo'ng'iroqcha bosilganda ishlaydigan funksiya
   const handleBellClick = () => {
     alert("Hozircha yangi bildirishnomalar yo'q!");
   };
@@ -48,7 +54,6 @@ export default function Header({ setIsOpen }) {
 
       <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
         
-        {/* 🔥 QO'NG'IROQCHA TUGMASI (Qizil nuqta olib tashlandi, OnClick qo'shildi) */}
         <button 
           onClick={handleBellClick}
           className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
@@ -59,7 +64,6 @@ export default function Header({ setIsOpen }) {
 
         <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 md:pl-6 border-l border-slate-200">
           
-          {/* 🔥 PROFIL MA'LUMOTLARI (Telefonda ham ko'rinadigan qilindi) */}
           <div className="flex flex-col items-end max-w-[120px] sm:max-w-[200px]">
             <span className="text-[11px] sm:text-sm font-bold text-slate-800 leading-none truncate w-full text-right">
               {fullName}

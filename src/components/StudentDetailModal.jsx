@@ -65,13 +65,19 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const isExcepted = localException.includes(targetMonth);
   const activeCycles = calculateCycles(student.addedAt);
 
-  // 🔥 Xotiradan Ustoz ismini olamiz
-  const teacherName = localStorage.getItem("userFullName") || "O'qituvchi";
+  // 🔥 QAT'IY HIMOYA: Ustoz ismini avtomat aniqlash
+  const role = localStorage.getItem("userRole");
+  let teacherName = localStorage.getItem("userFullName") || localStorage.getItem("username");
+  
+  if (role === "super_admin" || teacherName === "Navroz") {
+    teacherName = "G'ulomov Navro'z";
+  } else if (!teacherName) {
+    teacherName = "O'qituvchi";
+  }
 
-  // 🔥 API himoya kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
-    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-role": role || "",
     "x-user-id": localStorage.getItem("userId") || "",
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
@@ -354,8 +360,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             <div class="student-details">
               <div class="st-name">${student.name}</div>
               <div class="st-group">📚 ${student.group || "Guruhsiz"}</div>
-              <div class="st-teacher">USTOZ: ${teacherName}</div> <!-- 🔥 USTOZ ISMI PRINTGA CHIQADI -->
-            </div>
+              <div class="st-teacher">USTOZ: ${teacherName}</div> </div>
           </div>
           <script>
             window.onload = () => {

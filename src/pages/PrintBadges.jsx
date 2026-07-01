@@ -11,13 +11,19 @@ export default function PrintBadges() {
   const [printMode, setPrintMode] = useState("front"); 
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // 🔥 Xotiradan Ustoz ismini olamiz
-  const teacherName = localStorage.getItem("userFullName") || "O'qituvchi";
+  // 🔥 QAT'IY HIMOYA: Ustoz ismini avtomat aniqlash
+  const role = localStorage.getItem("userRole");
+  let teacherName = localStorage.getItem("userFullName") || localStorage.getItem("username");
+  
+  if (role === "super_admin" || teacherName === "Navroz") {
+    teacherName = "G'ulomov Navro'z";
+  } else if (!teacherName) {
+    teacherName = "O'qituvchi";
+  }
 
-  // 🔥 API himoya kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
-    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-role": role || "",
     "x-user-id": localStorage.getItem("userId") || "",
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
@@ -126,7 +132,7 @@ export default function PrintBadges() {
                     <div className="student-details">
                       <div className="st-name">{student.name}</div>
                       <div className="st-group">📚 {student.group || "Guruhsiz"}</div>
-                      <div className="st-teacher">USTOZ: {teacherName}</div> {/* 🔥 USTOZ ISMI */}
+                      <div className="st-teacher">USTOZ: {teacherName}</div>
                     </div>
                   </>
                 ) : (
@@ -233,7 +239,7 @@ export default function PrintBadges() {
                 <div className="student-details">
                   <div className="st-name">{student.name}</div>
                   <div className="st-group">📚 {student.group || "Guruhsiz"}</div>
-                  <div className="st-teacher">USTOZ: {teacherName}</div> {/* 🔥 USTOZ ISMI EKRAYNDA HAM CHIQADI */}
+                  <div className="st-teacher">USTOZ: {teacherName}</div>
                 </div>
               </div>
             )
