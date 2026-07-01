@@ -30,20 +30,29 @@ export default async function handler(req, res) {
     await connectDB();
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     
-    // 🔥 O'ZGARISH: Endi istisnosiz hamma o'quvchini bazadan olamiz!
     const students = await Student.find({});
     const payments = await Payment.find({});
     
     const today = new Date();
     const currentDay = today.getDate(); 
     const targetMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    
+    // 🔥 YANGI: Bugungi sanani aniq formatda olamiz (Masalan: 2026-07-01)
+    const todayFormatted = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
     let sentStudents = [];
     let failedStudents = [];
-    let unlinkedStudents = []; // 🔥 YANGI: Botga ulanmaganlar ro'yxati
+    let unlinkedStudents = []; 
+    let alreadySentStudents = []; // 🔥 YANGI: Bugun allaqachon borganlar ro'yxati
 
     for (const student of students) {
       if (student.exceptionMonths && student.exceptionMonths.includes(targetMonthStr)) continue;
+
+      // 🔥 ASOSIY XIMOYA: Agar shu o'quvchiga bugun xabar yuborilgan bo'lsa, o'tkazib yuboramiz!
+      if (student.lastReminderDate === todayFormatted) {
+          alreadySentStudents.push(student.name);
+          continue; 
+      }
 
       const addedDate = new Date(student.addedAt || today);
       const joinedDay = addedDate.getDate(); 
@@ -84,7 +93,6 @@ export default async function handler(req, res) {
 
       let messageText = "";
 
-      // Shartlar (2 kun qolganda yoki qarz bo'lib, sana toq bo'lganda)
       if (isWarningDay) {
         const hasPaidAvans = payments.some(p => p.studentId === student._id.toString() && p.month === targetMonthStr);
         if (overallDebt > 0 || !hasPaidAvans) {
@@ -96,10 +104,9 @@ export default async function handler(req, res) {
       }
 
       if (messageText) {
-        // 🔥 TELEGRAMCHATID TEKSHIRUVI SHU YERDA:
         if (!student.telegramChatId || student.telegramChatId.toString().trim() === "") {
             unlinkedStudents.push(student.name);
-            continue; // Ulanmaganlarga xabar yuborib vaqt yo'qotmaydi!
+            continue; 
         }
 
         try {
@@ -113,6 +120,13 @@ export default async function handler(req, res) {
           
           if (tgData.ok) {
              sentStudents.push(student.name);
+             
+             // 🔥 YANGI: Xabar aniq bordimi? Demak profilga bugungi sanani muhrlaymiz!
+             await Student.updateOne(
+               { _id: student._id },
+               { $set: { lastReminderDate: todayFormatted } }
+             );
+
           } else {
              failedStudents.push({ 
                name: student.name, 
@@ -129,8 +143,9 @@ export default async function handler(req, res) {
         success: true, 
         hisobot: "Tizim to'liq tahlil qilindi!",
         muvaffaqiyatli_yuborildi: sentStudents,
+        bugun_allaqachon_yuborilganlar: alreadySentStudents, // 🔥 Bu qator ham paydo bo'ladi
         xatolik_berdi: failedStudents,
-        botga_ulanmaganlar: unlinkedStudents // Bular endi aniq ko'rinadi
+        botga_ulanmaganlar: unlinkedStudents 
     });
 
   } catch (error) {
