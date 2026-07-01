@@ -11,7 +11,6 @@ export default function PrintBadges() {
   const [printMode, setPrintMode] = useState("front"); 
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // 🔥 QAT'IY HIMOYA: Ustoz ismini avtomat aniqlash
   const role = localStorage.getItem("userRole");
   let teacherName = localStorage.getItem("userFullName") || localStorage.getItem("username");
   
@@ -140,6 +139,23 @@ export default function PrintBadges() {
                     <div className="logo-wrapper">
                       <img src="/icon-192.png" className="logo-img" alt="Logo" />
                     </div>
+                    
+                    {/* 🔥 Yangi qo'shilgan Telegram va Instagram QR-kodlar */}
+                    <div className="social-qr-wrapper">
+                      <div className="social-qr-item">
+                        <div className="qr-border border-sky">
+                          <QRCodeSVG value="https://t.me/+kupDoBtCVOlmMjRi" size={45} level="M" fgColor="#0284c7" />
+                        </div>
+                        <span className="text-sky">Telegram</span>
+                      </div>
+                      <div className="social-qr-item">
+                        <div className="qr-border border-pink">
+                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/#" size={45} level="M" fgColor="#db2777" />
+                        </div>
+                        <span className="text-pink">Instagram</span>
+                      </div>
+                    </div>
+
                     <div className="footer-strip">Mantiq • Bilim • Natija</div>
                   </div>
                 )}
@@ -324,9 +340,9 @@ export default function PrintBadges() {
             }
             .st-group { font-size: 10px; color: #4f46e5 !important; font-weight: 700; }
             
-            /* 🔥 USTOZ ISMI UCHUN CSS */
             .st-teacher { font-size: 8px; color: #64748b !important; font-weight: 800; margin-top: 3px; text-transform: uppercase; }
 
+            /* 🔥 ORQA QISM CSS YANGILANDI */
             .back-side {
               display: flex;
               flex-direction: column;
@@ -334,7 +350,7 @@ export default function PrintBadges() {
               height: 100%;
               justify-content: flex-start;
               background-color: #ffffff !important;
-              padding-top: 12mm;
+              padding-top: 10mm; /* Logo sal teparoqqa chiqdi */
               position: relative;
             }
             .logo-wrapper {
@@ -342,14 +358,41 @@ export default function PrintBadges() {
               display: flex;
               justify-content: center;
               align-items: center;
-              flex: 1;
-              padding-bottom: 10mm;
+              margin-bottom: auto; /* Ijtimoiy tarmoqlarni pastga itaradi */
             }
             .logo-img {
-              width: 60mm;
-              height: 60mm;
+              width: 48mm; /* O'lcham moslashtirildi */
+              height: 48mm;
               object-fit: contain;
             }
+            .social-qr-wrapper {
+              width: 100%;
+              display: flex;
+              justify-content: space-evenly;
+              padding-bottom: 12mm; /* Pastdan masofa */
+              align-items: flex-end;
+            }
+            .social-qr-item {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 4px;
+            }
+            .qr-border {
+              padding: 2px;
+              border-radius: 4px;
+              background: #fff !important;
+            }
+            .border-sky { border: 1px solid #bae6fd !important; }
+            .border-pink { border: 1px solid #fbcfe8 !important; }
+            .social-qr-item span {
+              font-size: 8px;
+              font-weight: 900;
+              text-transform: uppercase;
+            }
+            .text-sky { color: #0284c7 !important; }
+            .text-pink { color: #db2777 !important; }
+
             .footer-strip {
               position: absolute;
               bottom: 0;

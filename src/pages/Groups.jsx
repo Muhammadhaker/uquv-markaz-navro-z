@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Loader2, UserPlus, Pencil, Trash2, Filter, CalendarDays, Users } from "lucide-react";
+import { Search, Loader2, UserPlus, Pencil, Trash2, Filter, CalendarDays, Users, X, Wallet, ShieldAlert } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
 import StudentDetailModal from "../components/StudentDetailModal";
 
@@ -39,11 +39,14 @@ export default function Groups() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilterGroup, setSelectedFilterGroup] = useState("Barchasi");
+  
+  // 🔥 YANGI: To'lov holati bo'yicha filtr
+  const [selectedPaymentFilter, setSelectedPaymentFilter] = useState("Barchasi");
+
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentToEdit, setStudentToEdit] = useState(null);
 
-  // 🔥 YANGI: API ga kim murojaat qilayotganini bildiruvchi yashirin kalitlar
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
     "x-user-role": localStorage.getItem("userRole") || "",
@@ -80,7 +83,7 @@ export default function Groups() {
     try {
       await fetch("/api/students", {
         method: "DELETE",
-        headers: getAuthHeaders(), // 🔥 Headers qo'shildi
+        headers: getAuthHeaders(),
         body: JSON.stringify({ id: s._id }),
       });
 
@@ -109,20 +112,6 @@ export default function Groups() {
     setIsStudentModalOpen(true);
   };
 
-  const allGroups = students.flatMap(s => 
-    s.group ? s.group.split(',').map(g => g.trim()) : []
-  );
-  const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
-
-  const filteredStudents = students.filter((s) => {
-    const studentGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
-    const matchesGroup = selectedFilterGroup === "Barchasi" || studentGroups.includes(selectedFilterGroup);
-    
-    const lowerQuery = searchQuery.toLowerCase();
-    const matchesSearch = s.name.toLowerCase().includes(lowerQuery) || (s.phone && s.phone.includes(searchQuery));
-    return matchesGroup && matchesSearch;
-  });
-
   const getStudentGroupPrice = (student, groupName) => {
     if (student.groupsData && Array.isArray(student.groupsData)) {
       const found = student.groupsData.find(g => g.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
@@ -131,8 +120,66 @@ export default function Groups() {
     return 300000;
   };
 
+  const allGroups = students.flatMap(s => 
+    s.group ? s.group.split(',').map(g => g.trim()) : []
+  );
+  const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
+
+  // 🔥 1-QADAM: Har bir o'quvchining joriy to'lov holatini hisoblab chiqamiz
+  const studentsWithStatus = students.map((s) => {
+    const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+    const activeCycles = calculateCycles(s.addedAt);
+    
+    let EXPECTED_TOTAL = 0;
+    studentGroups.forEach(g => { EXPECTED_TOTAL += getStudentGroupPrice(s, g) * activeCycles; });
+    if (studentGroups.length === 0) EXPECTED_TOTAL = 300000 * activeCycles;
+
+    const studentPaymentsAllTime = payments.filter((p) => p.studentId === s._id);
+    let totalPaid = 0;
+    studentPaymentsAllTime.forEach(p => { totalPaid += Number(p.amount) || 0; });
+
+    const qarz = EXPECTED_TOTAL - totalPaid;
+    
+    // Istisno holatini aniqlash (Joriy oy uchun)
+    const today = new Date();
+    let year = today.getFullYear();
+    let month = today.getMonth() + 1;
+    if (today.getDate() <= 5) { month -= 1; if (month === 0) { month = 12; year -= 1; } }
+    const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
+    
+    const isExcepted = s.exceptionMonths && s.exceptionMonths.includes(targetMonth);
+    
+    let payStatus = "unpaid"; // qarz
+    if (isExcepted) payStatus = "excepted";
+    else if (qarz <= 0) payStatus = "paid";
+
+    return { ...s, qarz, EXPECTED_TOTAL, totalPaid, payStatus, isPartial: totalPaid > 0 && qarz > 0 };
+  });
+
+  // 🔥 2-QADAM: Guruh va Qidiruv bo'yicha birlamchi filtrlash
+  const baseFilteredStudents = studentsWithStatus.filter((s) => {
+    const studentGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
+    const matchesGroup = selectedFilterGroup === "Barchasi" || studentGroups.includes(selectedFilterGroup);
+    
+    const lowerQuery = searchQuery.toLowerCase();
+    const matchesSearch = s.name.toLowerCase().includes(lowerQuery) || (s.phone && s.phone.includes(searchQuery));
+    
+    return matchesGroup && matchesSearch;
+  });
+
+  // 🔥 3-QADAM: To'lov statistikasini hisoblash (Tanlangan guruh ichida)
+  const paidCount = baseFilteredStudents.filter(s => s.payStatus === "paid").length;
+  const unpaidCount = baseFilteredStudents.filter(s => s.payStatus === "unpaid").length;
+  const exceptedCount = baseFilteredStudents.filter(s => s.payStatus === "excepted").length;
+
+  // 🔥 4-QADAM: To'lov holati bo'yicha yakuniy filtrlash
+  const finalFilteredStudents = baseFilteredStudents.filter(s => {
+    if (selectedPaymentFilter === "Barchasi") return true;
+    return s.payStatus === selectedPaymentFilter;
+  });
+
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto pb-20">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto pb-20">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-slate-800">O'quvchilar jadvali</h1>
         <button
@@ -172,7 +219,10 @@ export default function Groups() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      {/* 🔥 QIDIRUV VA IKKITA FILTR BLOKI */}
+      <div className="flex flex-col lg:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        
+        {/* Qidiruv (X tugmasi bilan) */}
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input
@@ -180,26 +230,45 @@ export default function Groups() {
             placeholder="Ism yoki telefon qidiring..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3.5 rounded-xl border focus:border-indigo-500 outline-none shadow-sm transition-all"
+            className="w-full pl-11 pr-10 py-3.5 rounded-xl border focus:border-indigo-500 outline-none transition-all bg-slate-50 font-medium"
           />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery("")} 
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
-        <div className="relative sm:w-64">
+        {/* Guruhlar filtri */}
+        <div className="relative lg:w-56">
           <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
           <select
             value={selectedFilterGroup}
             onChange={(e) => setSelectedFilterGroup(e.target.value)}
-            className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-indigo-200 focus:border-indigo-500 outline-none shadow-sm appearance-none bg-indigo-50/30 text-indigo-900 font-medium cursor-pointer transition-all"
+            className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none appearance-none bg-slate-50 text-slate-700 font-bold cursor-pointer transition-all"
           >
             {uniqueGroups.map((group) => (
-              <option key={group} value={group}>
-                {group}
-              </option>
+              <option key={group} value={group}>{group}</option>
             ))}
           </select>
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-            <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </div>
+        </div>
+
+        {/* 🔥 YANGI: To'lov holati filtri va Statistika */}
+        <div className="relative lg:w-64">
+          <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={20} />
+          <select
+            value={selectedPaymentFilter}
+            onChange={(e) => setSelectedPaymentFilter(e.target.value)}
+            className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-emerald-200 focus:border-emerald-500 outline-none appearance-none bg-emerald-50/30 text-emerald-900 font-bold cursor-pointer transition-all"
+          >
+            <option value="Barchasi">💰 Barcha to'lov holati</option>
+            <option value="paid">✅ To'laganlar ({paidCount} ta)</option>
+            <option value="unpaid">❌ Qarzdorlar ({unpaidCount} ta)</option>
+            <option value="excepted">🛡️ Istisnolar ({exceptedCount} ta)</option>
+          </select>
         </div>
       </div>
 
@@ -208,64 +277,56 @@ export default function Groups() {
           <div className="py-10 text-center">
             <Loader2 className="animate-spin mx-auto text-slate-400" />
           </div>
-        ) : filteredStudents.length === 0 ? (
-          <div className="py-10 text-center text-slate-500">
-            {searchQuery || selectedFilterGroup !== "Barchasi" ? "Bunday o'quvchi topilmadi." : "O'quvchilar yo'q."}
+        ) : finalFilteredStudents.length === 0 ? (
+          <div className="py-10 text-center text-slate-500 font-medium">
+            {searchQuery || selectedFilterGroup !== "Barchasi" || selectedPaymentFilter !== "Barchasi" 
+              ? "Filtr bo'yicha o'quvchi topilmadi." 
+              : "O'quvchilar yo'q."}
           </div>
         ) : (
-          filteredStudents.map((s) => {
-            const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-            const activeCycles = calculateCycles(s.addedAt);
-            
-            let EXPECTED_TOTAL = 0;
-            studentGroups.forEach(g => {
-              EXPECTED_TOTAL += getStudentGroupPrice(s, g) * activeCycles;
-            });
-
-            if (studentGroups.length === 0) {
-                EXPECTED_TOTAL = 300000 * activeCycles;
-            }
-
-            const studentPaymentsAllTime = payments.filter((p) => p.studentId === s._id);
-            let totalPaid = 0;
-            studentPaymentsAllTime.forEach(p => {
-              totalPaid += Number(p.amount) || 0;
-            });
-
-            const qarz = EXPECTED_TOTAL - totalPaid;
-            const isPaid = qarz <= 0;
-            const isPartial = totalPaid > 0 && qarz > 0;
-
+          finalFilteredStudents.map((s, index) => { // 🔥 TARTIB RAQAM UCHUN INDEX QO'SHILDI
             return (
               <div
                 key={s._id}
                 onClick={() => setSelectedStudent(s)}
-                className="bg-white p-4 rounded-2xl border shadow-sm flex justify-between items-center hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col sm:flex-row justify-between sm:items-center hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer gap-3"
               >
-                <div>
-                  <div className="font-bold text-slate-800 text-lg">
-                    {s.name}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {s.group} • {formatPhoneNumber(s.phone)}
-                  </div>
+                <div className="flex items-start sm:items-center gap-3">
                   
-                  <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mt-1">
-                    <CalendarDays size={12} />
-                    Ro'yxatdan o'tgan: {formatDate(s.addedAt)} ({activeCycles} oylik)
+                  {/* 🔥 TARTIB RAQAM KUBIGI */}
+                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 font-black rounded-xl flex items-center justify-center flex-shrink-0 border border-indigo-100 shadow-sm mt-1 sm:mt-0">
+                    {index + 1}
                   </div>
 
-                  <div
-                    className={`text-xs font-bold mt-2 inline-block px-2.5 py-1 rounded-md ${
-                      isPaid ? "bg-emerald-50 text-emerald-600" : 
-                      isPartial ? "bg-orange-50 text-orange-600" : 
-                      "bg-rose-50 text-rose-600"
-                    }`}
-                  >
-                    {isPaid ? "To'liq to'langan" : qarz > 0 ? `Umumiy Qarz: ${qarz.toLocaleString()} so'm` : "To'lanmagan"}
+                  <div>
+                    <div className="font-bold text-slate-800 text-lg">
+                      {s.name}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {s.group} • {formatPhoneNumber(s.phone)}
+                    </div>
+                    
+                    <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mt-1">
+                      <CalendarDays size={12} />
+                      Ro'yxat: {formatDate(s.addedAt)} ({calculateCycles(s.addedAt)} oylik)
+                    </div>
+
+                    <div
+                      className={`text-[11px] font-bold mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-md ${
+                        s.payStatus === "paid" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : 
+                        s.payStatus === "excepted" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                        s.isPartial ? "bg-orange-50 text-orange-600 border border-orange-100" : 
+                        "bg-rose-50 text-rose-600 border border-rose-100"
+                      }`}
+                    >
+                      {s.payStatus === "paid" ? "✅ To'liq to'langan" : 
+                       s.payStatus === "excepted" ? <><ShieldAlert size={12}/> Istisno (Ruxsat berilgan)</> :
+                       `❌ Qarz: ${s.qarz.toLocaleString()} so'm`}
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-1">
+                
+                <div className="flex gap-1 justify-end">
                   <button
                     onClick={(e) => handleEdit(e, s)}
                     className="p-3 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"

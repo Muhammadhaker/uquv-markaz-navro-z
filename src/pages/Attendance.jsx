@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Loader2, Search, QrCode } from "lucide-react";
+import { Save, Loader2, Search, QrCode, X, Eraser } from "lucide-react";
 import AttendanceScanner from "../components/AttendanceScanner";
 
 export default function Attendance() {
@@ -15,10 +15,8 @@ export default function Attendance() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showScanner, setShowScanner] = useState(false);
 
-  // 🔥 KAMERA TEZLIGIDAN QAT'IY HIMOYA XOTIRASI
   const scanCooldowns = useRef({});
 
-  // 🔥 API himoya kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
     "x-user-role": localStorage.getItem("userRole") || "",
@@ -61,7 +59,7 @@ export default function Attendance() {
           const mapped = {};
           result.data.records.forEach((r) => { 
             mapped[r.studentId] = {
-              status: r.status,
+              status: r.status || "", // Bo'sh bo'lsa xotirada qoladi
               arrivalTime: r.arrivalTime,
               leaveTime: r.leaveTime,
               lastScan: r.lastScan || 0
@@ -88,21 +86,32 @@ export default function Attendance() {
     return matchesGroup && matchesSearch;
   });
 
+  // 🔥 HAMMANI KELDI QILISH
   const markAllPresent = () => {
     const newRecords = { ...attendanceRecords };
     const now = Date.now();
     const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
     
     currentGroupStudents.forEach((s) => { 
-      if (!newRecords[s._id] || newRecords[s._id].status === "kelmadi") {
+      if (!newRecords[s._id] || newRecords[s._id].status === "kelmadi" || newRecords[s._id].status === "") {
         newRecords[s._id] = { status: "keldi", arrivalTime: timeStr, lastScan: now }; 
-        scanCooldowns.current[s._id] = now; // Qo'lda qilganda ham xotiraga yozamiz
+        scanCooldowns.current[s._id] = now; 
       }
     });
     setAttendanceRecords(newRecords);
   };
 
-  // 🔥 QR SKANER (YANGILANGAN QAT'IY BLOKROVKA)
+  // 🔥 YANGI: HAMMASINI TOZALASH (Shu kun uchun)
+  const clearAllAttendance = () => {
+    if(!window.confirm(`Haqiqatan ham ${selectedDate} sanasidagi barcha davomatni tozalab tashlamoqchimisiz?`)) return;
+    
+    const newRecords = { ...attendanceRecords };
+    currentGroupStudents.forEach((s) => { 
+      newRecords[s._id] = { status: "", arrivalTime: null, leaveTime: null, lastScan: null }; 
+    });
+    setAttendanceRecords(newRecords);
+  };
+
   const handleScan = async (scannedId) => {
     const studentObj = students.find(s => s._id === scannedId);
     if (!studentObj) {
@@ -114,7 +123,6 @@ export default function Attendance() {
     const now = Date.now();
     const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
     
-    // 1-HIMOYA: KAMERA TEZLIGI (React ulgurmasidan oldin qat'iy to'sish)
     const lastTimeRef = scanCooldowns.current[scannedId] || 0;
     if (now - lastTimeRef < 1800000) {
       setStatus({ type: "error", text: "❌ Kamida 30 daqiqa kuting!" });
@@ -122,24 +130,22 @@ export default function Attendance() {
       return;
     }
 
-    const record = attendanceRecords[scannedId] || { status: "kelmadi", lastScan: 0 };
+    const record = attendanceRecords[scannedId] || { status: "", lastScan: 0 };
     
-    // 2-HIMOYA: BAZA VA SAHIFA YANGILANISHIDAN KEYINGI HOLAT
-    if (record.status !== "kelmadi" && (now - (record.lastScan || 0) < 1800000)) {
+    if (record.status !== "" && record.status !== "kelmadi" && (now - (record.lastScan || 0) < 1800000)) {
       scanCooldowns.current[scannedId] = record.lastScan || now;
       setStatus({ type: "error", text: "❌ Kamida 30 daqiqa kuting!" });
       setTimeout(() => setStatus({ type: "", text: "" }), 3000);
       return; 
     }
 
-    // Tizim barcha qulfdan o'tkazdi -> Srazu yana xotiraga qulflaymiz (dubl bo'lmasligi uchun)
     scanCooldowns.current[scannedId] = now;
 
     let newStatus = "keldi";
     let arrTime = record.arrivalTime;
     let levTime = record.leaveTime;
 
-    if (record.status === "kelmadi") {
+    if (record.status === "" || record.status === "kelmadi") {
       newStatus = "keldi";
       arrTime = timeStr; 
     } else if (record.status === "keldi" || record.status === "kechikdi") {
@@ -162,7 +168,6 @@ export default function Attendance() {
     setStatus({ type: "success", text: `✅ Qabul qilindi: ${newStatus.toUpperCase()} (${timeStr})` });
     setTimeout(() => setStatus({ type: "", text: "" }), 3000);
 
-    // ORQA FONDA XABAR JO'NATISH
     try {
       await fetch("/api/attendance", {
         method: "POST",
@@ -205,6 +210,14 @@ export default function Attendance() {
     });
   };
 
+  // 🔥 YANGI: FAQAT BITTA O'QUVCHINI TOZALASH
+  const handleClearStatus = (studentId) => {
+    setAttendanceRecords((prev) => ({
+      ...prev,
+      [studentId]: { status: "", arrivalTime: null, leaveTime: null, lastScan: null }
+    }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -217,7 +230,7 @@ export default function Attendance() {
           return {
             studentId: s._id,
             studentName: s.name,
-            status: rec.status || "kelmadi", 
+            status: rec.status !== undefined ? rec.status : "", // 🔥 Tozalanilganlarni shundayligicha saqlaydi
             arrivalTime: rec.arrivalTime || null,
             leaveTime: rec.leaveTime || null,
             lastScan: rec.lastScan || null
@@ -280,22 +293,40 @@ export default function Attendance() {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="p-3 border rounded-xl font-bold bg-slate-50 cursor-pointer outline-none"
           />
-          <button
-            onClick={markAllPresent}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold transition-colors w-full sm:w-auto"
-          >
-            Hammasi Keldi
-          </button>
+          <div className="flex w-full sm:w-auto gap-2">
+            <button
+              onClick={markAllPresent}
+              className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold transition-colors"
+            >
+              Hammasi Keldi
+            </button>
+            <button
+              onClick={clearAllAttendance}
+              className="flex-1 sm:flex-none bg-rose-100 hover:bg-rose-200 text-rose-600 px-6 py-3 rounded-xl font-bold transition-colors"
+            >
+              Tozalash
+            </button>
+          </div>
         </div>
 
+        {/* 🔥 QIDIRUV VA X TUGMASI */}
         <div className="relative">
-          <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input
             type="text"
+            value={searchQuery}
             placeholder="Ism bo'yicha qidirish..."
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 p-3 border rounded-xl bg-slate-50 focus:border-indigo-500 outline-none"
+            className="w-full pl-12 pr-10 py-3.5 border rounded-xl bg-slate-50 focus:border-indigo-500 outline-none font-medium transition-colors"
           />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery("")} 
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -305,23 +336,33 @@ export default function Attendance() {
         ) : (
           currentGroupStudents.map((s) => {
             const rec = attendanceRecords[s._id] || {};
-            const currentStatus = rec.status || "kelmadi";
+            const currentStatus = rec.status || ""; // Boshlang'ich holat bo'sh
             
             return (
               <div key={s._id} className="p-4 border-b flex flex-col md:flex-row justify-between md:items-center gap-3 hover:bg-slate-50 transition-colors">
                 <div>
                   <div className="font-bold text-slate-700 text-lg">{s.name}</div>
-                  <div className="text-xs text-slate-400 flex gap-3 mt-1">
-                    {rec.arrivalTime && <span>Keldi: {rec.arrivalTime}</span>}
-                    {rec.leaveTime && <span className="text-rose-500">Ketdi: {rec.leaveTime}</span>}
+                  <div className="text-xs flex gap-3 mt-1">
+                    {rec.arrivalTime && <span className="text-emerald-600 font-medium">Keldi: {rec.arrivalTime}</span>}
+                    {rec.leaveTime && <span className="text-rose-500 font-medium">Ketdi: {rec.leaveTime}</span>}
+                    {!rec.arrivalTime && !rec.leaveTime && <span className="text-slate-400">Belgilanmagan</span>}
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 lg:flex bg-slate-100 p-1 rounded-xl gap-1 w-full md:w-auto">
-                  <button onClick={() => handleManualStatus(s._id, "keldi")} className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Keldi</button>
-                  <button onClick={() => handleManualStatus(s._id, "kechikdi")} className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kechikdi" ? "bg-amber-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Kechikdi</button>
-                  <button onClick={() => handleManualStatus(s._id, "ketdi")} className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "ketdi" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Ketdi</button>
-                  <button onClick={() => handleManualStatus(s._id, "kelmadi")} className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Kelmadi</button>
+                <div className="flex bg-slate-100 p-1 rounded-xl gap-1 w-full md:w-auto overflow-x-auto">
+                  <button onClick={() => handleManualStatus(s._id, "keldi")} className={`flex-1 md:flex-none px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "keldi" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Keldi</button>
+                  <button onClick={() => handleManualStatus(s._id, "kechikdi")} className={`flex-1 md:flex-none px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kechikdi" ? "bg-amber-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Kechikdi</button>
+                  <button onClick={() => handleManualStatus(s._id, "ketdi")} className={`flex-1 md:flex-none px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "ketdi" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Ketdi</button>
+                  <button onClick={() => handleManualStatus(s._id, "kelmadi")} className={`flex-1 md:flex-none px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Kelmadi</button>
+                  
+                  {/* 🔥 HAR BIRINI ALOHIDA TOZALASH TUGMASI (O'chirish / Qaytarish) */}
+                  <button 
+                    onClick={() => handleClearStatus(s._id)} 
+                    className="flex-none px-3 py-2 rounded-lg font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-100 transition-all flex items-center justify-center" 
+                    title="Tozalash"
+                  >
+                    <Eraser size={18} />
+                  </button>
                 </div>
               </div>
             )
