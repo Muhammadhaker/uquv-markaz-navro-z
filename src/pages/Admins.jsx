@@ -88,14 +88,16 @@ export default function Admins() {
     }
   };
 
-  const handleDeleteAdmin = async (id, name) => {
-    if (name === "Navroz") return alert("Super Adminni o'chirib bo'lmaydi!");
-    if (!window.confirm(`${name} ni o'chirmoqchimisiz?`)) return;
-    await fetch("/api/auth", {
-      method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id }),
-    });
-    fetchAdmins();
-  };
+// Fayl ichidagi xuddi shu handleDeleteAdmin funksiyasini almashtiring:
+
+const handleDeleteAdmin = async (id, name) => {
+  if (name === "Muhammad") return alert("Super Adminni o'chirib bo'lmaydi!"); // 🔥 Muhammad himoyalandi
+  if (!window.confirm(`${name} ni o'chirmoqchimisiz?`)) return;
+  await fetch("/api/auth", {
+    method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id }),
+  });
+  fetchAdmins();
+};
 
   const formatTime = (dateStr) => {
     if (!dateStr) return "";

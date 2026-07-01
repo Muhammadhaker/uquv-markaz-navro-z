@@ -3,10 +3,13 @@ import { Menu, Bell, User, LogOut } from "lucide-react";
 export default function Header({ setIsOpen }) {
   
   const role = localStorage.getItem("userRole");
-  let fullName = localStorage.getItem("userFullName") || localStorage.getItem("username");
+  const username = localStorage.getItem("username");
+  let fullName = localStorage.getItem("userFullName") || username;
 
-  // 🔥 QAT'IY HIMOYA: Agar Super Admin bo'lsa yoki logini Navroz bo'lsa, avtomat G'ulomov Navro'z chiqadi!
-  if (role === "super_admin" || fullName === "Navroz") {
+  // 🔥 TO'G'RILANGAN HIMOYA: Super Admin va Ustoz ismlarini loginga qarab avtomat ajratadi
+  if (role === "super_admin" || username === "Muhammad") {
+    fullName = "Tursunov Muhammad";
+  } else if (username === "Navroz") {
     fullName = "G'ulomov Navro'z";
   } else if (!fullName) {
     fullName = "Xodim";
@@ -29,9 +32,7 @@ export default function Header({ setIsOpen }) {
       localStorage.removeItem("userPermissions");
       localStorage.removeItem("parentTeacherId");
 
-      // 2. 🔥 TO'QNASHUVNING OLDINI OLISH:
-      // Hech qanday navigate() ishlatmasdan to'g'ridan-to'g'ri bosh sahifaga otamiz.
-      // Bu kompyuterda oq ekran bo'lib qotib qolish muammosini 100% yo'q qiladi!
+      // 2. Oq ekran (Infinite loop) muammosining oldini oluvchi yakuniy yechim
       window.location.replace("/"); 
     }
   };

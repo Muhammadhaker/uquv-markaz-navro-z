@@ -5,7 +5,6 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// 🔥 YANGI: fullName (To'liq ism) qatori qo'shildi
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
@@ -19,19 +18,58 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 
+// 🔥 Migratsiya jarayoni uchun O'quvchilar modelini ham ulaymiz
+const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
+
 export default async function handler(req, res) {
   await connectDB();
 
+  // 🚀 ROLLARNI ALMASHTIRISH VA AVTOMATIK MIGRATSIYA TIZIMI
   try {
-    const defaultUsers = [
-      { username: "Navroz", password: "Navroz", fullName: "Navro'z G'ulomov", role: "super_admin", permissions: ['all'] },
-      { username: "muhammad", password: "kaneki235", fullName: "Muhammad Tursunov", role: "teacher", permissions: ['all'] }
-    ];
-    for (const dUser of defaultUsers) {
-      const exists = await User.findOne({ username: dUser.username });
-      if (!exists) await User.create(dUser);
+    // 1. G'ulomov Navro'z profilini Ustoz (teacher) roliga o'tkazish
+    let navrozUser = await User.findOne({ username: "Navroz" });
+    if (navrozUser) {
+      navrozUser.role = "teacher";
+      navrozUser.fullName = "G'ulomov Navro'z";
+      await navrozUser.save();
+    } else {
+      navrozUser = await User.create({
+        username: "Navroz",
+        password: "Navroz",
+        fullName: "G'ulomov Navro'z",
+        role: "teacher",
+        permissions: ['all']
+      });
     }
-  } catch (err) { }
+
+    // 2. Yangi Super Admin yaratish (Tursunov Muhammad)
+    let muhammadUser = await User.findOne({ username: "Muhammad" });
+    if (muhammadUser) {
+      muhammadUser.role = "super_admin";
+      muhammadUser.password = "Muhammad";
+      muhammadUser.fullName = "Tursunov Muhammad";
+      await muhammadUser.save();
+    } else {
+      muhammadUser = await User.create({
+        username: "Muhammad",
+        password: "Muhammad",
+        fullName: "Tursunov Muhammad",
+        role: "super_admin",
+        permissions: ['all']
+      });
+    }
+
+    // 3. DATA MIGRATION: Hozirgi hamma o'quvchilarni G'ulomov Navro'zga biriktirish
+    if (navrozUser) {
+      await Student.updateMany(
+        { $or: [{ teacherId: { $exists: false } }, { teacherId: null }, { teacherId: "" }] },
+        { $set: { teacherId: navrozUser._id.toString() } }
+      );
+    }
+
+  } catch (err) {
+    console.error("Migratsiya xatosi:", err);
+  }
 
   if (req.method === 'POST' && req.body.action !== 'create') {
     const { username, password } = req.body;
@@ -61,7 +99,7 @@ export default async function handler(req, res) {
             userId: user._id,
             role: user.role, 
             username: user.username,
-            fullName: user.fullName || user.username, // 🔥 Ism ham qaytadi
+            fullName: user.fullName, 
             permissions: user.permissions,
             parentTeacherId: user.parentTeacherId
         });
@@ -72,7 +110,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // 🔥 YANGI XODIM QO'SHISHDA ISMINI HAM SAQLAYDI
   if (req.method === 'POST' && req.body.action === 'create') {
       const { username, password, fullName, role, parentTeacherId, permissions } = req.body;
       try {
@@ -107,7 +144,8 @@ export default async function handler(req, res) {
     const { id } = req.body;
     try {
       const userToDelete = await User.findById(id);
-      if (userToDelete && userToDelete.username === "Navroz") {
+      // 🔥 Endi himoya Muhammad loginiga qo'yildi
+      if (userToDelete && userToDelete.username === "Muhammad") {
         return res.status(400).json({ success: false, message: "Asosiy Super Adminni o'chirib bo'lmaydi!" });
       }
       await User.findByIdAndDelete(id);
