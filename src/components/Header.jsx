@@ -9,7 +9,6 @@ export default function Header({ setIsOpen }) {
   const username = localStorage.getItem("username");
   let fullName = localStorage.getItem("userFullName") || username;
 
-  // 🔥 TO'G'RILANGAN HIMOYA: Super Admin va Ustoz ismlarini loginga qarab avtomat ajratadi
   if (role === "super_admin" || username === "Muhammad") {
     fullName = "Tursunov Muhammad";
   } else if (username === "Navroz") {
@@ -24,12 +23,11 @@ export default function Header({ setIsOpen }) {
     assistant: "Yordamchi"
   };
 
-  // 🔥 YANGI: Bildirishnomalarni tekshiradigan "jonli" funksiya
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        // API fayl sonini ko'paytirmasdan, mavjud bot.js dan foydalanamiz
-        const res = await fetch("/api/bot?action=notifications");
+        // 🔥 XATO SHU YERDA TO'G'RILANDI: Doim eng yangi ma'lumotni keshsiz tortib oladi
+        const res = await fetch(`/api/bot?action=notifications&t=${Date.now()}`);
         const json = await res.json();
         if (json.success) setNotifications(json.data);
       } catch (err) { 
@@ -37,23 +35,20 @@ export default function Header({ setIsOpen }) {
       }
     };
     
-    fetchNotifications(); // Sayt ochilganda birinchi marta ishlaydi
-    const interval = setInterval(fetchNotifications, 60000); // Har 1 daqiqada avtomat yangilanib turadi
+    fetchNotifications(); 
+    const interval = setInterval(fetchNotifications, 60000); 
     return () => clearInterval(interval);
   }, []);
 
   const handleLogout = (e) => {
     e.preventDefault(); 
     if (window.confirm("Tizimdan chiqmoqchimisiz?")) {
-      // 1. Xotirani tozalaymiz
       localStorage.removeItem("userId");
       localStorage.removeItem("userRole");
       localStorage.removeItem("username");
       localStorage.removeItem("userFullName");
       localStorage.removeItem("userPermissions");
       localStorage.removeItem("parentTeacherId");
-
-      // 2. Oq ekran (Infinite loop) muammosining oldini oluvchi yakuniy yechim
       window.location.replace("/"); 
     }
   };
@@ -72,7 +67,6 @@ export default function Header({ setIsOpen }) {
 
       <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
         
-        {/* 🔥 JONLI QO'NG'IROQCHA */}
         <div className="relative">
           <button 
             onClick={() => setShowNotifications(!showNotifications)}
@@ -85,7 +79,6 @@ export default function Header({ setIsOpen }) {
             )}
           </button>
 
-          {/* Bildirishnoma ochiladigan oyna (Dropdown) */}
           {showNotifications && (
             <div className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 z-50">
               <div className="flex justify-between items-center mb-3">
@@ -113,9 +106,7 @@ export default function Header({ setIsOpen }) {
           )}
         </div>
 
-        {/* Profil Qismi */}
         <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 md:pl-6 border-l border-slate-200">
-          
           <div className="flex flex-col items-end max-w-[120px] sm:max-w-[200px]">
             <span className="text-[11px] sm:text-sm font-bold text-slate-800 leading-none truncate w-full text-right">
               {fullName}

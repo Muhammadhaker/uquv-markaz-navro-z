@@ -19,12 +19,19 @@ export default async function handler(req, res) {
     try { await connectDB(); } catch (error) { return res.status(200).send('OK'); }
 
     // =========================================================
-    // SAYTDAGI QO'NG'IROQCHA UCHUN (GET SO'ROV)
+    // 🔥 QO'NG'IROQCHA UCHUN ENG MUKAMMAL GET SO'ROV
     // =========================================================
     if (req.method === 'GET' && req.query.action === 'notifications') {
         try {
+            // 1. Keshni o'ldirish (Brauzer va Vercel qotib qolmasligi uchun)
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            
+            // 2. ObjectId orqali eng aniq 24 soatlik vaqtni topish (Sana formatiga umuman qaram emasmiz!)
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-            const recent = await Student.find({ createdAt: { $gte: oneDayAgo } }).sort({ createdAt: -1 });
+            const objectIdStr = Math.floor(oneDayAgo.getTime() / 1000).toString(16) + "0000000000000000";
+            const hexId = new mongoose.Types.ObjectId(objectIdStr);
+
+            const recent = await Student.find({ _id: { $gte: hexId } }).sort({ _id: -1 }).limit(15);
             return res.status(200).json({ success: true, data: recent });
         } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
     }
@@ -62,9 +69,6 @@ export default async function handler(req, res) {
         payload = text.split(' ')[1].trim();
     }
 
-    // =========================================================
-    // QR KOD ORQALI RO'YXATDAN O'TISH
-    // =========================================================
     if (payload) {
         try {
             let studentToLink = null;
@@ -89,7 +93,7 @@ export default async function handler(req, res) {
                         parse_mode: 'Markdown',
                         reply_markup: {
                             keyboard: [
-                                [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }],
+                                [{ text: "👤 Shaxsiy Kabinet" }], 
                                 [{ text: "📊 Oylik hisobot" }],
                                 [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
                                 [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] 
@@ -104,9 +108,6 @@ export default async function handler(req, res) {
 
     const linkedStudents = await Student.find({ $or: [ { telegramChatId: chatId }, { telegramChatId: Number(chatId) } ] });
 
-    // =========================================================
-    // 🔥 MAJBURIY OBUNA (QAT'IY TEKSHIRUV)
-    // =========================================================
     if (linkedStudents.length > 0) {
         let isSubscribed = false;
         const CHANNEL_ID = "@gulomov_math_group"; 
@@ -158,7 +159,6 @@ export default async function handler(req, res) {
                 body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
             });
             
-            // 🔥 XATO SHU YERDA TO'G'RILANDI: Tasdiqdan o'tgach barcha tugmalarni chiqarish
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -166,7 +166,7 @@ export default async function handler(req, res) {
                     text: "✅ Rahmat! Obuna muvaffaqiyatli tasdiqlandi.\nEndi menyudan bemalol foydalanishingiz mumkin 👇",
                     reply_markup: { 
                         keyboard: [ 
-                            [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }], 
+                            [{ text: "👤 Shaxsiy Kabinet" }],
                             [{ text: "📊 Oylik hisobot" }], 
                             [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
                             [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] 
@@ -180,9 +180,23 @@ export default async function handler(req, res) {
     
     if (isCallback) return res.status(200).send('OK');
 
-    // =========================================================
-    // MENU TUGMALARI
-    // =========================================================
+    if (text === "👤 Shaxsiy Kabinet") {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chat_id: chatId, 
+                text: "🖥 *Shaxsiy kabinetingiz tayyor!*\n\nPastdagi tugmani bosib, hisobingizga kiring 👇", 
+                parse_mode: 'Markdown',
+                reply_markup: { 
+                    inline_keyboard: [ 
+                        [{ text: "🚀 Kabinetni ochish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }] 
+                    ] 
+                } 
+            })
+        });
+        return res.status(200).send('OK');
+    }
+
     if (text === "✈️ Telegram") {
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -278,7 +292,7 @@ export default async function handler(req, res) {
                     text: `Assalomu alaykum! 🎓\n\nSizning hisobingizga *${linkedStudents.length} ta* o'quvchi ulangan. Pastki menyudan kerakli bo'limni tanlang 👇`, 
                     reply_markup: { 
                         keyboard: [ 
-                            [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }], 
+                            [{ text: "👤 Shaxsiy Kabinet" }], 
                             [{ text: "📊 Oylik hisobot" }], 
                             [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
                             [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] 
