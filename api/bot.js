@@ -18,6 +18,30 @@ const formatDate = (dateString) => {
 };
 
 export default async function handler(req, res) {
+    // 1. Eng avvalo bazaga ulanamiz
+    try {
+        await connectDB();
+    } catch (error) {
+        console.error("MongoDB ulanishda xato:", error);
+        return res.status(200).send('OK');
+    }
+
+    // =========================================================
+    // 🔥 YANGI QISM: SAYTDAGI QO'NG'IROQCHA UCHUN (GET SO'ROV)
+    // =========================================================
+    if (req.method === 'GET' && req.query.action === 'notifications') {
+        try {
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const recent = await Student.find({ createdAt: { $gte: oneDayAgo } }).sort({ createdAt: -1 });
+            return res.status(200).json({ success: true, data: recent });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    // =========================================================
+    // TELEGRAM BOT LOGIKASI (Faqat POST so'rovlar kiradi)
+    // =========================================================
     if (req.method !== 'POST') return res.status(200).send('OK');
 
     const update = req.body;
@@ -29,13 +53,6 @@ export default async function handler(req, res) {
     const chatId = String(message.chat.id);
     const text = message.text;
     const firstName = message.from.first_name || "O'quvchi";
-
-    try {
-        await connectDB();
-    } catch (error) {
-        console.error("MongoDB ulanishda xato:", error);
-        return res.status(200).send('OK');
-    }
 
     let payload = null;
     if (text.startsWith('/start ') && text.length > 7) {

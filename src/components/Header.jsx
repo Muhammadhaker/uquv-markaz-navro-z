@@ -1,6 +1,9 @@
-import { Menu, Bell, User, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, Bell, User, LogOut, X } from "lucide-react";
 
 export default function Header({ setIsOpen }) {
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   
   const role = localStorage.getItem("userRole");
   const username = localStorage.getItem("username");
@@ -21,6 +24,24 @@ export default function Header({ setIsOpen }) {
     assistant: "Yordamchi"
   };
 
+  // 🔥 YANGI: Bildirishnomalarni tekshiradigan "jonli" funksiya
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        // API fayl sonini ko'paytirmasdan, mavjud bot.js dan foydalanamiz
+        const res = await fetch("/api/bot?action=notifications");
+        const json = await res.json();
+        if (json.success) setNotifications(json.data);
+      } catch (err) { 
+        console.error("Notif xatosi:", err); 
+      }
+    };
+    
+    fetchNotifications(); // Sayt ochilganda birinchi marta ishlaydi
+    const interval = setInterval(fetchNotifications, 60000); // Har 1 daqiqada avtomat yangilanib turadi
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogout = (e) => {
     e.preventDefault(); 
     if (window.confirm("Tizimdan chiqmoqchimisiz?")) {
@@ -37,10 +58,6 @@ export default function Header({ setIsOpen }) {
     }
   };
 
-  const handleBellClick = () => {
-    alert("Hozircha yangi bildirishnomalar yo'q!");
-  };
-
   return (
     <header className="bg-white border-b border-slate-200 h-16 sm:h-20 px-3 sm:px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 shadow-sm">
       <div className="flex items-center gap-2 sm:gap-4">
@@ -55,14 +72,48 @@ export default function Header({ setIsOpen }) {
 
       <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
         
-        <button 
-          onClick={handleBellClick}
-          className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
-          title="Bildirishnomalar"
-        >
-          <Bell size={20} className="sm:w-[22px] sm:h-[22px]" />
-        </button>
+        {/* 🔥 JONLI QO'NG'IROQCHA */}
+        <div className="relative">
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+            title="Bildirishnomalar"
+          >
+            <Bell size={20} className="sm:w-[22px] sm:h-[22px]" />
+            {notifications.length > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
+            )}
+          </button>
 
+          {/* Bildirishnoma ochiladigan oyna (Dropdown) */}
+          {showNotifications && (
+            <div className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 z-50">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-slate-800 text-sm">Yangi o'quvchilar</h3>
+                <button 
+                  onClick={() => setShowNotifications(false)} 
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X size={16}/>
+                </button>
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">So'nggi 24 soat ichida yangi xabarlar yo'q.</p>
+                ) : (
+                  notifications.map(s => (
+                    <div key={s._id} className="p-2.5 bg-slate-50/80 rounded-lg border border-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2 hover:bg-slate-100 transition-colors">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span> 
+                      {s.name} tizimga qo'shildi
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Profil Qismi */}
         <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 md:pl-6 border-l border-slate-200">
           
           <div className="flex flex-col items-end max-w-[120px] sm:max-w-[200px]">
