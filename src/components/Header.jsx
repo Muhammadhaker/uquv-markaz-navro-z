@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, Bell, User, LogOut, X } from "lucide-react";
+import { Menu, Bell, User, LogOut, X, CheckCheck } from "lucide-react"; // 🔥 CheckCheck ikonasi qo'shildi
 
 export default function Header({ setIsOpen }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -23,13 +23,26 @@ export default function Header({ setIsOpen }) {
     assistant: "Yordamchi"
   };
 
+  // 🔥 YANGI: MongoDB ID si ichidan vaqtni ajratib olish (Millisoniyalarda)
+  const extractTimeFromId = (id) => {
+    if (!id || id.length < 8) return 0;
+    const time = parseInt(id.substring(0, 8), 16) * 1000;
+    return isNaN(time) ? 0 : time;
+  };
+
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        // 🔥 XATO SHU YERDA TO'G'RILANDI: Doim eng yangi ma'lumotni keshsiz tortib oladi
         const res = await fetch(`/api/bot?action=notifications&t=${Date.now()}`);
         const json = await res.json();
-        if (json.success) setNotifications(json.data);
+        if (json.success) {
+          // Xotiradan qachon "O'qildi" bosilganini topamiz
+          const clearTime = parseInt(localStorage.getItem('notifClearTime') || '0', 10);
+          
+          // Faqatgina "Tozalangan vaqt"dan keyin qo'shilgan YANGI o'quvchilarni filtrlaymiz
+          const newNotifs = json.data.filter(s => extractTimeFromId(s._id) > clearTime);
+          setNotifications(newNotifs);
+        }
       } catch (err) { 
         console.error("Notif xatosi:", err); 
       }
@@ -39,6 +52,16 @@ export default function Header({ setIsOpen }) {
     const interval = setInterval(fetchNotifications, 60000); 
     return () => clearInterval(interval);
   }, []);
+
+  // 🔥 YANGI: Barchasini o'qilgan deb belgilash funksiyasi
+  const clearNotifications = () => {
+    // Hozirgi vaqtni xotiraga yozamiz
+    localStorage.setItem('notifClearTime', Date.now().toString());
+    // Ro'yxatni tozalaymiz (Qizil nuqta darhol o'chadi)
+    setNotifications([]);
+    // Oynani yopamiz
+    setShowNotifications(false);
+  };
 
   const handleLogout = (e) => {
     e.preventDefault(); 
@@ -67,6 +90,7 @@ export default function Header({ setIsOpen }) {
 
       <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
         
+        {/* 🔥 QO'NG'IROQCHA QISMI */}
         <div className="relative">
           <button 
             onClick={() => setShowNotifications(!showNotifications)}
@@ -81,22 +105,40 @@ export default function Header({ setIsOpen }) {
 
           {showNotifications && (
             <div className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 z-50">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-bold text-slate-800 text-sm">Yangi o'quvchilar</h3>
-                <button 
-                  onClick={() => setShowNotifications(false)} 
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <X size={16}/>
-                </button>
+              
+              <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+                <h3 className="font-bold text-slate-800 text-sm">
+                  Yangi o'quvchilar {notifications.length > 0 && `(${notifications.length})`}
+                </h3>
+                
+                <div className="flex items-center gap-2">
+                  {/* 🔥 O'QILDI TUGMASI */}
+                  {notifications.length > 0 && (
+                    <button 
+                      onClick={clearNotifications} 
+                      className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:bg-emerald-100 bg-emerald-50 px-2 py-1.5 rounded-md transition-colors border border-emerald-100"
+                      title="Barchasini o'qilgan deb belgilash"
+                    >
+                      <CheckCheck size={14} />
+                      O'qildi
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setShowNotifications(false)} 
+                    className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                  >
+                    <X size={18}/>
+                  </button>
+                </div>
               </div>
+
               <div className="max-h-60 overflow-y-auto space-y-2">
                 {notifications.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-4">So'nggi 24 soat ichida yangi xabarlar yo'q.</p>
+                  <p className="text-xs text-slate-400 text-center py-6 font-medium">Yangi xabarlar yo'q 🎉</p>
                 ) : (
                   notifications.map(s => (
                     <div key={s._id} className="p-2.5 bg-slate-50/80 rounded-lg border border-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2 hover:bg-slate-100 transition-colors">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span> 
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span> 
                       {s.name} tizimga qo'shildi
                     </div>
                   ))
