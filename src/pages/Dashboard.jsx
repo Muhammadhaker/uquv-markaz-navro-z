@@ -13,7 +13,6 @@ export default function Dashboard() {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
-  // 🔥 API himoya kalitlari
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
     "x-user-role": localStorage.getItem("userRole") || "",
@@ -43,22 +42,46 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
-  const handleDeletePayment = async (id, name) => {
-    if (!window.confirm(`${name} to'lovini o'chirmoqchimisiz?`)) return;
+  // 🔥 YANGI: To'lovni o'chirish (Summa va Tiklash logikasi bilan)
+  const handleDeletePayment = async (p) => {
+    if (!window.confirm(`${p.studentName} to'lovini o'chirmoqchimisiz?`)) return;
     try {
-      await fetch("/api/payments", { method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id }) });
-      await fetch("/api/logs", { method: "POST", headers: getAuthHeaders(), body: JSON.stringify({ adminName: localStorage.getItem("username") || "Admin", actionType: "delete", details: `To'lov o'chirildi: ${name}` }) });
+      await fetch("/api/payments", { method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id: p._id }) });
+      
+      await fetch("/api/logs", { 
+        method: "POST", 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ 
+          adminName: localStorage.getItem("username") || "Admin", 
+          actionType: "delete", 
+          details: `To'lov o'chirildi: ${p.studentName}`,
+          targetApi: "/api/payments", // Tiklash uchun yuboramiz
+          deletedData: p // Puli va hamma ma'lumoti shu ichida boradi!
+        }) 
+      });
       fetchStats();
     } catch (error) {
       console.error(error);
     }
   };
 
-  const handleDeleteExpense = async (id, reason) => {
-    if (!window.confirm(`"${reason}" xarajatini o'chirmoqchimisiz?`)) return;
+  // 🔥 YANGI: Xarajatni o'chirish (Summa va Tiklash logikasi bilan)
+  const handleDeleteExpense = async (e) => {
+    if (!window.confirm(`"${e.reason}" xarajatini o'chirmoqchimisiz?`)) return;
     try {
-      await fetch("/api/expenses", { method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id }) });
-      await fetch("/api/logs", { method: "POST", headers: getAuthHeaders(), body: JSON.stringify({ adminName: localStorage.getItem("username") || "Admin", actionType: "delete", details: `Xarajat o'chirildi: ${reason}` }) });
+      await fetch("/api/expenses", { method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id: e._id }) });
+      
+      await fetch("/api/logs", { 
+        method: "POST", 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ 
+          adminName: localStorage.getItem("username") || "Admin", 
+          actionType: "delete", 
+          details: `Xarajat o'chirildi: ${e.reason}`,
+          targetApi: "/api/expenses", // Tiklash uchun
+          deletedData: e // Puli bilan ketadi!
+        }) 
+      });
       fetchStats();
     } catch (error) {
       console.error(error);
@@ -337,7 +360,8 @@ export default function Dashboard() {
                       <td className="px-6 py-4 font-bold text-emerald-600">{Number(p.amount).toLocaleString("ru-RU")} so'm</td>
                       <td className="px-6 py-4 hidden md:table-cell text-slate-500">{new Date(p.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                       <td className="px-6 py-4 text-right">
-                        <button onClick={() => handleDeletePayment(p._id, p.studentName)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
+                        {/* 🔥 O'zgartirildi: p._id emas, p obyektining o'zi yuboriladi */}
+                        <button onClick={() => handleDeletePayment(p)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
                           <Trash2 size={18} />
                         </button>
                       </td>
@@ -355,7 +379,8 @@ export default function Dashboard() {
                       <td className="px-6 py-4 font-bold text-rose-600">{Number(e.amount).toLocaleString("ru-RU")} so'm</td>
                       <td className="px-6 py-4 hidden md:table-cell text-slate-500">{new Date(e.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                       <td className="px-6 py-4 text-right">
-                        <button onClick={() => handleDeleteExpense(e._id, e.reason)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
+                        {/* 🔥 O'zgartirildi: e._id emas, e obyektining o'zi yuboriladi */}
+                        <button onClick={() => handleDeleteExpense(e)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
                           <Trash2 size={18} />
                         </button>
                       </td>
