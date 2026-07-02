@@ -11,7 +11,6 @@ export default function PrintBadges() {
   const [printMode, setPrintMode] = useState("front"); 
   const [selectedIds, setSelectedIds] = useState([]);
   
-  // 🔥 YANGI: Ekranda qaysi tarafni ko'rsatishni belgilovchi state
   const [previewMode, setPreviewMode] = useState("front"); 
 
   const role = localStorage.getItem("userRole");
@@ -222,7 +221,6 @@ export default function PrintBadges() {
               </select>
             </div>
 
-            {/* 🔥 YANGI: Ekranda ko'rsatishni almashtirish (Preview Mode) */}
             <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto border border-slate-200">
               <button 
                 onClick={() => setPreviewMode('front')} 
@@ -264,7 +262,6 @@ export default function PrintBadges() {
                   {isSelected ? <CheckSquare className="text-indigo-600" size={18} /> : <Square className="text-slate-400" size={18} />}
                 </div>
 
-                {/* 🔥 EKRANDA KO'RINISHLARNI ALMASHTIRISH MANTIQI */}
                 {previewMode === 'front' ? (
                   <>
                     <div className="header-section">
@@ -331,20 +328,20 @@ export default function PrintBadges() {
               flex-wrap: wrap;
               gap: 15px; 
               justify-content: center;
-              perspective: 1000px; /* Chiroyli aylanish effekti uchun */
+              perspective: 1000px; 
             }
 
             .screen-badge-card {
               width: 69mm; 
               height: 111mm;  
-              background: white;
+              background: #f8fafc; /* 🔥 O'ZGARTIRILDI: Och fon */
               box-sizing: border-box;
               display: flex;
               flex-direction: column;
               align-items: center;
               position: relative;
               overflow: hidden;
-              border: 1px dashed #334155; 
+              border: 1px solid #cbd5e1; /* 🔥 O'ZGARTIRILDI: Qalinroq aniq chegara */
               box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
               border-radius: 6px;
               justify-content: space-between;
@@ -397,7 +394,13 @@ export default function PrintBadges() {
               justify-content: center;
               width: 100%;
             }
-            .qr-box { padding: 5px; background: #fff !important; }
+            /* 🔥 O'ZGARTIRILDI: QR kod oq qutichada chiroyli turishi uchun */
+            .qr-box { 
+              padding: 6px; 
+              background: #ffffff !important; 
+              border: 1px solid #e2e8f0 !important;
+              border-radius: 8px;
+            }
             .qr-box svg { width: 44mm !important; height: 44mm !important; }
             .student-details { width: 100%; text-align: center; padding-bottom: 6mm; }
             .st-name {
@@ -419,7 +422,7 @@ export default function PrintBadges() {
               width: 100%;
               height: 100%;
               justify-content: flex-start;
-              background-color: #ffffff !important;
+              background-color: #f8fafc !important; /* 🔥 O'ZGARTIRILDI: Orqa taraf foni ham ochlashtirildi */
               padding-top: 10mm; 
               position: relative;
             }
@@ -550,7 +553,7 @@ export default function PrintBadges() {
               .print-badge-card {
                 width: 69mm !important;
                 height: 111mm !important;
-                background-color: #ffffff !important;
+                background-color: #f8fafc !important; /* 🔥 O'ZGARTIRILDI: Pring qilinganda ham och fon bo'ladi */
                 display: flex !important;
                 flex-direction: column !important;
                 align-items: center !important;
@@ -558,7 +561,7 @@ export default function PrintBadges() {
                 position: relative !important;
                 overflow: hidden !important;
                 
-                border: none !important; 
+                border: 1px solid #cbd5e1 !important; /* 🔥 O'ZGARTIRILDI: Print qilinganda ham yupqa chegara turadi */
                 box-sizing: border-box !important;
 
                 box-shadow: none !important;
