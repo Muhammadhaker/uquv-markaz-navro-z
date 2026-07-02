@@ -108,7 +108,6 @@ export default async function handler(req, res) {
     // =========================================================
     if (linkedStudents.length > 0) {
         let isSubscribed = false;
-        // Yangi xavfsiz kanal ID raqami joylashtirildi:
         const CHANNEL_ID = "-1003954112203"; 
 
         try {
@@ -138,8 +137,9 @@ export default async function handler(req, res) {
                         parse_mode: 'Markdown',
                         reply_markup: {
                             inline_keyboard: [
-                                [{ text: "🔵 Telegram kanal (Majburiy)", url: "https://t.me/gulomov_math_group" }],
-                                [{ text: "🟣 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }],
+                                // 🔥 EMOJILAR O'ZGARTIRILDI
+                                [{ text: "✈️ Telegram kanal (Majburiy)", url: "https://t.me/gulomov_math_group" }],
+                                [{ text: "📸 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }],
                                 [{ text: "✅ Tasdiqlash", callback_data: "check_sub" }]
                             ]
                         }
@@ -249,13 +249,13 @@ export default async function handler(req, res) {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     chat_id: chatId, 
-                    text: "📱 *Ijtimoiy tarmoqlarimizni kuzatib boron g:*\n\nEng so'nggi yangiliklar, dars jarayonlari va natijalar bilan sahifalarimizda tanishing!", 
+                    text: "📱 *Ijtimoiy tarmoqlarimizni kuzatib boring:*\n\nEng so'nggi yangiliklar, dars jarayonlari va natijalar bilan sahifalarimizda tanishing!", 
                     parse_mode: 'Markdown',
                     reply_markup: { 
                         inline_keyboard: [ 
-                            // Yangi to'g'ri kanal havolasi o'rnatildi:
-                            [{ text: "🔵 Telegram kanal", url: "https://t.me/gulomov_math_group" }], 
-                            [{ text: "🟣 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
+                            // 🔥 EMOJILAR O'ZGARTIRILDI VA XATO TO'G'RILANDI
+                            [{ text: "✈️ Telegram kanal", url: "https://t.me/gulomov_math_group" }], 
+                            [{ text: "📸 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
                         ] 
                     } 
                 })
