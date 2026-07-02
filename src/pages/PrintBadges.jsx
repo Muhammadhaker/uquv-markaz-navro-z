@@ -113,7 +113,6 @@ export default function PrintBadges() {
       {printPages.map((pageStudents, pageIndex) => (
         <div key={pageIndex} className="print-page">
           {[0, 1, 2, 3, 4, 5, 6, 7].map((slot) => {
-            // 🔥 MUKAMMAL KO'ZGU FORMULASI (O'ng va Chap o'rni almashuvi aniq ishlashi uchun)
             const actualIndex = printMode === 'front' 
               ? slot 
               : Math.floor(slot / 4) * 4 + (3 - (slot % 4));
@@ -144,31 +143,34 @@ export default function PrintBadges() {
                 ) : (
                   <div className="back-side">
                     <div className="logo-wrapper">
-                      {/* 🔥 LOGO YIRIKLASHTIRILDI */}
                       <img src="/icon-192.png" className="logo-img" alt="Logo" />
                     </div>
                     
                     <div className="social-qr-wrapper">
                       <div className="social-qr-item">
                         <div className="qr-border border-sky">
-                          {/* 🔥 QR KOD KATTALASHTIRILDI */}
                           <QRCodeSVG value="https://t.me/gulomov_math_group" size={54} level="M" fgColor="#0284c7" />
                         </div>
                         <span className="text-sky mt-1">TELEGRAM</span>
                       </div>
                       <div className="social-qr-item">
                         <div className="qr-border border-pink">
-                          {/* 🔥 QR KOD KATTALASHTIRILDI */}
-                          <QRCodeSVG value="https://instagram.com/gulomov_math_group" size={54} level="M" fgColor="#db2777" />
+                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/?hl=en#" size={54} level="M" fgColor="#db2777" />
                         </div>
                         <span className="text-pink mt-1">INSTAGRAM</span>
                       </div>
                     </div>
 
-                    {/* 🔥 YANGI QIDIRUV YOZUVI (TELEGRAM VA INSTAGRAM NOMLARI) */}
                     <div className="footer-strip">
-                      <span className="footer-subtitle">QIDIRUV UCHUN</span>
-                      <span className="footer-handle">@GULOMOV_MATH_GROUP</span>
+                      <div className="footer-row">
+                        <span className="footer-icon">✈️</span>
+                        <span className="footer-handle">@GULOMOV_MATH_GROUP</span>
+                      </div>
+                      <div className="footer-row">
+                        <span className="footer-icon">📸</span>
+                        {/* 🔥 XATO TO'G'RILANDI: ANIQ INSTAGRAM QIDIRUV NOMI */}
+                        <span className="footer-handle">@GULOMOV_MATHGROUP</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -308,15 +310,22 @@ export default function PrintBadges() {
                       </div>
                       <div className="social-qr-item">
                         <div className="qr-border border-pink">
-                          <QRCodeSVG value="https://instagram.com/gulomov_math_group" size={54} level="M" fgColor="#db2777" />
+                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/?hl=en#" size={54} level="M" fgColor="#db2777" />
                         </div>
                         <span className="text-pink mt-1">INSTAGRAM</span>
                       </div>
                     </div>
 
                     <div className="footer-strip absolute bottom-0 left-0 w-full flex flex-col items-center justify-center">
-                      <span className="footer-subtitle">QIDIRUV UCHUN</span>
-                      <span className="footer-handle">@GULOMOV_MATH_GROUP</span>
+                      <div className="footer-row">
+                        <span className="footer-icon">✈️</span>
+                        <span className="footer-handle">@GULOMOV_MATH_GROUP</span>
+                      </div>
+                      <div className="footer-row">
+                        <span className="footer-icon">📸</span>
+                        {/* 🔥 XATO TO'G'RILANDI: ANIQ INSTAGRAM QIDIRUV NOMI */}
+                        <span className="footer-handle">@GULOMOV_MATHGROUP</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -430,7 +439,6 @@ export default function PrintBadges() {
             .st-group { font-size: 10px; color: #4f46e5 !important; font-weight: 700; }
             .st-teacher { font-size: 8px; color: #64748b !important; font-weight: 800; margin-top: 3px; text-transform: uppercase; }
 
-            /* 🔥 ORQA YUZ O'ZGARISHLARI */
             .back-side {
               display: flex;
               flex-direction: column;
@@ -450,7 +458,7 @@ export default function PrintBadges() {
               margin-bottom: auto; 
             }
             .logo-img {
-              width: 58mm !important; /* 🔥 LOGO YIRIKLASHDI (38dan 58ga) */
+              width: 58mm !important; 
               height: 58mm !important;
               object-fit: contain;
             }
@@ -458,7 +466,7 @@ export default function PrintBadges() {
               width: 100%;
               display: flex;
               justify-content: space-evenly;
-              padding-bottom: 12.5mm; /* Footer uchun joy */
+              padding-bottom: 12.5mm; 
               align-items: flex-end;
             }
             .social-qr-item {
@@ -483,7 +491,6 @@ export default function PrintBadges() {
             .text-sky { color: #0284c7 !important; }
             .text-pink { color: #db2777 !important; }
 
-            /* 🔥 YANGI DIZAYNDAGI FOOTER */
             .footer-strip {
               background: #1e3a8a !important;
               width: 100%;
@@ -492,19 +499,22 @@ export default function PrintBadges() {
               align-items: center;
               justify-content: center;
               padding: 4.5px 0;
+              gap: 1.5px;
             }
-            .footer-subtitle {
-              font-size: 7px;
-              color: #93c5fd !important;
-              font-weight: 800;
-              letter-spacing: 1.5px;
-              margin-bottom: 1px;
+            .footer-row {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 4px;
+            }
+            .footer-icon {
+              font-size: 8px;
             }
             .footer-handle {
-              font-size: 11.5px;
+              font-size: 8.5px;
               color: #ffffff !important;
-              font-weight: 900;
-              letter-spacing: 1.5px;
+              font-weight: 800;
+              letter-spacing: 0.5px;
             }
 
             @media print {
@@ -531,7 +541,6 @@ export default function PrintBadges() {
                 print-color-adjust: exact !important;
               }
 
-              /* 🔥 MUHIM: MUKAMMAL SIMMETRIYA FORMULASI */
               .print-page {
                 width: 297mm !important;
                 height: 210mm !important;
@@ -544,14 +553,6 @@ export default function PrintBadges() {
                 flex-wrap: wrap !important;
                 align-content: flex-start !important;
                 
-                /* 
-                 Hisob-kitob (O'ng va Chap bir xil tushishi uchun): 
-                 Qog'oz eni: 297mm. Bejiklar (4ta * 68mm) = 272mm.
-                 O'rtadagi 3ta gap (3 * 3mm) = 9mm. 
-                 Jami content = 281mm. 
-                 Qolgan bo'sh joy = 297 - 281 = 16mm. 
-                 Demak ikki chetiga roppa-rosa 8.0mm dan qoldirilsa ideal simmetriya bo'ladi!
-                */
                 padding-left: 8mm !important; 
                 padding-top: 3.5mm !important;
                 gap: 3mm 3mm !important; 
