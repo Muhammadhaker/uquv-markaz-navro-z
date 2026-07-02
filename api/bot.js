@@ -92,7 +92,7 @@ export default async function handler(req, res) {
                                 [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }],
                                 [{ text: "📊 Oylik hisobot" }],
                                 [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
-                                [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] // 🔥 2 TA TUGMA
+                                [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] 
                             ], resize_keyboard: true, is_persistent: true
                         }
                     })
@@ -157,9 +157,22 @@ export default async function handler(req, res) {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
             });
+            
+            // 🔥 XATO SHU YERDA TO'G'RILANDI: Tasdiqdan o'tgach barcha tugmalarni chiqarish
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: "✅ Rahmat! Obuna muvaffaqiyatli tasdiqlandi.\nEndi menyudan bemalol foydalanishingiz mumkin 👇" })
+                body: JSON.stringify({ 
+                    chat_id: chatId, 
+                    text: "✅ Rahmat! Obuna muvaffaqiyatli tasdiqlandi.\nEndi menyudan bemalol foydalanishingiz mumkin 👇",
+                    reply_markup: { 
+                        keyboard: [ 
+                            [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }], 
+                            [{ text: "📊 Oylik hisobot" }], 
+                            [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
+                            [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] 
+                        ], resize_keyboard: true, is_persistent: true 
+                    }
+                })
             });
             return res.status(200).send('OK');
         }
@@ -170,8 +183,6 @@ export default async function handler(req, res) {
     // =========================================================
     // MENU TUGMALARI
     // =========================================================
-
-    // 🔥 YANGI: TELEGRAM VA INSTAGRAM ALOHIDA TUGMALARI
     if (text === "✈️ Telegram") {
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -270,7 +281,7 @@ export default async function handler(req, res) {
                             [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }], 
                             [{ text: "📊 Oylik hisobot" }], 
                             [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
-                            [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] // 🔥 2 TA TUGMA
+                            [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] 
                         ], resize_keyboard: true, is_persistent: true 
                     }, 
                     parse_mode: 'Markdown' 
@@ -286,7 +297,7 @@ export default async function handler(req, res) {
                         keyboard: [ 
                             [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }], 
                             [{ text: "ℹ️ O'quv markaz haqida" }],
-                            [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] // 🔥 2 TA TUGMA
+                            [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] 
                         ], resize_keyboard: true, is_persistent: true 
                     }, 
                     parse_mode: 'Markdown' 
