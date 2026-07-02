@@ -151,26 +151,23 @@ export default function PrintBadges() {
                         <div className="qr-border border-sky">
                           <QRCodeSVG value="https://t.me/gulomov_math_group" size={54} level="M" fgColor="#0284c7" />
                         </div>
-                        <span className="text-sky mt-1">TELEGRAM</span>
+                        <span className="platform-name text-sky">TELEGRAM</span>
+                        {/* 🔥 TELEGRAM QIDIRUV NOMI O'Z TAGIDA */}
+                        <span className="handle-name text-sky">@GULOMOV_MATH_GROUP</span>
                       </div>
                       <div className="social-qr-item">
                         <div className="qr-border border-pink">
                           <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/?hl=en#" size={54} level="M" fgColor="#db2777" />
                         </div>
-                        <span className="text-pink mt-1">INSTAGRAM</span>
+                        <span className="platform-name text-pink">INSTAGRAM</span>
+                        {/* 🔥 INSTAGRAM QIDIRUV NOMI O'Z TAGIDA */}
+                        <span className="handle-name text-pink">@GULOMOV_MATHGROUP</span>
                       </div>
                     </div>
 
                     <div className="footer-strip">
-                      <div className="footer-row">
-                        <span className="footer-icon">✈️</span>
-                        <span className="footer-handle">@GULOMOV_MATH_GROUP</span>
-                      </div>
-                      <div className="footer-row">
-                        <span className="footer-icon">📸</span>
-                        {/* 🔥 XATO TO'G'RILANDI: ANIQ INSTAGRAM QIDIRUV NOMI */}
-                        <span className="footer-handle">@GULOMOV_MATHGROUP</span>
-                      </div>
+                      {/* 🔥 SHIOR QAYTARILDI */}
+                      <span className="footer-handle">MANTIQ • BILIM • NATIJA</span>
                     </div>
                   </div>
                 )}
@@ -306,26 +303,22 @@ export default function PrintBadges() {
                         <div className="qr-border border-sky">
                           <QRCodeSVG value="https://t.me/gulomov_math_group" size={54} level="M" fgColor="#0284c7" />
                         </div>
-                        <span className="text-sky mt-1">TELEGRAM</span>
+                        <span className="platform-name text-sky">TELEGRAM</span>
+                        {/* 🔥 TELEGRAM QIDIRUV NOMI O'Z TAGIDA */}
+                        <span className="handle-name text-sky">@GULOMOV_MATH_GROUP</span>
                       </div>
                       <div className="social-qr-item">
                         <div className="qr-border border-pink">
                           <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/?hl=en#" size={54} level="M" fgColor="#db2777" />
                         </div>
-                        <span className="text-pink mt-1">INSTAGRAM</span>
+                        <span className="platform-name text-pink">INSTAGRAM</span>
+                        {/* 🔥 INSTAGRAM QIDIRUV NOMI O'Z TAGIDA */}
+                        <span className="handle-name text-pink">@GULOMOV_MATHGROUP</span>
                       </div>
                     </div>
 
                     <div className="footer-strip absolute bottom-0 left-0 w-full flex flex-col items-center justify-center">
-                      <div className="footer-row">
-                        <span className="footer-icon">✈️</span>
-                        <span className="footer-handle">@GULOMOV_MATH_GROUP</span>
-                      </div>
-                      <div className="footer-row">
-                        <span className="footer-icon">📸</span>
-                        {/* 🔥 XATO TO'G'RILANDI: ANIQ INSTAGRAM QIDIRUV NOMI */}
-                        <span className="footer-handle">@GULOMOV_MATHGROUP</span>
-                      </div>
+                      <span className="footer-handle">MANTIQ • BILIM • NATIJA</span>
                     </div>
                   </div>
                 )}
@@ -466,14 +459,14 @@ export default function PrintBadges() {
               width: 100%;
               display: flex;
               justify-content: space-evenly;
-              padding-bottom: 12.5mm; 
+              padding-bottom: 11mm; 
               align-items: flex-end;
             }
             .social-qr-item {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 2px;
+              gap: 1.5px; /* 🔥 QATORLAR ORASI JIPSLASHTIRILDI */
             }
             .qr-border {
               padding: 2px;
@@ -483,13 +476,21 @@ export default function PrintBadges() {
             .border-sky { border: 1px solid #bae6fd !important; }
             .border-pink { border: 1px solid #fbcfe8 !important; }
             
-            .social-qr-item span {
-              font-size: 8px;
-              font-weight: 900;
-              text-transform: uppercase;
-            }
             .text-sky { color: #0284c7 !important; }
             .text-pink { color: #db2777 !important; }
+
+            .platform-name {
+              font-size: 8.5px;
+              font-weight: 900;
+              text-transform: uppercase;
+              margin-top: 3px;
+            }
+
+            .handle-name {
+              font-size: 6.5px;
+              font-weight: 800;
+              letter-spacing: 0.2px;
+            }
 
             .footer-strip {
               background: #1e3a8a !important;
@@ -498,23 +499,14 @@ export default function PrintBadges() {
               flex-direction: column;
               align-items: center;
               justify-content: center;
-              padding: 4.5px 0;
-              gap: 1.5px;
+              padding: 6px 0;
             }
-            .footer-row {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 4px;
-            }
-            .footer-icon {
-              font-size: 8px;
-            }
+            
             .footer-handle {
-              font-size: 8.5px;
+              font-size: 8px;
               color: #ffffff !important;
               font-weight: 800;
-              letter-spacing: 0.5px;
+              letter-spacing: 1.5px;
             }
 
             @media print {
