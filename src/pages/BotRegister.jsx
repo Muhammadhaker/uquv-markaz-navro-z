@@ -18,16 +18,31 @@ export default function BotRegister() {
   const [teachers, setTeachers] = useState([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
 
+  // 🔥 YANGI: Telefon raqamni O'zbekiston standartiga (probellar bilan) moslovchi funksiya
+  const formatPhoneNumber = (phoneStr) => {
+    if (!phoneStr) return "";
+    // Faqat raqamlarni ajratib olamiz (masalan: +998901234567 -> 998901234567)
+    const cleaned = ('' + phoneStr).replace(/\D/g, ''); 
+    
+    // Agar raqam 998 bilan boshlansa va 12 xonali bo'lsa, chiroyli qilib kesib chiqamiz
+    if (cleaned.startsWith('998') && cleaned.length === 12) {
+      const match = cleaned.match(/^(\d{3})(\d{2})(\d{3})(\d{2})(\d{2})$/);
+      if (match) {
+        return `+${match[1]} ${match[2]} ${match[3]} ${match[4]} ${match[5]}`;
+      }
+    }
+    // Agar boshqa davlat raqami bo'lsa yoki xato bo'lsa, shunchaki + bilan o'zini qaytaramiz
+    return '+' + cleaned;
+  };
+
   useEffect(() => {
     let currentId = null;
 
-    // 🔥 HIMOYA: Telegram WebApp obyekti borligini xavfsiz tekshirish
     try {
       if (typeof window !== "undefined" && window.Telegram && window.Telegram.WebApp) {
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-        // Rangi brauzerda ishlamasligi mumkin, shuning uchun uni ham try ichiga oldik
         try { tg.setHeaderColor("#4f46e5"); } catch (e) {} 
         
         currentId = tg.initDataUnsafe?.user?.id || null;
@@ -36,7 +51,6 @@ export default function BotRegister() {
       console.warn("Telegram WebApp obyekti topilmadi yoki xato:", e);
     }
 
-    // URL'dan qidirish (Agar WebApp'dan topa olmasa)
     if (!currentId) {
       const params = new URLSearchParams(window.location.search);
       currentId = params.get('chatId');
@@ -82,10 +96,16 @@ export default function BotRegister() {
       if (tg && tg.requestContact) {
         tg.requestContact((shared, data) => {
           if (shared && data?.responseUnsafe?.contact?.phone_number) {
+            
+            // 🔥 YECHIM: Raqamni olyapmiz va formatlayapmiz!
+            const rawPhone = data.responseUnsafe.contact.phone_number;
+            const formattedPhone = formatPhoneNumber(rawPhone);
+
             setFormData((prev) => ({
               ...prev,
-              phone: data.responseUnsafe.contact.phone_number
+              phone: formattedPhone
             }));
+
           } else {
             alert("Ro'yxatdan o'tish uchun raqamni ulashish majburiy!");
           }
@@ -121,7 +141,7 @@ export default function BotRegister() {
         body: JSON.stringify({
           name: formData.name,
           parentName: formData.parentName,
-          phone: formData.phone,
+          phone: formData.phone, // 🔥 Bu endi chiroyli "+998 XX XXX XX XX" shaklida ketadi
           group: "Yangi ro'yxatdan o'tgan",
           teacherId: selectedTeacherId, 
           telegramChatId: chatId, 
@@ -211,7 +231,7 @@ export default function BotRegister() {
             <input
               required
               disabled
-              className="w-full p-4 bg-slate-100 border border-slate-200 rounded-2xl outline-none text-slate-600 font-bold tracking-wide cursor-not-allowed"
+              className="w-full p-4 bg-slate-100 border border-slate-200 rounded-2xl outline-none text-slate-800 font-black tracking-wider cursor-not-allowed text-center"
               placeholder="Pastdagi ko'k tugmani bosing 👇"
               value={formData.phone}
             />
