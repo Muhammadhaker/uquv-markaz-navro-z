@@ -9,6 +9,7 @@ import Admins from "./pages/Admins";
 import ActivityLogs from "./pages/ActivityLogs";
 import BotRegister from "./pages/BotRegister";
 import Profile from "./pages/Profile";
+import CronLogs from './pages/CronLogs';
 
 // 🛡️ ESKI XOTIRANI XAVFSIZ TOZALASH (Cheksiz yuklanish (Infinite loop) dan mutlaqo himoyalangan)
 if (typeof window !== "undefined") {
@@ -50,7 +51,7 @@ export default function App() {
         />
         <Route path="/bot-register" element={<BotRegister />} />
         <Route path="/profile" element={<Profile />} />
-
+        <Route path="/cron-logs" element={<CronLogs />} />
         {/* 🔒 YOPIQ SAHIFALAR */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
