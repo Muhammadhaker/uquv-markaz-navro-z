@@ -94,9 +94,11 @@ export default function PrintBadges() {
   };
 
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id));
+  
+  // 🔥 O'ZGARTIRISH: Endi har bir varaqqa 4 ta emas, 8 tadan bo'lamiz
   const printPages = [];
-  for (let i = 0; i < selectedStudents.length; i += 4) {
-    printPages.push(selectedStudents.slice(i, i + 4));
+  for (let i = 0; i < selectedStudents.length; i += 8) {
+    printPages.push(selectedStudents.slice(i, i + 8));
   }
 
   if (loading) {
@@ -111,8 +113,13 @@ export default function PrintBadges() {
     <div className="print-only">
       {printPages.map((pageStudents, pageIndex) => (
         <div key={pageIndex} className="print-page">
-          {[0, 1, 2, 3].map((slot) => {
-            const actualIndex = printMode === 'front' ? slot : (slot % 2 === 0 ? slot + 1 : slot - 1);
+          {/* 🔥 8 TA SLOT YARATILDI */}
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((slot) => {
+            // 🔥 MUKAMMAL KO'ZGU FORMULASI: Qog'oz orqasiga pechat qilganda joylashuv buzilmaydi
+            const actualIndex = printMode === 'front' 
+              ? slot 
+              : Math.floor(slot / 4) * 4 + (3 - (slot % 4));
+              
             const student = pageStudents[actualIndex];
 
             if (!student) return <div key={slot} className="print-badge-card empty-slot"></div>;
@@ -127,7 +134,7 @@ export default function PrintBadges() {
                     </div>
                     <div className="qr-container">
                       <div className="qr-box">
-                        <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={160} level="M" />
+                        <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={135} level="M" />
                       </div>
                     </div>
                     <div className="student-details">
@@ -145,13 +152,13 @@ export default function PrintBadges() {
                     <div className="social-qr-wrapper">
                       <div className="social-qr-item">
                         <div className="qr-border border-sky">
-                          <QRCodeSVG value="https://t.me/+kupDoBtCVOlmMjRi" size={45} level="M" fgColor="#0284c7" />
+                          <QRCodeSVG value="https://t.me/+kupDoBtCVOlmMjRi" size={38} level="M" fgColor="#0284c7" />
                         </div>
                         <span className="text-sky">Telegram</span>
                       </div>
                       <div className="social-qr-item">
                         <div className="qr-border border-pink">
-                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/#" size={45} level="M" fgColor="#db2777" />
+                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/#" size={38} level="M" fgColor="#db2777" />
                         </div>
                         <span className="text-pink">Instagram</span>
                       </div>
@@ -179,9 +186,9 @@ export default function PrintBadges() {
             >
               <ArrowLeft size={16} /> Orqaga qaytish
             </button>
-            <h1 className="text-2xl font-bold text-slate-800">Toza Simmetrik Bejiklar (69x111)</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Ekonom Bejiklar (68x100)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Tipografiya usulidagi butun varaq bo'ylab tortilgan qirqish chiziqlari.
+              A4 varag'ini yotqizib (Albom) 8 ta sig'dirilgan ixcham dizayn. 
             </p>
           </div>
 
@@ -271,7 +278,7 @@ export default function PrintBadges() {
 
                     <div className="qr-container">
                       <div className="qr-box">
-                        <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={160} level="M" />
+                        <QRCodeSVG value={`https://t.me/navroz_math_group_bot?start=${student._id}`} size={135} level="M" />
                       </div>
                     </div>
 
@@ -290,13 +297,13 @@ export default function PrintBadges() {
                     <div className="social-qr-wrapper">
                       <div className="social-qr-item">
                         <div className="qr-border border-sky">
-                          <QRCodeSVG value="https://t.me/+kupDoBtCVOlmMjRi" size={45} level="M" fgColor="#0284c7" />
+                          <QRCodeSVG value="https://t.me/+kupDoBtCVOlmMjRi" size={38} level="M" fgColor="#0284c7" />
                         </div>
                         <span className="text-sky">Telegram</span>
                       </div>
                       <div className="social-qr-item">
                         <div className="qr-border border-pink">
-                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/#" size={45} level="M" fgColor="#db2777" />
+                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/#" size={38} level="M" fgColor="#db2777" />
                         </div>
                         <span className="text-pink">Instagram</span>
                       </div>
@@ -331,17 +338,18 @@ export default function PrintBadges() {
               perspective: 1000px; 
             }
 
+            /* 🔥 BEJIK O'LCHAMI KICHRAYTIRILDI VA MOSLASHTIRILDI */
             .screen-badge-card {
-              width: 69mm; 
-              height: 111mm;  
-              background: #f1f5f9; /* 🔥 SLATE-100 GA O'ZGARTIRILDI */
+              width: 68mm; 
+              height: 100mm;  
+              background: #f1f5f9; 
               box-sizing: border-box;
               display: flex;
               flex-direction: column;
               align-items: center;
               position: relative;
               overflow: hidden;
-              border: 1px solid #94a3b8; /* 🔥 BORDER HAM YANADA KO'ZGA TASHLANADIGAN QILINDI */
+              border: 1px solid #94a3b8; 
               box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
               border-radius: 6px;
               justify-content: space-between;
@@ -369,7 +377,7 @@ export default function PrintBadges() {
             .header-section {
               width: 100%;
               background-color: #1e3a8a !important; 
-              padding: 6mm 0;
+              padding: 4mm 0; /* Kichikroq joylashtirish */
               text-align: center;
             }
             .header-title {
@@ -395,15 +403,16 @@ export default function PrintBadges() {
               width: 100%;
             }
             .qr-box { 
-              padding: 6px; 
+              padding: 5px; 
               background: #ffffff !important; 
               border: 1px solid #e2e8f0 !important;
               border-radius: 8px;
             }
-            .qr-box svg { width: 44mm !important; height: 44mm !important; }
-            .student-details { width: 100%; text-align: center; padding-bottom: 6mm; }
+            .qr-box svg { width: 38mm !important; height: 38mm !important; }
+            
+            .student-details { width: 100%; text-align: center; padding-bottom: 4mm; }
             .st-name {
-              font-size: 15px;
+              font-size: 13px; /* Kichraytirildi */
               font-weight: 800;
               color: #1e293b !important;
               text-transform: uppercase;
@@ -421,8 +430,8 @@ export default function PrintBadges() {
               width: 100%;
               height: 100%;
               justify-content: flex-start;
-              background-color: #f1f5f9 !important; /* 🔥 SLATE-100 GA O'ZGARTIRILDI */
-              padding-top: 10mm; 
+              background-color: #f1f5f9 !important; 
+              padding-top: 6mm; 
               position: relative;
             }
             .logo-wrapper {
@@ -433,15 +442,15 @@ export default function PrintBadges() {
               margin-bottom: auto; 
             }
             .logo-img {
-              width: 48mm; 
-              height: 48mm;
+              width: 38mm; 
+              height: 38mm;
               object-fit: contain;
             }
             .social-qr-wrapper {
               width: 100%;
               display: flex;
               justify-content: space-evenly;
-              padding-bottom: 12mm; 
+              padding-bottom: 8mm; 
               align-items: flex-end;
             }
             .social-qr-item {
@@ -486,8 +495,9 @@ export default function PrintBadges() {
                 width: 100% !important;
               }
 
+              /* 🔥 MUHIM O'ZGARISH: ALBOM FORMATGA O'TDI (LANDSCAPE) */
               @page { 
-                size: A4 portrait; 
+                size: A4 landscape; 
                 margin: 0 !important; 
               }
               
@@ -500,10 +510,11 @@ export default function PrintBadges() {
                 print-color-adjust: exact !important;
               }
 
+              /* 🔥 4x2 GRID UCHUN MOSLASHTIRILDI */
               .print-page {
-                width: 210mm !important;
-                height: 297mm !important;
-                max-height: 297mm !important; 
+                width: 297mm !important;
+                height: 210mm !important;
+                max-height: 210mm !important; 
                 overflow: hidden !important;
                 background-color: #ffffff !important;
                 position: relative !important;
@@ -512,36 +523,14 @@ export default function PrintBadges() {
                 flex-wrap: wrap !important;
                 align-content: flex-start !important;
                 
-                padding-left: 34mm !important;
-                padding-top: 35mm !important;
-                gap: 5mm 4mm !important;
+                /* Yon va tepadan mukammal markazlash uchun prokladkalar */
+                padding-left: 7.5mm !important;
+                padding-top: 3.5mm !important;
+                gap: 2.5mm 3.5mm !important; /* Ustunlar va qatorlar orasi */
                 
                 page-break-after: always !important;
                 break-after: page !important;
                 box-sizing: border-box !important;
-
-                background-image: 
-                  linear-gradient(to right, #000 50%, transparent 50%),
-                  linear-gradient(to right, #000 50%, transparent 50%),
-                  linear-gradient(to right, #000 50%, transparent 50%),
-                  linear-gradient(to right, #000 50%, transparent 50%),
-                  
-                  linear-gradient(to bottom, #000 50%, transparent 50%),
-                  linear-gradient(to bottom, #000 50%, transparent 50%),
-                  linear-gradient(to bottom, #000 50%, transparent 50%),
-                  linear-gradient(to bottom, #000 50%, transparent 50%) !important;
-
-                background-size: 
-                  8px 1px, 8px 1px, 8px 1px, 8px 1px, 
-                  1px 8px, 1px 8px, 1px 8px, 1px 8px !important; 
-                
-                background-position: 
-                  0 35mm, 0 146mm, 0 151mm, 0 262mm, 
-                  34mm 0, 103mm 0, 107mm 0, 176mm 0 !important; 
-                  
-                background-repeat: 
-                  repeat-x, repeat-x, repeat-x, repeat-x, 
-                  repeat-y, repeat-y, repeat-y, repeat-y !important; 
               }
 
               .print-page:last-child {
@@ -550,9 +539,9 @@ export default function PrintBadges() {
               }
 
               .print-badge-card {
-                width: 69mm !important;
-                height: 111mm !important;
-                background-color: #f1f5f9 !important; /* 🔥 SLATE-100 GA O'ZGARTIRILDI */
+                width: 68mm !important;
+                height: 100mm !important;
+                background-color: #f1f5f9 !important; 
                 display: flex !important;
                 flex-direction: column !important;
                 align-items: center !important;
@@ -560,7 +549,7 @@ export default function PrintBadges() {
                 position: relative !important;
                 overflow: hidden !important;
                 
-                border: 1px solid #94a3b8 !important; /* 🔥 BORDER HAM YANADA KO'ZGA TASHLANADIGAN QILINDI */
+                border: 1px solid #94a3b8 !important; 
                 box-sizing: border-box !important;
 
                 box-shadow: none !important;
@@ -571,6 +560,8 @@ export default function PrintBadges() {
 
               .empty-slot {
                 visibility: hidden !important;
+                border: none !important;
+                background: transparent !important;
               }
             }
           `}</style>
