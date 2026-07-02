@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, AlertTriangle, UserX, Bot, CalendarClock, CheckCircle, Info } from "lucide-react";
+import { Loader2, Bot, CalendarClock, RefreshCw } from "lucide-react";
 
 export default function CronLogs() {
   const [logs, setLogs] = useState([]);
@@ -8,7 +8,7 @@ export default function CronLogs() {
   const fetchCronHistory = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/cron-reminders?action=history");
+      const res = await fetch("/api/cron-reminders?action=history"); 
       const json = await res.json();
       if (json.success) setLogs(json.data);
     } catch (err) {
@@ -24,95 +24,134 @@ export default function CronLogs() {
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto pb-20">
-      <div className="flex justify-between items-center mb-6 border-b pb-4">
+      
+      {/* Jiddiy Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Bot className="text-indigo-600" /> Bot xabarlari tarixi
+            <Bot className="text-indigo-600" size={26} /> Tizim Jurnali
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Oxirgi 30 kun ichida bot qanday amallar bajargani tarixi</p>
+          <p className="text-slate-500 text-sm mt-1">Avtomatlashtirilgan xabarlar va xatoliklar auditi</p>
         </div>
-
-        {/* Yangilash tugmasi */}
-        <button onClick={fetchCronHistory} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+        
+        <button 
+          onClick={fetchCronHistory} 
+          className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 transition-all shadow-sm text-sm font-bold active:scale-95"
+        >
+          <RefreshCw size={16} className="text-slate-500" /> Yangilash
         </button>
       </div>
 
       {logs.length === 0 ? (
-        <div className="text-center py-20 text-slate-400 font-bold bg-white rounded-2xl shadow-sm border border-slate-100">
+        <div className="text-center py-20 text-slate-400 font-bold bg-white rounded-xl shadow-sm border border-slate-200">
           Hali hisobotlar yo'q. Tizim ishlagach shu yerda paydo bo'ladi.
         </div>
       ) : (
         <div className="space-y-6">
           {logs.map((log, index) => (
-            <div key={log._id || index} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-
-              {/* Sana va Vaqt */}
-              <div className="flex items-center gap-2 text-indigo-700 font-black mb-4 border-b border-slate-100 pb-3">
-                <CalendarClock size={20} />
-                {new Date(log.date).toLocaleString("ru-RU", {
-                  day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
-                })}
-                <span className="text-xs text-slate-400 font-medium ml-2">(Tizim avtomatik tekshiruvi)</span>
+            <div key={log._id || index} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              
+              {/* Log Header - Qat'iy va toza */}
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-200">
+                    <CalendarClock size={18} className="text-slate-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">
+                      {new Date(log.date).toLocaleString("ru-RU", { 
+                        day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" 
+                      })}
+                    </p>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">Avtomatik tizim tekshiruvi</p>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-100 text-slate-600 px-3 py-1 rounded-md text-xs font-bold border border-slate-200">
+                  Tugallangan
+                </div>
               </div>
 
-              {/* Muvaffaqiyatli yuborilganlar */}
-              {log.sent?.length > 0 && (
-                <div className="mb-4 bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                  <h3 className="font-bold text-emerald-700 flex items-center gap-2 mb-2"><CheckCircle size={16} /> Muvaffaqiyatli yuborildi ({log.sent.length})</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {log.sent.map((name, i) => (
-                      <span key={i} className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">{name}</span>
-                    ))}
+              {/* Log Content - Ixcham bloklar */}
+              <div className="p-6 space-y-6">
+
+                {/* Muvaffaqiyatli yuborilganlar */}
+                {log.sent?.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      Muvaffaqiyatli yuborildi ({log.sent.length})
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {log.sent.map((name, i) => (
+                        <span key={i} className="bg-slate-50 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-md text-xs font-semibold">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Allaqachon yuborilganlar (Xotira ishladi) */}
-              {log.alreadySent?.length > 0 && (
-                <div className="mb-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
-                  <h3 className="font-bold text-blue-700 flex items-center gap-2 mb-2"><Info size={16} /> Bugun yuborilganlar / Duble rad etildi ({log.alreadySent.length})</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {log.alreadySent.map((name, i) => (
-                      <span key={i} className="bg-white text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-200">{name}</span>
-                    ))}
+                {/* Allaqachon yuborilganlar */}
+                {log.alreadySent?.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                      Duble rad etildi / Bugun yuborilgan ({log.alreadySent.length})
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {log.alreadySent.map((name, i) => (
+                        <span key={i} className="bg-slate-50 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-md text-xs font-semibold">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Ulanmaganlar */}
-              {log.unlinked?.length > 0 && (
-                <div className="mb-4 bg-amber-50 p-4 rounded-xl border border-amber-100">
-                  <h3 className="font-bold text-amber-700 flex items-center gap-2 mb-2"><UserX size={16} /> Botga ulanmaganlar ({log.unlinked.length})</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {log.unlinked.map((name, i) => (
-                      <span key={i} className="bg-white text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200">{name}</span>
-                    ))}
+                {/* Ulanmaganlar (Sariq emas, jiddiy to'q sariq aksent) */}
+                {log.unlinked?.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Botga ulanmaganlar ({log.unlinked.length})
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {log.unlinked.map((name, i) => (
+                        <span key={i} className="bg-white border border-amber-200 text-amber-700 px-3 py-1.5 rounded-md text-xs font-semibold">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Xatoliklar */}
-              {log.failed?.length > 0 && (
-                <div className="bg-rose-50 p-4 rounded-xl border border-rose-100">
-                  <h3 className="font-bold text-rose-700 flex items-center gap-2 mb-2"><AlertTriangle size={16} /> Xatoliklar ({log.failed.length})</h3>
-                  <div className="space-y-1">
-                    {log.failed.map((e, i) => (
-                      <div key={i} className="text-xs text-rose-600 font-medium">
-                        <span className="font-bold">{e.name}:</span> {e.error}
-                      </div>
-                    ))}
+                {/* Xatoliklar (Jadval ko'rinishida) */}
+                {log.failed?.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      Xatoliklar ({log.failed.length})
+                    </h3>
+                    <div className="bg-rose-50/50 border border-rose-100 rounded-lg p-1">
+                      {log.failed.map((e, i) => (
+                        <div key={i} className="flex justify-between items-center text-xs py-2 px-3 border-b border-rose-100/50 last:border-0 hover:bg-rose-50 transition-colors">
+                          <span className="font-bold text-slate-800">{e.name}</span>
+                          <span className="text-rose-500 font-mono text-[10px] bg-rose-100/50 px-2 py-0.5 rounded">{e.error}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Agar hammasi bo'sh bo'lsa (Masalan hech kimni to'lov vaqti kelmagan) */}
-              {!log.sent?.length && !log.alreadySent?.length && !log.unlinked?.length && !log.failed?.length && (
-                <div className="text-sm text-slate-500 font-medium italic">
-                  Bu vaqtda xabar yuborilishi kerak bo'lgan qarzdorlar topilmadi.
-                </div>
-              )}
+                {/* Agar amallar bo'lmasa */}
+                {!log.sent?.length && !log.alreadySent?.length && !log.unlinked?.length && !log.failed?.length && (
+                  <div className="text-sm text-slate-500 font-medium py-2">
+                    Tizim tekshiruvi davomida hech qanday harakat amalga oshirilmadi.
+                  </div>
+                )}
 
+              </div>
             </div>
           ))}
         </div>
