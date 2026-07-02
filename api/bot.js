@@ -104,11 +104,12 @@ export default async function handler(req, res) {
     const linkedStudents = await Student.find({ $or: [ { telegramChatId: chatId }, { telegramChatId: Number(chatId) } ] });
 
     // =========================================================
-    // 🔥 MAJBURIY OBUNA (YANGI KANAL ID BILAN)
+    // 🔥 MAJBURIY OBUNA (QAT'IY TEKSHIRUV)
     // =========================================================
     if (linkedStudents.length > 0) {
         let isSubscribed = false;
-        const CHANNEL_ID = "-1003954112203"; 
+        // 🔥 Raqamli ID o'rniga aniq Username (ochiq kanal) yozildi
+        const CHANNEL_ID = "@gulomov_math_group"; 
 
         try {
             const subRes = await fetch(`https://api.telegram.org/bot${token}/getChatMember?chat_id=${CHANNEL_ID}&user_id=${fromId}`);
@@ -116,19 +117,20 @@ export default async function handler(req, res) {
             
             if (subData.ok && ['member', 'administrator', 'creator'].includes(subData.result.status)) {
                 isSubscribed = true;
-            } else if (!subData.ok && subData.description.includes("chat not found")) {
-                console.error("Kanal ID xato yoki bot admin emas!");
-                isSubscribed = true; 
+            } else {
+                isSubscribed = false; // 🔥 Ayab o'tirmaydi, qat'iy blok!
             }
-        } catch (e) { isSubscribed = true; }
+        } catch (e) { isSubscribed = false; } // Xato bo'lsa ham blok!
 
         if (!isSubscribed) {
             if (isCallback && text === "check_sub") {
+                // Qizil xatolik oynasi (Alert)
                 await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ callback_query_id: callbackQueryId, text: "❌ Siz hali Telegram kanalga obuna bo'lmadingiz! Kanalga kirib 'Qo'shilish' tugmasini bosing.", show_alert: true })
                 });
             } else {
+                // Qulflangan xabar jo'natish
                 await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -137,7 +139,6 @@ export default async function handler(req, res) {
                         parse_mode: 'Markdown',
                         reply_markup: {
                             inline_keyboard: [
-                                // 🔥 EMOJILAR O'ZGARTIRILDI
                                 [{ text: "✈️ Telegram kanal (Majburiy)", url: "https://t.me/gulomov_math_group" }],
                                 [{ text: "📸 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }],
                                 [{ text: "✅ Tasdiqlash", callback_data: "check_sub" }]
@@ -150,9 +151,20 @@ export default async function handler(req, res) {
         }
 
         if (isCallback && text === "check_sub" && isSubscribed) {
+            // Loading aylanishini to'xtatish
+            await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ callback_query_id: callbackQueryId })
+            });
+            // 🔥 ENG ZO'R JOYI: Qulflangan xabarni ekrandan chiroyli qilib o'chirib tashlaymiz
+            await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
+            });
+            // Muvaffaqiyat xabari
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: "✅ Rahmat! Obuna muvaffaqiyatli tasdiqlandi.\nBot xizmatlaridan bemalol foydalanishingiz mumkin." })
+                body: JSON.stringify({ chat_id: chatId, text: "✅ Rahmat! Obuna muvaffaqiyatli tasdiqlandi.\nEndi menyudan bemalol foydalanishingiz mumkin 👇" })
             });
             return res.status(200).send('OK');
         }
@@ -253,7 +265,6 @@ export default async function handler(req, res) {
                     parse_mode: 'Markdown',
                     reply_markup: { 
                         inline_keyboard: [ 
-                            // 🔥 EMOJILAR O'ZGARTIRILDI VA XATO TO'G'RILANDI
                             [{ text: "✈️ Telegram kanal", url: "https://t.me/gulomov_math_group" }], 
                             [{ text: "📸 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
                         ] 
