@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, CalendarCheck, UserCheck, X, History, Printer, Download } from "lucide-react";
+import { LayoutDashboard, Users, CalendarCheck, UserCheck, X, History, Printer, Download, Bot } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
@@ -71,13 +71,11 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     }
   };
 
-  // 🔥 YOG'INGARCHILIK: Rollarga moslab menyular aniq ajratildi
   const navItems = [
     { 
       to: "/dashboard", 
       label: "Umumiy statistika", 
       icon: LayoutDashboard, 
-      // Ustoz uchun statistika ochildi (lekin orqada u faqat o'z pulini ko'radi)
       show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("dashboard"))
     },
     { 
@@ -98,7 +96,13 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       icon: Printer, 
       show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("badges"))
     },
-    // 🔥 Xodimlar va Tarix faqatgina eng katta Boshliq (Super Admin) uchun!
+    // 🔥 YANGI QO'SHILGAN QISM: Bot hisoboti
+    { 
+      to: "/cron-logs", 
+      label: "Bot hisoboti", 
+      icon: Bot, 
+      show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("cron_logs"))
+    },
     { to: "/admins", label: "Xodimlar", icon: UserCheck, show: role === "super_admin" },
     { to: "/logs", label: "Harakatlar tarixi", icon: History, show: role === "super_admin" },
   ];
