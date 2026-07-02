@@ -14,7 +14,7 @@ const calculateCycles = (addedAtStr) => {
   if (!addedAtStr) return 1;
   const added = new Date(addedAtStr);
   if (isNaN(added.getTime())) return 1;
-  
+
   const today = new Date();
   let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
   if (today.getDate() < added.getDate()) m--;
@@ -31,31 +31,31 @@ export default async function handler(req, res) {
   try {
     await connectDB();
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    
+
     const students = await Student.find({});
     const payments = await Payment.find({});
-    
+
     const today = new Date();
-    const currentDay = today.getDate(); 
+    const currentDay = today.getDate();
     const targetMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
     const todayFormatted = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
     let sentStudents = [];
     let failedStudents = [];
-    let unlinkedStudents = []; 
-    let alreadySentStudents = []; 
+    let unlinkedStudents = [];
+    let alreadySentStudents = [];
 
     for (const student of students) {
       if (student.exceptionMonths && student.exceptionMonths.includes(targetMonthStr)) continue;
 
       if (student.lastReminderDate === todayFormatted) {
-          alreadySentStudents.push(student.name);
-          continue; 
+        alreadySentStudents.push(student.name);
+        continue;
       }
 
       const addedDate = new Date(student.addedAt || today);
-      const joinedDay = addedDate.getDate(); 
-      const activeCycles = calculateCycles(student.addedAt); 
+      const joinedDay = addedDate.getDate();
+      const activeCycles = calculateCycles(student.addedAt);
 
       const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
       let overallDebt = 0;
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
           const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
           if (match && match.price !== undefined) return Number(match.price);
         }
-        return 300000; 
+        return 300000;
       };
 
       if (studentGroups.length > 0) {
@@ -80,10 +80,10 @@ export default async function handler(req, res) {
       } else {
         const expectedTotal = 300000 * activeCycles;
         const totalPaid = payments
-            .filter(p => p.studentId === student._id.toString())
-            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+          .filter(p => p.studentId === student._id.toString())
+          .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
         const qarz = expectedTotal - totalPaid;
-        if(qarz > 0) overallDebt += qarz;
+        if (qarz > 0) overallDebt += qarz;
       }
 
       const targetDate = new Date();
@@ -97,15 +97,15 @@ export default async function handler(req, res) {
         if (overallDebt > 0 || !hasPaidAvans) {
           messageText = `🟡 *TO'LOV VAQTI YAQINLASHMOQDA*\n\n👤 *O'quvchi:* ${student.name}\n\nEslatib o'tamiz, 2 kundan so'ng sizning navbatdagi oylik to'lov vaqtingiz keladi.\n\n_Iltimos, darslardan uzilish bo'lmasligi uchun to'lovni o'z vaqtida amalga oshirishni unutmang._`;
         }
-      } 
+      }
       else if (overallDebt > 0 && currentDay > joinedDay && currentDay % 2 !== 0) {
         messageText = `🔴 *QARZDORLIK ESLATMASI!*\n\n👤 *O'quvchi:* ${student.name}\n📅 *Holat:* To'lov muddati o'tgan!\n\n💰 *Jami qarzingiz:* ${overallDebt.toLocaleString()} so'm\n\n_Sizning to'lov vaqtingiz o'tib ketgan. Iltimos, darslardan chetlatilmaslik uchun to'lovni zudlik bilan amalga oshiring._`;
       }
 
       if (messageText) {
         if (!student.telegramChatId || student.telegramChatId.toString().trim() === "") {
-            unlinkedStudents.push(student.name);
-            continue; 
+          unlinkedStudents.push(student.name);
+          continue;
         }
 
         try {
@@ -114,29 +114,29 @@ export default async function handler(req, res) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: student.telegramChatId, text: messageText, parse_mode: 'Markdown' })
           });
-          
+
           const tgData = await tgRes.json();
-          
+
           if (tgData.ok) {
-             sentStudents.push(student.name);
-             await Student.updateOne({ _id: student._id }, { $set: { lastReminderDate: todayFormatted } });
+            sentStudents.push(student.name);
+            await Student.updateOne({ _id: student._id }, { $set: { lastReminderDate: todayFormatted } });
           } else {
-             failedStudents.push({ name: student.name, error: tgData.description });
+            failedStudents.push({ name: student.name, error: tgData.description });
           }
         } catch (err) {
-           failedStudents.push({ name: student.name, error: err.message });
+          failedStudents.push({ name: student.name, error: err.message });
         }
       }
     }
 
     // 🔥 YANGI: Shu yerdagi barcha hisobotni ma'lumotlar bazasiga o'chmas qilib saqlab qo'yamiz!
-    await CronLog.create({
+      await CronLog.create({
       date: new Date(),
       sent: sentStudents,
       failed: failedStudents,
-      unlinked: unlinkedStudents
+      unlinked: unlinkedStudents,
+      alreadySent: alreadySentStudents // <- Shu qator qo'shildi
     });
-
     return res.status(200).json({ success: true, message: "Avtomat bot ishladi va hisobot bazaga saqlandi." });
 
   } catch (error) {
