@@ -28,10 +28,10 @@ if (typeof window !== "undefined") {
 const ProtectedRoute = () => {
   const role = localStorage.getItem("userRole");
   if (!role) return <Navigate to="/" replace />;
-  
+
   return (
     <Layout>
-      <Outlet /> 
+      <Outlet />
     </Layout>
   );
 };
@@ -43,20 +43,21 @@ export default function App() {
     <Router>
       <Routes>
         {/* 🔓 OCHIQ SAHIFALAR */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             !role ? <Login /> : <Navigate to={role === "assistant" ? "/attendance" : "/groups"} replace />
-          } 
+          }
         />
         <Route path="/bot-register" element={<BotRegister />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/cron-logs" element={<CronLogs />} />
+
         {/* 🔒 YOPIQ SAHIFALAR */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/groups" element={<Groups />} />
           <Route path="/attendance" element={<Attendance />} />
+          <Route path="/cron-logs" element={<CronLogs />} />
           <Route path="/badges" element={<PrintBadges />} />
           <Route path="/admins" element={<Admins />} />
           <Route path="/logs" element={<ActivityLogs />} />

@@ -7,6 +7,8 @@ const connectDB = async () => {
 
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
+// 🔥 YANGI: Hisobotlarni saqlash uchun maxsus model yaratamiz
+const CronLog = mongoose.models.CronLog || mongoose.model('CronLog', new mongoose.Schema({}, { strict: false }), 'cron_logs');
 
 const calculateCycles = (addedAtStr) => {
   if (!addedAtStr) return 1;
@@ -36,19 +38,16 @@ export default async function handler(req, res) {
     const today = new Date();
     const currentDay = today.getDate(); 
     const targetMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-    
-    // 🔥 YANGI: Bugungi sanani aniq formatda olamiz (Masalan: 2026-07-01)
     const todayFormatted = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
     let sentStudents = [];
     let failedStudents = [];
     let unlinkedStudents = []; 
-    let alreadySentStudents = []; // 🔥 YANGI: Bugun allaqachon borganlar ro'yxati
+    let alreadySentStudents = []; 
 
     for (const student of students) {
       if (student.exceptionMonths && student.exceptionMonths.includes(targetMonthStr)) continue;
 
-      // 🔥 ASOSIY XIMOYA: Agar shu o'quvchiga bugun xabar yuborilgan bo'lsa, o'tkazib yuboramiz!
       if (student.lastReminderDate === todayFormatted) {
           alreadySentStudents.push(student.name);
           continue; 
@@ -120,18 +119,9 @@ export default async function handler(req, res) {
           
           if (tgData.ok) {
              sentStudents.push(student.name);
-             
-             // 🔥 YANGI: Xabar aniq bordimi? Demak profilga bugungi sanani muhrlaymiz!
-             await Student.updateOne(
-               { _id: student._id },
-               { $set: { lastReminderDate: todayFormatted } }
-             );
-
+             await Student.updateOne({ _id: student._id }, { $set: { lastReminderDate: todayFormatted } });
           } else {
-             failedStudents.push({ 
-               name: student.name, 
-               error: tgData.description 
-             });
+             failedStudents.push({ name: student.name, error: tgData.description });
           }
         } catch (err) {
            failedStudents.push({ name: student.name, error: err.message });
@@ -139,14 +129,15 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ 
-        success: true, 
-        hisobot: "Tizim to'liq tahlil qilindi!",
-        muvaffaqiyatli_yuborildi: sentStudents,
-        bugun_allaqachon_yuborilganlar: alreadySentStudents, // 🔥 Bu qator ham paydo bo'ladi
-        xatolik_berdi: failedStudents,
-        botga_ulanmaganlar: unlinkedStudents 
+    // 🔥 YANGI: Shu yerdagi barcha hisobotni ma'lumotlar bazasiga o'chmas qilib saqlab qo'yamiz!
+    await CronLog.create({
+      date: new Date(),
+      sent: sentStudents,
+      failed: failedStudents,
+      unlinked: unlinkedStudents
     });
+
+    return res.status(200).json({ success: true, message: "Avtomat bot ishladi va hisobot bazaga saqlandi." });
 
   } catch (error) {
     return res.status(500).json({ error: error.message });
