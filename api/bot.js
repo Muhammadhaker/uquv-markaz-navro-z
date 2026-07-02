@@ -92,7 +92,7 @@ export default async function handler(req, res) {
                                 [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }],
                                 [{ text: "📊 Oylik hisobot" }],
                                 [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
-                                [{ text: "📱 Ijtimoiy tarmoqlar" }] // 🔥 YANGI TUGMA QO'SHILDI
+                                [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] // 🔥 2 TA TUGMA
                             ], resize_keyboard: true, is_persistent: true
                         }
                     })
@@ -171,20 +171,28 @@ export default async function handler(req, res) {
     // MENU TUGMALARI
     // =========================================================
 
-    // 🔥 YANGI: PASTKI TUGMA BOSILGANDA TARMOQLARNI KO'RSATISH
-    if (text === "📱 Ijtimoiy tarmoqlar") {
+    // 🔥 YANGI: TELEGRAM VA INSTAGRAM ALOHIDA TUGMALARI
+    if (text === "✈️ Telegram") {
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 chat_id: chatId, 
-                text: "📱 *Ijtimoiy tarmoqlarimizni kuzatib boring:*\n\nEng so'nggi yangiliklar, dars jarayonlari va natijalar bilan sahifalarimizda tanishing!", 
+                text: "✈️ *Bizning rasmiy Telegram kanalimiz:*\n\nEng so'nggi yangiliklar, dars jarayonlari va natijalar shu yerda!", 
                 parse_mode: 'Markdown',
-                reply_markup: { 
-                    inline_keyboard: [ 
-                        [{ text: "✈️ Telegram kanal", url: "https://t.me/gulomov_math_group" }], 
-                        [{ text: "📸 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
-                    ] 
-                } 
+                reply_markup: { inline_keyboard: [ [{ text: "Kanalga o'tish", url: "https://t.me/gulomov_math_group" }] ] } 
+            })
+        });
+        return res.status(200).send('OK');
+    }
+
+    if (text === "📸 Instagram") {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chat_id: chatId, 
+                text: "📸 *Bizning rasmiy Instagram sahifamiz:*\n\nEng qiziqarli videolar va hayotiy lahzalarimizni kuzatib boring!", 
+                parse_mode: 'Markdown',
+                reply_markup: { inline_keyboard: [ [{ text: "Sahifaga o'tish", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] ] } 
             })
         });
         return res.status(200).send('OK');
@@ -262,7 +270,7 @@ export default async function handler(req, res) {
                             [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }], 
                             [{ text: "📊 Oylik hisobot" }], 
                             [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
-                            [{ text: "📱 Ijtimoiy tarmoqlar" }] // 🔥 YANGI TUGMA
+                            [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] // 🔥 2 TA TUGMA
                         ], resize_keyboard: true, is_persistent: true 
                     }, 
                     parse_mode: 'Markdown' 
@@ -277,25 +285,11 @@ export default async function handler(req, res) {
                     reply_markup: { 
                         keyboard: [ 
                             [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }], 
-                            [{ text: "ℹ️ O'quv markaz haqida" }, { text: "📱 Ijtimoiy tarmoqlar" }] // 🔥 YANGI TUGMA
+                            [{ text: "ℹ️ O'quv markaz haqida" }],
+                            [{ text: "✈️ Telegram" }, { text: "📸 Instagram" }] // 🔥 2 TA TUGMA
                         ], resize_keyboard: true, is_persistent: true 
                     }, 
                     parse_mode: 'Markdown' 
-                })
-            });
-
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: chatId, 
-                    text: "📱 *Ijtimoiy tarmoqlarimizni kuzatib boring:*\n\nEng so'nggi yangiliklar, dars jarayonlari va natijalar bilan sahifalarimizda tanishing!", 
-                    parse_mode: 'Markdown',
-                    reply_markup: { 
-                        inline_keyboard: [ 
-                            [{ text: "✈️ Telegram kanal", url: "https://t.me/gulomov_math_group" }], 
-                            [{ text: "📸 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
-                        ] 
-                    } 
                 })
             });
         }
