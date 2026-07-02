@@ -334,14 +334,14 @@ export default function PrintBadges() {
             .screen-badge-card {
               width: 69mm; 
               height: 111mm;  
-              background: #f8fafc; /* 🔥 O'ZGARTIRILDI: Och fon */
+              background: #f1f5f9; /* 🔥 SLATE-100 GA O'ZGARTIRILDI */
               box-sizing: border-box;
               display: flex;
               flex-direction: column;
               align-items: center;
               position: relative;
               overflow: hidden;
-              border: 1px solid #cbd5e1; /* 🔥 O'ZGARTIRILDI: Qalinroq aniq chegara */
+              border: 1px solid #94a3b8; /* 🔥 BORDER HAM YANADA KO'ZGA TASHLANADIGAN QILINDI */
               box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
               border-radius: 6px;
               justify-content: space-between;
@@ -394,7 +394,6 @@ export default function PrintBadges() {
               justify-content: center;
               width: 100%;
             }
-            /* 🔥 O'ZGARTIRILDI: QR kod oq qutichada chiroyli turishi uchun */
             .qr-box { 
               padding: 6px; 
               background: #ffffff !important; 
@@ -422,7 +421,7 @@ export default function PrintBadges() {
               width: 100%;
               height: 100%;
               justify-content: flex-start;
-              background-color: #f8fafc !important; /* 🔥 O'ZGARTIRILDI: Orqa taraf foni ham ochlashtirildi */
+              background-color: #f1f5f9 !important; /* 🔥 SLATE-100 GA O'ZGARTIRILDI */
               padding-top: 10mm; 
               position: relative;
             }
@@ -553,7 +552,7 @@ export default function PrintBadges() {
               .print-badge-card {
                 width: 69mm !important;
                 height: 111mm !important;
-                background-color: #f8fafc !important; /* 🔥 O'ZGARTIRILDI: Pring qilinganda ham och fon bo'ladi */
+                background-color: #f1f5f9 !important; /* 🔥 SLATE-100 GA O'ZGARTIRILDI */
                 display: flex !important;
                 flex-direction: column !important;
                 align-items: center !important;
@@ -561,7 +560,7 @@ export default function PrintBadges() {
                 position: relative !important;
                 overflow: hidden !important;
                 
-                border: 1px solid #cbd5e1 !important; /* 🔥 O'ZGARTIRILDI: Print qilinganda ham yupqa chegara turadi */
+                border: 1px solid #94a3b8 !important; /* 🔥 BORDER HAM YANADA KO'ZGA TASHLANADIGAN QILINDI */
                 box-sizing: border-box !important;
 
                 box-shadow: none !important;
