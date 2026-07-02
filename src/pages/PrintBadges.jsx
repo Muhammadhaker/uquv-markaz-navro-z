@@ -95,7 +95,6 @@ export default function PrintBadges() {
 
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id));
   
-  // 🔥 O'ZGARTIRISH: Endi har bir varaqqa 4 ta emas, 8 tadan bo'lamiz
   const printPages = [];
   for (let i = 0; i < selectedStudents.length; i += 8) {
     printPages.push(selectedStudents.slice(i, i + 8));
@@ -113,9 +112,8 @@ export default function PrintBadges() {
     <div className="print-only">
       {printPages.map((pageStudents, pageIndex) => (
         <div key={pageIndex} className="print-page">
-          {/* 🔥 8 TA SLOT YARATILDI */}
           {[0, 1, 2, 3, 4, 5, 6, 7].map((slot) => {
-            // 🔥 MUKAMMAL KO'ZGU FORMULASI: Qog'oz orqasiga pechat qilganda joylashuv buzilmaydi
+            // 🔥 MUKAMMAL KO'ZGU FORMULASI (O'ng va Chap o'rni almashuvi aniq ishlashi uchun)
             const actualIndex = printMode === 'front' 
               ? slot 
               : Math.floor(slot / 4) * 4 + (3 - (slot % 4));
@@ -146,25 +144,32 @@ export default function PrintBadges() {
                 ) : (
                   <div className="back-side">
                     <div className="logo-wrapper">
+                      {/* 🔥 LOGO YIRIKLASHTIRILDI */}
                       <img src="/icon-192.png" className="logo-img" alt="Logo" />
                     </div>
                     
                     <div className="social-qr-wrapper">
                       <div className="social-qr-item">
                         <div className="qr-border border-sky">
-                          <QRCodeSVG value="https://t.me/+kupDoBtCVOlmMjRi" size={38} level="M" fgColor="#0284c7" />
+                          {/* 🔥 QR KOD KATTALASHTIRILDI */}
+                          <QRCodeSVG value="https://t.me/gulomov_math_group" size={54} level="M" fgColor="#0284c7" />
                         </div>
-                        <span className="text-sky">Telegram</span>
+                        <span className="text-sky mt-1">TELEGRAM</span>
                       </div>
                       <div className="social-qr-item">
                         <div className="qr-border border-pink">
-                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/#" size={38} level="M" fgColor="#db2777" />
+                          {/* 🔥 QR KOD KATTALASHTIRILDI */}
+                          <QRCodeSVG value="https://instagram.com/gulomov_math_group" size={54} level="M" fgColor="#db2777" />
                         </div>
-                        <span className="text-pink">Instagram</span>
+                        <span className="text-pink mt-1">INSTAGRAM</span>
                       </div>
                     </div>
 
-                    <div className="footer-strip">Mantiq • Bilim • Natija</div>
+                    {/* 🔥 YANGI QIDIRUV YOZUVI (TELEGRAM VA INSTAGRAM NOMLARI) */}
+                    <div className="footer-strip">
+                      <span className="footer-subtitle">QIDIRUV UCHUN</span>
+                      <span className="footer-handle">@GULOMOV_MATH_GROUP</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -188,7 +193,7 @@ export default function PrintBadges() {
             </button>
             <h1 className="text-2xl font-bold text-slate-800">Ekonom Bejiklar (68x100)</h1>
             <p className="text-slate-500 text-sm mt-1">
-              A4 varag'ini yotqizib (Albom) 8 ta sig'dirilgan ixcham dizayn. 
+              Mutlaq simmetrik dizayn. Orqa va oldi yuzasi 100% mos tushadi.
             </p>
           </div>
 
@@ -297,19 +302,22 @@ export default function PrintBadges() {
                     <div className="social-qr-wrapper">
                       <div className="social-qr-item">
                         <div className="qr-border border-sky">
-                          <QRCodeSVG value="https://t.me/+kupDoBtCVOlmMjRi" size={38} level="M" fgColor="#0284c7" />
+                          <QRCodeSVG value="https://t.me/gulomov_math_group" size={54} level="M" fgColor="#0284c7" />
                         </div>
-                        <span className="text-sky">Telegram</span>
+                        <span className="text-sky mt-1">TELEGRAM</span>
                       </div>
                       <div className="social-qr-item">
                         <div className="qr-border border-pink">
-                          <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/#" size={38} level="M" fgColor="#db2777" />
+                          <QRCodeSVG value="https://instagram.com/gulomov_math_group" size={54} level="M" fgColor="#db2777" />
                         </div>
-                        <span className="text-pink">Instagram</span>
+                        <span className="text-pink mt-1">INSTAGRAM</span>
                       </div>
                     </div>
 
-                    <div className="footer-strip absolute bottom-0 left-0 w-full">Mantiq • Bilim • Natija</div>
+                    <div className="footer-strip absolute bottom-0 left-0 w-full flex flex-col items-center justify-center">
+                      <span className="footer-subtitle">QIDIRUV UCHUN</span>
+                      <span className="footer-handle">@GULOMOV_MATH_GROUP</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -338,7 +346,6 @@ export default function PrintBadges() {
               perspective: 1000px; 
             }
 
-            /* 🔥 BEJIK O'LCHAMI KICHRAYTIRILDI VA MOSLASHTIRILDI */
             .screen-badge-card {
               width: 68mm; 
               height: 100mm;  
@@ -377,7 +384,7 @@ export default function PrintBadges() {
             .header-section {
               width: 100%;
               background-color: #1e3a8a !important; 
-              padding: 4mm 0; /* Kichikroq joylashtirish */
+              padding: 4mm 0; 
               text-align: center;
             }
             .header-title {
@@ -412,7 +419,7 @@ export default function PrintBadges() {
             
             .student-details { width: 100%; text-align: center; padding-bottom: 4mm; }
             .st-name {
-              font-size: 13px; /* Kichraytirildi */
+              font-size: 13px;
               font-weight: 800;
               color: #1e293b !important;
               text-transform: uppercase;
@@ -421,9 +428,9 @@ export default function PrintBadges() {
               line-height: 1.1;
             }
             .st-group { font-size: 10px; color: #4f46e5 !important; font-weight: 700; }
-            
             .st-teacher { font-size: 8px; color: #64748b !important; font-weight: 800; margin-top: 3px; text-transform: uppercase; }
 
+            /* 🔥 ORQA YUZ O'ZGARISHLARI */
             .back-side {
               display: flex;
               flex-direction: column;
@@ -431,7 +438,7 @@ export default function PrintBadges() {
               height: 100%;
               justify-content: flex-start;
               background-color: #f1f5f9 !important; 
-              padding-top: 6mm; 
+              padding-top: 4mm; 
               position: relative;
             }
             .logo-wrapper {
@@ -439,25 +446,26 @@ export default function PrintBadges() {
               display: flex;
               justify-content: center;
               align-items: center;
+              margin-top: 2mm;
               margin-bottom: auto; 
             }
             .logo-img {
-              width: 38mm; 
-              height: 38mm;
+              width: 58mm !important; /* 🔥 LOGO YIRIKLASHDI (38dan 58ga) */
+              height: 58mm !important;
               object-fit: contain;
             }
             .social-qr-wrapper {
               width: 100%;
               display: flex;
               justify-content: space-evenly;
-              padding-bottom: 8mm; 
+              padding-bottom: 12.5mm; /* Footer uchun joy */
               align-items: flex-end;
             }
             .social-qr-item {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 4px;
+              gap: 2px;
             }
             .qr-border {
               padding: 2px;
@@ -466,6 +474,7 @@ export default function PrintBadges() {
             }
             .border-sky { border: 1px solid #bae6fd !important; }
             .border-pink { border: 1px solid #fbcfe8 !important; }
+            
             .social-qr-item span {
               font-size: 8px;
               font-weight: 900;
@@ -474,15 +483,28 @@ export default function PrintBadges() {
             .text-sky { color: #0284c7 !important; }
             .text-pink { color: #db2777 !important; }
 
+            /* 🔥 YANGI DIZAYNDAGI FOOTER */
             .footer-strip {
               background: #1e3a8a !important;
-              color: #fff !important;
-              font-size: 8px;
+              width: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding: 4.5px 0;
+            }
+            .footer-subtitle {
+              font-size: 7px;
+              color: #93c5fd !important;
               font-weight: 800;
-              text-align: center;
-              padding: 6px 0;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
+              letter-spacing: 1.5px;
+              margin-bottom: 1px;
+            }
+            .footer-handle {
+              font-size: 11.5px;
+              color: #ffffff !important;
+              font-weight: 900;
+              letter-spacing: 1.5px;
             }
 
             @media print {
@@ -495,7 +517,6 @@ export default function PrintBadges() {
                 width: 100% !important;
               }
 
-              /* 🔥 MUHIM O'ZGARISH: ALBOM FORMATGA O'TDI (LANDSCAPE) */
               @page { 
                 size: A4 landscape; 
                 margin: 0 !important; 
@@ -510,7 +531,7 @@ export default function PrintBadges() {
                 print-color-adjust: exact !important;
               }
 
-              /* 🔥 4x2 GRID UCHUN MOSLASHTIRILDI */
+              /* 🔥 MUHIM: MUKAMMAL SIMMETRIYA FORMULASI */
               .print-page {
                 width: 297mm !important;
                 height: 210mm !important;
@@ -523,10 +544,17 @@ export default function PrintBadges() {
                 flex-wrap: wrap !important;
                 align-content: flex-start !important;
                 
-                /* Yon va tepadan mukammal markazlash uchun prokladkalar */
-                padding-left: 7.5mm !important;
+                /* 
+                 Hisob-kitob (O'ng va Chap bir xil tushishi uchun): 
+                 Qog'oz eni: 297mm. Bejiklar (4ta * 68mm) = 272mm.
+                 O'rtadagi 3ta gap (3 * 3mm) = 9mm. 
+                 Jami content = 281mm. 
+                 Qolgan bo'sh joy = 297 - 281 = 16mm. 
+                 Demak ikki chetiga roppa-rosa 8.0mm dan qoldirilsa ideal simmetriya bo'ladi!
+                */
+                padding-left: 8mm !important; 
                 padding-top: 3.5mm !important;
-                gap: 2.5mm 3.5mm !important; /* Ustunlar va qatorlar orasi */
+                gap: 3mm 3mm !important; 
                 
                 page-break-after: always !important;
                 break-after: page !important;
