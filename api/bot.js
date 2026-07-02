@@ -91,7 +91,8 @@ export default async function handler(req, res) {
                             keyboard: [
                                 [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }],
                                 [{ text: "📊 Oylik hisobot" }],
-                                [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }]
+                                [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
+                                [{ text: "📱 Ijtimoiy tarmoqlar" }] // 🔥 YANGI TUGMA QO'SHILDI
                             ], resize_keyboard: true, is_persistent: true
                         }
                     })
@@ -108,7 +109,6 @@ export default async function handler(req, res) {
     // =========================================================
     if (linkedStudents.length > 0) {
         let isSubscribed = false;
-        // 🔥 Raqamli ID o'rniga aniq Username (ochiq kanal) yozildi
         const CHANNEL_ID = "@gulomov_math_group"; 
 
         try {
@@ -118,19 +118,17 @@ export default async function handler(req, res) {
             if (subData.ok && ['member', 'administrator', 'creator'].includes(subData.result.status)) {
                 isSubscribed = true;
             } else {
-                isSubscribed = false; // 🔥 Ayab o'tirmaydi, qat'iy blok!
+                isSubscribed = false; 
             }
-        } catch (e) { isSubscribed = false; } // Xato bo'lsa ham blok!
+        } catch (e) { isSubscribed = false; } 
 
         if (!isSubscribed) {
             if (isCallback && text === "check_sub") {
-                // Qizil xatolik oynasi (Alert)
                 await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ callback_query_id: callbackQueryId, text: "❌ Siz hali Telegram kanalga obuna bo'lmadingiz! Kanalga kirib 'Qo'shilish' tugmasini bosing.", show_alert: true })
                 });
             } else {
-                // Qulflangan xabar jo'natish
                 await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -151,17 +149,14 @@ export default async function handler(req, res) {
         }
 
         if (isCallback && text === "check_sub" && isSubscribed) {
-            // Loading aylanishini to'xtatish
             await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ callback_query_id: callbackQueryId })
             });
-            // 🔥 ENG ZO'R JOYI: Qulflangan xabarni ekrandan chiroyli qilib o'chirib tashlaymiz
             await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
             });
-            // Muvaffaqiyat xabari
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chat_id: chatId, text: "✅ Rahmat! Obuna muvaffaqiyatli tasdiqlandi.\nEndi menyudan bemalol foydalanishingiz mumkin 👇" })
@@ -175,6 +170,26 @@ export default async function handler(req, res) {
     // =========================================================
     // MENU TUGMALARI
     // =========================================================
+
+    // 🔥 YANGI: PASTKI TUGMA BOSILGANDA TARMOQLARNI KO'RSATISH
+    if (text === "📱 Ijtimoiy tarmoqlar") {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chat_id: chatId, 
+                text: "📱 *Ijtimoiy tarmoqlarimizni kuzatib boring:*\n\nEng so'nggi yangiliklar, dars jarayonlari va natijalar bilan sahifalarimizda tanishing!", 
+                parse_mode: 'Markdown',
+                reply_markup: { 
+                    inline_keyboard: [ 
+                        [{ text: "✈️ Telegram kanal", url: "https://t.me/gulomov_math_group" }], 
+                        [{ text: "📸 Instagram profil", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
+                    ] 
+                } 
+            })
+        });
+        return res.status(200).send('OK');
+    }
+
     if (text === "ℹ️ O'quv markaz haqida") {
         const captionText = `📐 *Matematika fanidan tajribali va A+ sertifikatlangan ustoz Gʻulomov Navro'z*\n\n🌟 _Biz bilan orzuingiz roʻyobga chiqadi!_\n\n✅ Prezident maktablariga tayyorlov\n✅ Al-Xorazmiy maktablariga tayyorlov\n✅ Ixtisoslashtirilgan maktablarga tayyorlov\n✅ DTM va xalqaro sertifikat imtihonlariga tayyorlov\n\n🏆 *Natijalarimiz:*\n👨‍🎓 6 nafar Al-Xorazmiy maktabi oʻquvchisi\n🏅 15+ nafar xalqaro sertifikat sohiblari\n💯 100+ nafar ixtisoslashtirilgan maktab oʻquvchilari\n\n📍 *Manzil:* Kattaqoʻrgʻon tumani, Kadan chorrahasi, Ziyo Nur oʻquv markazi\n\n📞 *Murojaat uchun:* +998 93 271 70 79\n\n🔥 *QABUL OCHIQ!*`;
         await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
@@ -242,7 +257,14 @@ export default async function handler(req, res) {
                 body: JSON.stringify({ 
                     chat_id: chatId, 
                     text: `Assalomu alaykum! 🎓\n\nSizning hisobingizga *${linkedStudents.length} ta* o'quvchi ulangan. Pastki menyudan kerakli bo'limni tanlang 👇`, 
-                    reply_markup: { keyboard: [ [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }], [{ text: "📊 Oylik hisobot" }], [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }] ], resize_keyboard: true, is_persistent: true }, 
+                    reply_markup: { 
+                        keyboard: [ 
+                            [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }], 
+                            [{ text: "📊 Oylik hisobot" }], 
+                            [{ text: "📋 Mening ma'lumotlarim" }, { text: "ℹ️ O'quv markaz haqida" }],
+                            [{ text: "📱 Ijtimoiy tarmoqlar" }] // 🔥 YANGI TUGMA
+                        ], resize_keyboard: true, is_persistent: true 
+                    }, 
                     parse_mode: 'Markdown' 
                 })
             });
@@ -252,7 +274,12 @@ export default async function handler(req, res) {
                 body: JSON.stringify({ 
                     chat_id: chatId, 
                     text: `Assalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Profilingizni ulash uchun bejigingizdagi QR kodni kameraga tuting yoki pastdan ro'yxatdan o'ting 👇`, 
-                    reply_markup: { keyboard: [ [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }], [{ text: "ℹ️ O'quv markaz haqida" }] ], resize_keyboard: true, is_persistent: true }, 
+                    reply_markup: { 
+                        keyboard: [ 
+                            [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }], 
+                            [{ text: "ℹ️ O'quv markaz haqida" }, { text: "📱 Ijtimoiy tarmoqlar" }] // 🔥 YANGI TUGMA
+                        ], resize_keyboard: true, is_persistent: true 
+                    }, 
                     parse_mode: 'Markdown' 
                 })
             });
