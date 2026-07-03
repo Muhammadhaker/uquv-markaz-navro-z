@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { Printer, ArrowLeft, Loader2, Filter, Users, Image as ImageIcon, CheckSquare, Square, RefreshCw } from "lucide-react";
+import { Printer, ArrowLeft, Loader2, Filter, Users, Image as ImageIcon, CheckSquare, Square, RefreshCw, Maximize } from "lucide-react";
 
 export default function PrintBadges() {
   const [students, setStudents] = useState([]);
@@ -12,6 +12,10 @@ export default function PrintBadges() {
   const [selectedIds, setSelectedIds] = useState([]);
   
   const [previewMode, setPreviewMode] = useState("front"); 
+
+  // 🔥 YANGI: Bejik o'lchamlari uchun vaqtinchalik State'lar (Standart: 68x100)
+  const [badgeWidth, setBadgeWidth] = useState(68);
+  const [badgeHeight, setBadgeHeight] = useState(100);
 
   const role = localStorage.getItem("userRole");
   let teacherName = localStorage.getItem("userFullName") || localStorage.getItem("username");
@@ -93,6 +97,12 @@ export default function PrintBadges() {
     }, 300);
   };
 
+  // 🔥 YANGI: Asl holatga qaytaruvchi funksiya
+  const handleResetSize = () => {
+    setBadgeWidth(68);
+    setBadgeHeight(100);
+  };
+
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id));
   
   const printPages = [];
@@ -152,7 +162,6 @@ export default function PrintBadges() {
                           <QRCodeSVG value="https://t.me/gulomov_math_group" size={54} level="M" fgColor="#0284c7" />
                         </div>
                         <span className="platform-name text-sky">TELEGRAM</span>
-                        {/* 🔥 TELEGRAM QIDIRUV NOMI O'Z TAGIDA */}
                         <span className="handle-name text-sky">@GULOMOV_MATH_GROUP</span>
                       </div>
                       <div className="social-qr-item">
@@ -160,13 +169,11 @@ export default function PrintBadges() {
                           <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/?hl=en#" size={54} level="M" fgColor="#db2777" />
                         </div>
                         <span className="platform-name text-pink">INSTAGRAM</span>
-                        {/* 🔥 INSTAGRAM QIDIRUV NOMI O'Z TAGIDA */}
                         <span className="handle-name text-pink">@GULOMOV_MATHGROUP</span>
                       </div>
                     </div>
 
                     <div className="footer-strip">
-                      {/* 🔥 SHIOR QAYTARILDI */}
                       <span className="footer-handle">MANTIQ • BILIM • NATIJA</span>
                     </div>
                   </div>
@@ -215,16 +222,19 @@ export default function PrintBadges() {
           </div>
         </div>
 
-        <div className="mb-8 flex flex-col md:flex-row items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 justify-between">
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+        {/* 🔥 BOSHQARUV PANELI (O'LCHAMLAR BILAN) */}
+        <div className="mb-8 flex flex-col xl:flex-row items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 justify-between">
+          <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
+            
+            {/* Guruh filteri */}
+            <div className="flex items-center gap-3">
               <div className="text-slate-500 font-bold px-2 flex items-center gap-2">
                 <Filter size={20} className="text-indigo-500" /> Guruh:
               </div>
               <select
                 value={selectedGroup}
                 onChange={handleGroupChange}
-                className="w-full sm:w-56 py-2.5 px-4 rounded-xl outline-none font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 cursor-pointer focus:ring-2 focus:ring-indigo-500/50"
+                className="w-40 sm:w-48 py-2.5 px-4 rounded-xl outline-none font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 cursor-pointer focus:ring-2 focus:ring-indigo-500/50"
               >
                 {uniqueGroups.map((g) => (
                   <option key={g} value={g}>{g}</option>
@@ -232,7 +242,41 @@ export default function PrintBadges() {
               </select>
             </div>
 
-            <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto border border-slate-200">
+            {/* 🔥 YANGI: Maxsus o'lcham kiritish qismi */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
+              <Maximize size={18} className="text-slate-400 hidden sm:block" />
+              <div className="flex items-center gap-1">
+                <input 
+                  type="number" 
+                  value={badgeWidth} 
+                  onChange={(e) => setBadgeWidth(e.target.value)}
+                  className="w-14 sm:w-16 py-1 text-center font-bold text-slate-700 rounded-md border border-slate-200 outline-none focus:border-indigo-500"
+                  title="Eni (mm)"
+                />
+                <span className="text-slate-400 font-bold text-xs">x</span>
+                <input 
+                  type="number" 
+                  value={badgeHeight} 
+                  onChange={(e) => setBadgeHeight(e.target.value)}
+                  className="w-14 sm:w-16 py-1 text-center font-bold text-slate-700 rounded-md border border-slate-200 outline-none focus:border-indigo-500"
+                  title="Bo'yi (mm)"
+                />
+              </div>
+              <span className="text-xs font-bold text-slate-400 mr-2">mm</span>
+              
+              {/* Reset tugmasi (Faqat o'lcham o'zgarganda chiqadi) */}
+              {(Number(badgeWidth) !== 68 || Number(badgeHeight) !== 100) && (
+                <button 
+                  onClick={handleResetSize}
+                  className="text-[10px] font-black uppercase tracking-wide bg-rose-100 text-rose-600 px-2 py-1.5 rounded hover:bg-rose-200 transition-colors"
+                >
+                  Asl
+                </button>
+              )}
+            </div>
+
+            {/* Oldi/Orqa Preview */}
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
               <button 
                 onClick={() => setPreviewMode('front')} 
                 className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${previewMode === 'front' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
@@ -251,7 +295,7 @@ export default function PrintBadges() {
 
           <button 
             onClick={toggleAll}
-            className="text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition-colors w-full md:w-auto text-center"
+            className="text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition-colors w-full xl:w-auto text-center"
           >
             {selectedIds.length === filteredStudents.length ? "Barchasini bekor qilish" : "Barchasini tanlash"}
           </button>
@@ -304,7 +348,6 @@ export default function PrintBadges() {
                           <QRCodeSVG value="https://t.me/gulomov_math_group" size={54} level="M" fgColor="#0284c7" />
                         </div>
                         <span className="platform-name text-sky">TELEGRAM</span>
-                        {/* 🔥 TELEGRAM QIDIRUV NOMI O'Z TAGIDA */}
                         <span className="handle-name text-sky">@GULOMOV_MATH_GROUP</span>
                       </div>
                       <div className="social-qr-item">
@@ -312,7 +355,6 @@ export default function PrintBadges() {
                           <QRCodeSVG value="https://www.instagram.com/gulomov_math_group/?hl=en#" size={54} level="M" fgColor="#db2777" />
                         </div>
                         <span className="platform-name text-pink">INSTAGRAM</span>
-                        {/* 🔥 INSTAGRAM QIDIRUV NOMI O'Z TAGIDA */}
                         <span className="handle-name text-pink">@GULOMOV_MATHGROUP</span>
                       </div>
                     </div>
@@ -348,9 +390,10 @@ export default function PrintBadges() {
               perspective: 1000px; 
             }
 
+            /* 🔥 EKRANDAGI BEJIK O'LCHAMI STATE'GA ULANDI */
             .screen-badge-card {
-              width: 68mm; 
-              height: 100mm;  
+              width: ${badgeWidth}mm !important; 
+              height: ${badgeHeight}mm !important;  
               background: #f1f5f9; 
               box-sizing: border-box;
               display: flex;
@@ -459,14 +502,14 @@ export default function PrintBadges() {
               width: 100%;
               display: flex;
               justify-content: space-evenly;
-              padding-bottom: 11mm; 
+              padding-bottom: 12.5mm; 
               align-items: flex-end;
             }
             .social-qr-item {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 1.5px; /* 🔥 QATORLAR ORASI JIPSLASHTIRILDI */
+              gap: 2px;
             }
             .qr-border {
               padding: 2px;
@@ -549,19 +592,15 @@ export default function PrintBadges() {
                 padding-top: 3.5mm !important;
                 gap: 3mm 3mm !important; 
                 
-                page-break-after: always !important;
-                break-after: page !important;
+                page-break-after: auto !important;
+                break-after: auto !important;
                 box-sizing: border-box !important;
               }
 
-              .print-page:last-child {
-                page-break-after: auto !important;
-                break-after: auto !important;
-              }
-
+              /* 🔥 PECHAT QILINGANDAGI BEJIK O'LCHAMI HAM STATE'GA ULANDI */
               .print-badge-card {
-                width: 68mm !important;
-                height: 100mm !important;
+                width: ${badgeWidth}mm !important;
+                height: ${badgeHeight}mm !important;
                 background-color: #f1f5f9 !important; 
                 display: flex !important;
                 flex-direction: column !important;
