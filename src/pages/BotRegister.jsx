@@ -16,22 +16,17 @@ export default function BotRegister() {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
   const [teachers, setTeachers] = useState([]);
-  const [selectedTeacherId, setSelectedTeacherId] = useState("");
+  const [selectedTeachers, setSelectedTeachers] = useState([]);
 
-  // 🔥 YANGI: Telefon raqamni O'zbekiston standartiga (probellar bilan) moslovchi funksiya
   const formatPhoneNumber = (phoneStr) => {
     if (!phoneStr) return "";
-    // Faqat raqamlarni ajratib olamiz (masalan: +998901234567 -> 998901234567)
     const cleaned = ('' + phoneStr).replace(/\D/g, ''); 
-    
-    // Agar raqam 998 bilan boshlansa va 12 xonali bo'lsa, chiroyli qilib kesib chiqamiz
     if (cleaned.startsWith('998') && cleaned.length === 12) {
       const match = cleaned.match(/^(\d{3})(\d{2})(\d{3})(\d{2})(\d{2})$/);
       if (match) {
         return `+${match[1]} ${match[2]} ${match[3]} ${match[4]} ${match[5]}`;
       }
     }
-    // Agar boshqa davlat raqami bo'lsa yoki xato bo'lsa, shunchaki + bilan o'zini qaytaramiz
     return '+' + cleaned;
   };
 
@@ -96,8 +91,6 @@ export default function BotRegister() {
       if (tg && tg.requestContact) {
         tg.requestContact((shared, data) => {
           if (shared && data?.responseUnsafe?.contact?.phone_number) {
-            
-            // 🔥 YECHIM: Raqamni olyapmiz va formatlayapmiz!
             const rawPhone = data.responseUnsafe.contact.phone_number;
             const formattedPhone = formatPhoneNumber(rawPhone);
 
@@ -119,6 +112,14 @@ export default function BotRegister() {
     }
   };
 
+  const handleTeacherToggle = (teacherId) => {
+    setSelectedTeachers((prev) => 
+      prev.includes(teacherId) 
+        ? prev.filter(id => id !== teacherId) 
+        : [...prev, teacherId]                
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -127,28 +128,37 @@ export default function BotRegister() {
       return;
     }
 
-    if (!selectedTeacherId) {
-      alert("Iltimos, darsiga qatnashmoqchi bo'lgan ustozingizni tanlang!");
+    if (selectedTeachers.length === 0) {
+      alert("Iltimos, kamida bitta ustozni (fanni) tanlang!");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const res = await fetch("/api/students", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          parentName: formData.parentName,
-          phone: formData.phone, // 🔥 Bu endi chiroyli "+998 XX XXX XX XX" shaklida ketadi
-          group: "Yangi ro'yxatdan o'tgan",
-          teacherId: selectedTeacherId, 
-          telegramChatId: chatId, 
-        }),
+      // 🔥 YANGI: Har bir tanlangan ustoz uchun ALOHIDA so'rov yuboradigan tsikl
+      const requests = selectedTeachers.map((teacherId) => {
+        return fetch("/api/students", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.name,
+            parentName: formData.parentName,
+            phone: formData.phone, 
+            group: "Yangi ro'yxatdan o'tgan",
+            teacherId: teacherId, // 🔥 Har bir o'quvchi faqat bitta aniq ustozga biriktiriladi
+            telegramChatId: chatId, 
+          }),
+        });
       });
 
-      if (res.ok) {
+      // Barcha so'rovlarni bir vaqtda bajarish (Parallel jo'natish)
+      const results = await Promise.all(requests);
+      
+      // Hamma so'rovlar muvaffaqiyatli saqlandimi tekshiramiz
+      const allSuccess = results.every(res => res.ok);
+
+      if (allSuccess) {
         setIsSuccess(true);
         try {
           if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -162,7 +172,7 @@ export default function BotRegister() {
           }
         } catch(e) { console.log(e); }
       } else {
-        alert("Saqlashda xatolik yuz berdi!");
+        alert("Ba'zi ma'lumotlarni saqlashda xatolik yuz berdi!");
       }
     } catch (error) {
       alert("Internet bilan muammo yuz berdi.");
@@ -189,7 +199,7 @@ export default function BotRegister() {
         <p className="text-slate-500 mt-2">
           {alreadyRegistered 
             ? "Siz allaqachon ro'yxatdan o'tgansiz." 
-            : "Arizangiz qabul qilindi. Tez orada ustozingiz bog'lanadi!"}
+            : "Arizangiz qabul qilindi. Tez orada ustozlaringiz bog'lanadi!"}
         </p>
       </div>
     );
@@ -247,21 +257,22 @@ export default function BotRegister() {
 
           <div className="space-y-3 pt-2">
             <label className="text-xs font-bold text-slate-500 uppercase ml-1 block text-center">
-              Qaysi ustoz (fan) guruhiga yozilmoqchisiz?
+              Qaysi fan(lar)ga qatnashmoqchisiz? <br/>
+              <span className="text-[10px] text-slate-400 font-normal">(Bir nechta tanlashingiz mumkin)</span>
             </label>
             
             <div className="grid grid-cols-1 gap-3">
               {teachers.map((t) => (
                 <div
                   key={t._id}
-                  onClick={() => setSelectedTeacherId(t._id)}
+                  onClick={() => handleTeacherToggle(t._id)}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center gap-3 ${
-                    selectedTeacherId === t._id
+                    selectedTeachers.includes(t._id)
                       ? "border-indigo-600 bg-indigo-50 text-indigo-900 shadow-sm scale-[1.01]"
                       : "border-slate-100 bg-slate-50/50 text-slate-700 hover:border-slate-200"
                   }`}
                 >
-                  <div className={`p-2 rounded-xl transition-colors ${selectedTeacherId === t._id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                  <div className={`p-2 rounded-xl transition-colors ${selectedTeachers.includes(t._id) ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
                     <UserCheck size={18} />
                   </div>
                   <div className="text-left overflow-hidden flex-1">
