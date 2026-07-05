@@ -1,15 +1,20 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { Printer, ArrowLeft, Loader2, Filter, Users, Image as ImageIcon, CheckSquare, Square, RefreshCw, Maximize } from "lucide-react";
+import { Printer, ArrowLeft, Loader2, Filter, Users, Image as ImageIcon, CheckSquare, Square, RefreshCw, Maximize, Search, X } from "lucide-react";
 
 export default function PrintBadges() {
+  // =========================================================================
+  // 📊 STATE'LAR VA BOSHLANG'ICH SOZLAMALAR
+  // =========================================================================
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [selectedGroup, setSelectedGroup] = useState("Barchasi");
+  const [searchQuery, setSearchQuery] = useState(""); // Qidiruv matni
   
   const [printMode, setPrintMode] = useState("front"); 
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]); // Tanlangan o'quvchilar xotirasi
   const [previewMode, setPreviewMode] = useState("front"); 
 
   const [badgeWidth, setBadgeWidth] = useState(68);
@@ -31,6 +36,9 @@ export default function PrintBadges() {
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
 
+  // =========================================================================
+  // 🔄 BAZADAN MA'LUMOT YUKLASH
+  // =========================================================================
   useEffect(() => {
     const fetchStudents = async () => {
       try {
@@ -39,7 +47,7 @@ export default function PrintBadges() {
         if (data.success) {
           const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
           setStudents(sortedStudents);
-          setSelectedIds(sortedStudents.map(s => s._id)); 
+          setSelectedIds(sortedStudents.map(s => s._id)); // Boshida hamma tanlangan bo'ladi
         }
       } catch (err) {
         console.error("O'quvchilarni yuklashda xato:", err);
@@ -55,22 +63,24 @@ export default function PrintBadges() {
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
+  // =========================================================================
+  // 🎛 FILTRLASH MANTIQLARI (Pichkalarga daxl qilmasdan faqat render qilinadi)
+  // =========================================================================
   const filteredStudents = students.filter((s) => {
-    if (selectedGroup === "Barchasi") return true;
     const sGroups = s.group ? s.group.split(",").map((g) => g.trim()) : [];
-    return sGroups.includes(selectedGroup);
+    const matchesGroup = selectedGroup === "Barchasi" || sGroups.includes(selectedGroup);
+    const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesGroup && matchesSearch;
   });
 
   const handleGroupChange = (e) => {
-    const newGroup = e.target.value;
-    setSelectedGroup(newGroup);
-    
-    const newFiltered = students.filter((s) => {
-      if (newGroup === "Barchasi") return true;
-      const sGroups = s.group ? s.group.split(",").map((g) => g.trim()) : [];
-      return sGroups.includes(newGroup);
-    });
-    setSelectedIds(newFiltered.map(s => s._id));
+    setSelectedGroup(e.target.value);
+    // 🔥 TO'G'RILANDI: Guruh o'zgarganda pichkalar o'chib ketmaydi!
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    // 🔥 TO'G'RILANDI: Qidiruv yozilganda eski pichkalar saqlanib qoladi!
   };
 
   const toggleSelection = (id) => {
@@ -79,11 +89,18 @@ export default function PrintBadges() {
     );
   };
 
+  // 🔥 YANGI: Faqat ekranda ko'rinib turgan (filtrlangan) o'quvchilarni boshqarish
+  const allVisibleSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedIds.includes(s._id));
+
   const toggleAll = () => {
-    if (selectedIds.length === filteredStudents.length) {
-      setSelectedIds([]); 
+    if (allVisibleSelected) {
+      // Ekranda ko'ringan o'quvchilarni tanlovdan olib tashlash (qolgan yashirinlar qoladi)
+      const visibleIds = filteredStudents.map(s => s._id);
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
-      setSelectedIds(filteredStudents.map(s => s._id)); 
+      // Ekranda ko'ringan o'quvchilarni ro'yxatga qo'shish (dublikatlarsiz)
+      const visibleIds = filteredStudents.map(s => s._id);
+      setSelectedIds(prev => [...new Set([...prev, ...visibleIds])]);
     }
   };
 
@@ -100,20 +117,19 @@ export default function PrintBadges() {
     setBadgeHeight(100);
   };
 
+  // Faqat filtrlangan VA tanlangan o'quvchilarni chop etishga yuborish
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id));
   
   // =========================================================================
-  // 📐 MATEMATIKA VA MAX O'LCHAMLAR
+  // 📐 DINAMIK GRAND MATEMATIKA MOTORINI ISHGA TUSHIRISH
   // =========================================================================
   const badgeW = Number(badgeWidth) > 30 ? Number(badgeWidth) : 68;
   const badgeH = Number(badgeHeight) > 40 ? Number(badgeHeight) : 100;
   
   const scale = badgeW / 68; 
-  
-  // 🔥 MAX O'LCHAMLAR (QR va Logo bejikning katta qismini egallaydi)
-  const qrFrontMm = 48 * scale; // 38 dan 48 ga kattalashtirildi
-  const qrSocialMm = 18 * scale; // 15 dan 18 ga kattalashtirildi
-  const logoMm = 62 * scale;     // 58 dan 62 ga kattalashtirildi
+  const qrFrontMm = 48 * scale; 
+  const qrSocialMm = 18 * scale; 
+  const logoMm = 62 * scale;     
 
   const A4_W = 297; 
   const A4_H = 210; 
@@ -237,7 +253,7 @@ export default function PrintBadges() {
               disabled={selectedIds.length === 0}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <Printer size={20} /> <span>Oldi (QR) - {selectedIds.length} ta</span>
+              <Printer size={20} /> <span>Oldi (QR) - {selectedStudents.length} ta</span>
             </button>
 
             <button 
@@ -245,7 +261,7 @@ export default function PrintBadges() {
               disabled={selectedIds.length === 0}
               className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <ImageIcon size={20} /> <span>Orqasi (Logo) - {selectedIds.length} ta</span>
+              <ImageIcon size={20} /> <span>Orqasi (Logo) - {selectedStudents.length} ta</span>
             </button>
           </div>
         </div>
@@ -253,19 +269,40 @@ export default function PrintBadges() {
         <div className="mb-8 flex flex-col xl:flex-row items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 justify-between">
           <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
             
-            <div className="flex items-center gap-3">
-              <div className="text-slate-500 font-bold px-2 flex items-center gap-2">
-                <Filter size={20} className="text-indigo-500" /> Guruh:
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              
+              {/* 🔥 YANGILANDI: ICKIDAGI CLEAR (X) TUGMASI BILAN SEZGIY QIDIRUV BOXI */}
+              <div className="flex items-center gap-2 bg-slate-50 border border-indigo-200 px-3 py-2.5 rounded-xl w-full sm:w-60 focus-within:ring-2 focus-within:ring-indigo-500/30 transition-all relative">
+                <Search size={18} className="text-indigo-500 flex-shrink-0" />
+                <input 
+                  type="text" 
+                  placeholder="Ism bo'yicha qidiruv..." 
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  className="bg-transparent outline-none w-full text-slate-700 font-semibold placeholder:text-slate-400 placeholder:font-medium pr-6"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Qidiruvni tozalash"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
+
+              {/* Guruh filteri */}
               <select
                 value={selectedGroup}
                 onChange={handleGroupChange}
-                className="w-40 sm:w-48 py-2.5 px-4 rounded-xl outline-none font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 cursor-pointer focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full sm:w-48 py-2.5 px-4 rounded-xl outline-none font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 cursor-pointer focus:ring-2 focus:ring-indigo-500/50"
               >
                 {uniqueGroups.map((g) => (
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
+
             </div>
 
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
@@ -320,7 +357,7 @@ export default function PrintBadges() {
             onClick={toggleAll}
             className="text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition-colors w-full xl:w-auto text-center"
           >
-            {selectedIds.length === filteredStudents.length ? "Barchasini bekor qilish" : "Barchasini tanlash"}
+            {allVisibleSelected ? "Barchasini bekor qilish" : "Barchasini tanlash"}
           </button>
         </div>
 
@@ -394,7 +431,7 @@ export default function PrintBadges() {
           {filteredStudents.length === 0 && (
             <div className="w-full text-center py-16 text-slate-400 flex flex-col items-center gap-3">
               <Users size={48} className="opacity-40" />
-              <p className="font-medium text-lg">Bu guruhda o'quvchilar yo'q.</p>
+              <p className="font-medium text-lg">Bu qidiruvga mos o'quvchilar yo'q.</p>
             </div>
           )}
         </div>
@@ -432,7 +469,6 @@ export default function PrintBadges() {
               100% { transform: rotate(180deg); }
             }
 
-            /* 🔥 EKRANDA HAM, PECHATDA HAM BIR XIL ICHI TUZILISHI UCHUN */
             .front-side {
               display: flex;
               flex-direction: column;
@@ -464,7 +500,6 @@ export default function PrintBadges() {
               letter-spacing: 1px;
             }
 
-            /* 🔥 MAX QR UCHUN CONTAINER */
             .qr-container {
               flex: 1;
               display: flex;
@@ -508,7 +543,6 @@ export default function PrintBadges() {
               position: relative;
             }
             
-            /* 🔥 MAX LOGO UCHUN WRAPPER */
             .logo-wrapper {
               width: 100%;
               display: flex;
@@ -525,7 +559,7 @@ export default function PrintBadges() {
               width: 100%;
               display: flex;
               justify-content: space-evenly;
-              padding-bottom: 11mm; /* Footer uchun joy qoldirildi */
+              padding-bottom: 11mm; 
               align-items: flex-end;
             }
             .social-qr-item {
@@ -580,9 +614,6 @@ export default function PrintBadges() {
               letter-spacing: 1.5px;
             }
 
-            /* =========================================================================
-            // 🖨 FAQAT PRINTRDA PECHAT BO'LGANDA KUCHGA KIRADIGAN CSS QOIDALARI
-            // ========================================================================= */
             @media print {
               body > *:not(.print-only):not(style):not(script) {
                 display: none !important;
