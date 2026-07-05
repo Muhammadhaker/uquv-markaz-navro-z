@@ -4,17 +4,14 @@ import { QRCodeSVG } from "qrcode.react";
 import { Printer, ArrowLeft, Loader2, Filter, Users, Image as ImageIcon, CheckSquare, Square, RefreshCw, Maximize, Search, X } from "lucide-react";
 
 export default function PrintBadges() {
-  // =========================================================================
-  // 📊 STATE'LAR VA BOSHLANG'ICH SOZLAMALAR
-  // =========================================================================
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   
   const [selectedGroup, setSelectedGroup] = useState("Barchasi");
-  const [searchQuery, setSearchQuery] = useState(""); // Qidiruv matni
+  const [searchQuery, setSearchQuery] = useState(""); 
   
   const [printMode, setPrintMode] = useState("front"); 
-  const [selectedIds, setSelectedIds] = useState([]); // Tanlangan o'quvchilar xotirasi
+  const [selectedIds, setSelectedIds] = useState([]); // 🔥 XOTIRA: Hamma guruhdan tanlanganlar shu yerda turadi
   const [previewMode, setPreviewMode] = useState("front"); 
 
   const [badgeWidth, setBadgeWidth] = useState(68);
@@ -36,9 +33,6 @@ export default function PrintBadges() {
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
 
-  // =========================================================================
-  // 🔄 BAZADAN MA'LUMOT YUKLASH
-  // =========================================================================
   useEffect(() => {
     const fetchStudents = async () => {
       try {
@@ -47,7 +41,7 @@ export default function PrintBadges() {
         if (data.success) {
           const sortedStudents = data.data.sort((a, b) => a.name.localeCompare(b.name));
           setStudents(sortedStudents);
-          setSelectedIds(sortedStudents.map(s => s._id)); // Boshida hamma tanlangan bo'ladi
+          setSelectedIds(sortedStudents.map(s => s._id)); 
         }
       } catch (err) {
         console.error("O'quvchilarni yuklashda xato:", err);
@@ -63,9 +57,7 @@ export default function PrintBadges() {
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
-  // =========================================================================
-  // 🎛 FILTRLASH MANTIQLARI (Pichkalarga daxl qilmasdan faqat render qilinadi)
-  // =========================================================================
+  // Ekranda ko'rinadigan o'quvchilar (Filter va qidiruv ishlagan holat)
   const filteredStudents = students.filter((s) => {
     const sGroups = s.group ? s.group.split(",").map((g) => g.trim()) : [];
     const matchesGroup = selectedGroup === "Barchasi" || sGroups.includes(selectedGroup);
@@ -73,15 +65,8 @@ export default function PrintBadges() {
     return matchesGroup && matchesSearch;
   });
 
-  const handleGroupChange = (e) => {
-    setSelectedGroup(e.target.value);
-    // 🔥 TO'G'RILANDI: Guruh o'zgarganda pichkalar o'chib ketmaydi!
-  };
-
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    // 🔥 TO'G'RILANDI: Qidiruv yozilganda eski pichkalar saqlanib qoladi!
-  };
+  const handleGroupChange = (e) => setSelectedGroup(e.target.value);
+  const handleSearchChange = (e) => setSearchQuery(e.target.value);
 
   const toggleSelection = (id) => {
     setSelectedIds(prev => 
@@ -89,16 +74,13 @@ export default function PrintBadges() {
     );
   };
 
-  // 🔥 YANGI: Faqat ekranda ko'rinib turgan (filtrlangan) o'quvchilarni boshqarish
   const allVisibleSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedIds.includes(s._id));
 
   const toggleAll = () => {
     if (allVisibleSelected) {
-      // Ekranda ko'ringan o'quvchilarni tanlovdan olib tashlash (qolgan yashirinlar qoladi)
       const visibleIds = filteredStudents.map(s => s._id);
       setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
-      // Ekranda ko'ringan o'quvchilarni ro'yxatga qo'shish (dublikatlarsiz)
       const visibleIds = filteredStudents.map(s => s._id);
       setSelectedIds(prev => [...new Set([...prev, ...visibleIds])]);
     }
@@ -117,11 +99,11 @@ export default function PrintBadges() {
     setBadgeHeight(100);
   };
 
-  // Faqat filtrlangan VA tanlangan o'quvchilarni chop etishga yuborish
-  const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id));
+  // 🔥 ASOSIY TO'G'RILANGAN JOY: Pechatga Endi ekrandagi emas, BAZADAGI barcha tanlanganlar ketadi
+  const selectedStudentsForPrint = students.filter(s => selectedIds.includes(s._id));
   
   // =========================================================================
-  // 📐 DINAMIK GRAND MATEMATIKA MOTORINI ISHGA TUSHIRISH
+  // 📐 MATEMATIKA VA MAX O'LCHAMLAR
   // =========================================================================
   const badgeW = Number(badgeWidth) > 30 ? Number(badgeWidth) : 68;
   const badgeH = Number(badgeHeight) > 40 ? Number(badgeHeight) : 100;
@@ -146,9 +128,10 @@ export default function PrintBadges() {
   const paddingLeft = Math.max(0, (A4_W - (cols * badgeW + (cols - 1) * GAP)) / 2);
   const paddingTop = Math.max(0, (A4_H - (rows * badgeH + (rows - 1) * GAP)) / 2);
 
+  // Pechat uchun varaqlar yaratish
   const printPages = [];
-  for (let i = 0; i < selectedStudents.length; i += badgesPerPage) {
-    printPages.push(selectedStudents.slice(i, i + badgesPerPage));
+  for (let i = 0; i < selectedStudentsForPrint.length; i += badgesPerPage) {
+    printPages.push(selectedStudentsForPrint.slice(i, i + badgesPerPage));
   }
 
   if (loading) {
@@ -253,7 +236,8 @@ export default function PrintBadges() {
               disabled={selectedIds.length === 0}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <Printer size={20} /> <span>Oldi (QR) - {selectedStudents.length} ta</span>
+              {/* 🔥 TUGMADA HAM TANLANGANLARNING JAMI SONI KO'RINADI */}
+              <Printer size={20} /> <span>Oldi (QR) - {selectedIds.length} ta</span>
             </button>
 
             <button 
@@ -261,7 +245,7 @@ export default function PrintBadges() {
               disabled={selectedIds.length === 0}
               className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <ImageIcon size={20} /> <span>Orqasi (Logo) - {selectedStudents.length} ta</span>
+              <ImageIcon size={20} /> <span>Orqasi (Logo) - {selectedIds.length} ta</span>
             </button>
           </div>
         </div>
@@ -271,7 +255,6 @@ export default function PrintBadges() {
             
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               
-              {/* 🔥 YANGILANDI: ICKIDAGI CLEAR (X) TUGMASI BILAN SEZGIY QIDIRUV BOXI */}
               <div className="flex items-center gap-2 bg-slate-50 border border-indigo-200 px-3 py-2.5 rounded-xl w-full sm:w-60 focus-within:ring-2 focus-within:ring-indigo-500/30 transition-all relative">
                 <Search size={18} className="text-indigo-500 flex-shrink-0" />
                 <input 
@@ -292,7 +275,6 @@ export default function PrintBadges() {
                 )}
               </div>
 
-              {/* Guruh filteri */}
               <select
                 value={selectedGroup}
                 onChange={handleGroupChange}
@@ -357,7 +339,7 @@ export default function PrintBadges() {
             onClick={toggleAll}
             className="text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition-colors w-full xl:w-auto text-center"
           >
-            {allVisibleSelected ? "Barchasini bekor qilish" : "Barchasini tanlash"}
+            {allVisibleSelected ? "Ekranda ko'ringanlarni bekor qilish" : "Ekranda ko'ringanlarni tanlash"}
           </button>
         </div>
 
