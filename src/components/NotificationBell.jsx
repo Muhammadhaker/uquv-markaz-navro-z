@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Bell, UserPlus, CheckCircle2 } from "lucide-react";
+import { Bell, UserPlus, CheckCircle2, X } from "lucide-react";
 import AddStudentModal from "./AddStudentModal";
 
 export default function NotificationBell() {
@@ -72,58 +72,78 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        // 🔥 ASOSIY O'ZGARISH: Mobil ekranlarda ekrandan chiqib ketmasligi uchun o'lcham va joylashuv to'g'irlandi
-        <div className="absolute -left-[70px] sm:left-auto sm:right-0 mt-3 w-[300px] sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100]">
-          <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
-            <h3 className="font-bold">Yangi o'quvchilar</h3>
-            <span className="text-xs bg-indigo-500 px-2 py-1 rounded-full">{notifications.length} ta</span>
-          </div>
-          
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="p-6 text-center text-slate-500 text-sm">
-                Hozircha yangi o'quvchilar yo'q.
+        <>
+          {/* 🔥 MOBIL UCHUN ORQA FON: Bosganda yopiladi va orqani qoraytirib turadi */}
+          <div 
+            className="fixed inset-0 z-[90] sm:hidden" 
+            onClick={() => setIsOpen(false)}
+          ></div>
+
+          {/* 🔥 ASOSIY O'ZGARISH: Telefonda to'liq markazlashadi, kompyuterda o'ng tomonda ochiladi */}
+          <div className="fixed top-[70px] left-4 right-4 sm:absolute sm:top-full sm:left-auto sm:right-0 sm:mt-3 sm:w-[320px] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100]">
+            
+            <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold">Yangi o'quvchilar</h3>
+                <span className="text-xs bg-indigo-500 px-2 py-1 rounded-full">{notifications.length} ta</span>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {notifications.map(student => (
-                  <div 
-                    key={student._id} 
-                    onClick={() => handleStudentClick(student)} 
-                    className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-center group cursor-pointer"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
-                        <UserPlus size={14} className="text-indigo-500" />
-                        {student.name}
-                      </div>
-                      
-                      {student.parentName && (
-                        <div className="text-[11px] text-slate-400 mt-0.5 ml-5">
-                          Ota-onasi: <span className="text-slate-500 font-medium">{student.parentName}</span>
-                        </div>
-                      )}
-                      
-                      <div className="text-xs text-slate-500 mt-1 ml-5">
-                        {student.group} • {new Date(student.addedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </div>
-                    </div>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation(); 
-                        markAsRead(e, student._id);
-                      }}
-                      className="p-2 text-slate-300 hover:text-emerald-500 transition-colors"
-                      title="Ko'rildi qilib belgilash"
+              {/* Mobil ekranda foydalanuvchiga yopish oson bo'lishi uchun X tugmasi */}
+              <button 
+                onClick={() => setIsOpen(false)} 
+                className="sm:hidden p-1.5 bg-indigo-500 hover:bg-indigo-400 rounded-full transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-6 text-center text-slate-500 text-sm">
+                  Hozircha yangi o'quvchilar yo'q 🎉
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {notifications.map(student => (
+                    <div 
+                      key={student._id} 
+                      onClick={() => handleStudentClick(student)} 
+                      className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-center group cursor-pointer"
                     >
-                      <CheckCircle2 size={20} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+                      <div>
+                        <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
+                          <UserPlus size={14} className="text-indigo-500 min-w-[14px]" />
+                          <span className="truncate max-w-[180px] inline-block">
+                            {student.name}
+                          </span>
+                        </div>
+                        
+                        {student.parentName && (
+                          <div className="text-[11px] text-slate-400 mt-0.5 ml-5">
+                            Ota-onasi: <span className="text-slate-500 font-medium">{student.parentName}</span>
+                          </div>
+                        )}
+                        
+                        <div className="text-xs text-slate-500 mt-1 ml-5">
+                          {student.group} • {new Date(student.addedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation(); 
+                          markAsRead(e, student._id);
+                        }}
+                        className="p-2 text-slate-300 hover:text-emerald-500 transition-colors flex-shrink-0"
+                        title="Ko'rildi qilib belgilash"
+                      >
+                        <CheckCircle2 size={20} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {studentToEdit && (
