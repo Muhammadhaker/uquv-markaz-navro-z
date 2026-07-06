@@ -72,7 +72,8 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+        // 🔥 YANGILANISH: Mobil va Kompyuter uchun Responsive (Moslashuvchan) oyna
+        <div className="absolute right-[-10px] sm:right-0 mt-3 w-[300px] sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50">
           <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
             <h3 className="font-bold">Yangi o'quvchilar</h3>
             <span className="text-xs bg-indigo-500 px-2 py-1 rounded-full">{notifications.length} ta</span>
@@ -93,11 +94,13 @@ export default function NotificationBell() {
                   >
                     <div>
                       <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
-                        <UserPlus size={14} className="text-indigo-500" />
-                        {student.name}
+                        <UserPlus size={14} className="text-indigo-500 min-w-[14px]" />
+                        {/* Ismlar juda uzun bo'lib ketsa, ekranga siqish uchun */}
+                        <span className="truncate max-w-[170px] inline-block">
+                          {student.name}
+                        </span>
                       </div>
                       
-                      {/* YANGI QO'SHILDI: Ota-onasining ismi */}
                       {student.parentName && (
                         <div className="text-[11px] text-slate-400 mt-0.5 ml-5">
                           Ota-onasi: <span className="text-slate-500 font-medium">{student.parentName}</span>
@@ -113,7 +116,7 @@ export default function NotificationBell() {
                         e.stopPropagation(); 
                         markAsRead(e, student._id);
                       }}
-                      className="p-2 text-slate-300 hover:text-emerald-500 transition-colors"
+                      className="p-2 text-slate-300 hover:text-emerald-500 transition-colors flex-shrink-0"
                       title="Ko'rildi qilib belgilash"
                     >
                       <CheckCircle2 size={20} />
