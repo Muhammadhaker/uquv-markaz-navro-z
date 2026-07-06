@@ -39,8 +39,6 @@ export default function Groups() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilterGroup, setSelectedFilterGroup] = useState("Barchasi");
-  
-  // 🔥 YANGI: To'lov holati bo'yicha filtr
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState("Barchasi");
 
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -125,20 +123,43 @@ export default function Groups() {
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
-  // 🔥 1-QADAM: Har bir o'quvchining joriy to'lov holatini hisoblab chiqamiz
+  // 🔥 YAXSHILANGAN MATEMATIKA: Qarz hisoblash asosi "Tarixiy Snapshot"ga ulangan
   const studentsWithStatus = students.map((s) => {
     const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
     const activeCycles = calculateCycles(s.addedAt);
-    
-    let EXPECTED_TOTAL = 0;
-    studentGroups.forEach(g => { EXPECTED_TOTAL += getStudentGroupPrice(s, g) * activeCycles; });
-    if (studentGroups.length === 0) EXPECTED_TOTAL = 300000 * activeCycles;
-
     const studentPaymentsAllTime = payments.filter((p) => p.studentId === s._id);
+    
     let totalPaid = 0;
-    studentPaymentsAllTime.forEach(p => { totalPaid += Number(p.amount) || 0; });
+    let expectedTotalFromHistory = 0;
 
-    const qarz = EXPECTED_TOTAL - totalPaid;
+    if (studentGroups.length > 0) {
+      studentGroups.forEach(g => {
+        const currentPrice = getStudentGroupPrice(s, g);
+        const groupPayments = studentPaymentsAllTime.filter(p => p.groupName === g || !p.groupName);
+        
+        const paidForGroup = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        totalPaid += paidForGroup;
+
+        let paidMonthsCount = 0;
+        const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
+
+        uniqueMonths.forEach(m => {
+          const firstPaymentForMonth = groupPayments.find(p => p.month === m);
+          // Agar bazada o'sha vaqtdagi Snapshot narx bo'lsa o'shani oling, aks holda hozirgi narx
+          expectedTotalFromHistory += Number(firstPaymentForMonth.priceAtThatTime) || currentPrice;
+          paidMonthsCount++;
+        });
+
+        const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
+        expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
+      });
+    } else {
+      // Agar guruhsiz bo'lsa standart 300ming ishlaydi
+      expectedTotalFromHistory = 300000 * activeCycles;
+      studentPaymentsAllTime.forEach(p => { totalPaid += Number(p.amount) || 0; });
+    }
+
+    const qarz = expectedTotalFromHistory - totalPaid;
     
     // Istisno holatini aniqlash (Joriy oy uchun)
     const today = new Date();
@@ -149,14 +170,13 @@ export default function Groups() {
     
     const isExcepted = s.exceptionMonths && s.exceptionMonths.includes(targetMonth);
     
-    let payStatus = "unpaid"; // qarz
+    let payStatus = "unpaid"; 
     if (isExcepted) payStatus = "excepted";
     else if (qarz <= 0) payStatus = "paid";
 
-    return { ...s, qarz, EXPECTED_TOTAL, totalPaid, payStatus, isPartial: totalPaid > 0 && qarz > 0 };
+    return { ...s, qarz, EXPECTED_TOTAL: expectedTotalFromHistory, totalPaid, payStatus, isPartial: totalPaid > 0 && qarz > 0 };
   });
 
-  // 🔥 2-QADAM: Guruh va Qidiruv bo'yicha birlamchi filtrlash
   const baseFilteredStudents = studentsWithStatus.filter((s) => {
     const studentGroups = s.group ? s.group.split(',').map(g => g.trim()) : [];
     const matchesGroup = selectedFilterGroup === "Barchasi" || studentGroups.includes(selectedFilterGroup);
@@ -167,12 +187,10 @@ export default function Groups() {
     return matchesGroup && matchesSearch;
   });
 
-  // 🔥 3-QADAM: To'lov statistikasini hisoblash (Tanlangan guruh ichida)
   const paidCount = baseFilteredStudents.filter(s => s.payStatus === "paid").length;
   const unpaidCount = baseFilteredStudents.filter(s => s.payStatus === "unpaid").length;
   const exceptedCount = baseFilteredStudents.filter(s => s.payStatus === "excepted").length;
 
-  // 🔥 4-QADAM: To'lov holati bo'yicha yakuniy filtrlash
   const finalFilteredStudents = baseFilteredStudents.filter(s => {
     if (selectedPaymentFilter === "Barchasi") return true;
     return s.payStatus === selectedPaymentFilter;
@@ -219,10 +237,9 @@ export default function Groups() {
         </div>
       )}
 
-      {/* 🔥 QIDIRUV VA IKKITA FILTR BLOKI */}
+      {/* 🔥 MOBILDA BARCHASI ZAMONAVIY VA MOSLASHUVCHAN (RESPONSIVE) BO'LDI */}
       <div className="flex flex-col lg:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         
-        {/* Qidiruv (X tugmasi bilan) */}
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input
@@ -242,33 +259,33 @@ export default function Groups() {
           )}
         </div>
 
-        {/* Guruhlar filtri */}
-        <div className="relative lg:w-56">
-          <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
-          <select
-            value={selectedFilterGroup}
-            onChange={(e) => setSelectedFilterGroup(e.target.value)}
-            className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none appearance-none bg-slate-50 text-slate-700 font-bold cursor-pointer transition-all"
-          >
-            {uniqueGroups.map((group) => (
-              <option key={group} value={group}>{group}</option>
-            ))}
-          </select>
-        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative w-full sm:w-48 lg:w-56">
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
+            <select
+              value={selectedFilterGroup}
+              onChange={(e) => setSelectedFilterGroup(e.target.value)}
+              className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none appearance-none bg-slate-50 text-slate-700 font-bold cursor-pointer transition-all"
+            >
+              {uniqueGroups.map((group) => (
+                <option key={group} value={group}>{group}</option>
+              ))}
+            </select>
+          </div>
 
-        {/* 🔥 YANGI: To'lov holati filtri va Statistika */}
-        <div className="relative lg:w-64">
-          <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={20} />
-          <select
-            value={selectedPaymentFilter}
-            onChange={(e) => setSelectedPaymentFilter(e.target.value)}
-            className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-emerald-200 focus:border-emerald-500 outline-none appearance-none bg-emerald-50/30 text-emerald-900 font-bold cursor-pointer transition-all"
-          >
-            <option value="Barchasi">💰 Barcha to'lov holati</option>
-            <option value="paid">✅ To'laganlar ({paidCount} ta)</option>
-            <option value="unpaid">❌ Qarzdorlar ({unpaidCount} ta)</option>
-            <option value="excepted">🛡️ Istisnolar ({exceptedCount} ta)</option>
-          </select>
+          <div className="relative w-full sm:w-56 lg:w-64">
+            <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={20} />
+            <select
+              value={selectedPaymentFilter}
+              onChange={(e) => setSelectedPaymentFilter(e.target.value)}
+              className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-emerald-200 focus:border-emerald-500 outline-none appearance-none bg-emerald-50/30 text-emerald-900 font-bold cursor-pointer transition-all"
+            >
+              <option value="Barchasi">💰 Barcha to'lov holati</option>
+              <option value="paid">✅ To'laganlar ({paidCount} ta)</option>
+              <option value="unpaid">❌ Qarzdorlar ({unpaidCount} ta)</option>
+              <option value="excepted">🛡️ Istisnolar ({exceptedCount} ta)</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -284,7 +301,7 @@ export default function Groups() {
               : "O'quvchilar yo'q."}
           </div>
         ) : (
-          finalFilteredStudents.map((s, index) => { // 🔥 TARTIB RAQAM UCHUN INDEX QO'SHILDI
+          finalFilteredStudents.map((s, index) => { 
             return (
               <div
                 key={s._id}
@@ -293,7 +310,6 @@ export default function Groups() {
               >
                 <div className="flex items-start sm:items-center gap-3">
                   
-                  {/* 🔥 TARTIB RAQAM KUBIGI */}
                   <div className="w-10 h-10 bg-indigo-50 text-indigo-600 font-black rounded-xl flex items-center justify-center flex-shrink-0 border border-indigo-100 shadow-sm mt-1 sm:mt-0">
                     {index + 1}
                   </div>
