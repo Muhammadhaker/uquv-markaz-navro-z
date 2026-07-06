@@ -58,7 +58,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative z-50" ref={dropdownRef}>
+    <div className="relative z-[100]" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 bg-white rounded-full shadow-sm hover:bg-slate-50 transition-colors"
@@ -79,8 +79,8 @@ export default function NotificationBell() {
             onClick={() => setIsOpen(false)}
           ></div>
 
-          {/* 🔥 ASOSIY O'ZGARISH: Telefonda to'liq markazlashadi, kompyuterda o'ng tomonda ochiladi */}
-          <div className="fixed top-[70px] left-4 right-4 sm:absolute sm:top-full sm:left-auto sm:right-0 sm:mt-3 sm:w-[320px] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100]">
+          {/* 🔥 ASOSIY O'ZGARISH: Telefonda ekranni markazida (left-4 right-4), Kompyuterda qo'ng'iroqcha tagida (sm:absolute) chiqadi */}
+          <div className="fixed top-20 left-4 right-4 sm:absolute sm:top-full sm:left-auto sm:right-0 sm:mt-3 sm:w-[350px] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100]">
             
             <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -98,7 +98,7 @@ export default function NotificationBell() {
             
             <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
-                <div className="p-6 text-center text-slate-500 text-sm">
+                <div className="p-8 text-center text-slate-500 text-sm font-medium">
                   Hozircha yangi o'quvchilar yo'q 🎉
                 </div>
               ) : (
@@ -112,7 +112,7 @@ export default function NotificationBell() {
                       <div>
                         <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
                           <UserPlus size={14} className="text-indigo-500 min-w-[14px]" />
-                          <span className="truncate max-w-[180px] inline-block">
+                          <span className="truncate max-w-[200px] inline-block">
                             {student.name}
                           </span>
                         </div>
@@ -135,7 +135,7 @@ export default function NotificationBell() {
                         className="p-2 text-slate-300 hover:text-emerald-500 transition-colors flex-shrink-0"
                         title="Ko'rildi qilib belgilash"
                       >
-                        <CheckCircle2 size={20} />
+                        <CheckCircle2 size={22} />
                       </button>
                     </div>
                   ))}
