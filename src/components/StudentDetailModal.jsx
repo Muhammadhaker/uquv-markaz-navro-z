@@ -81,7 +81,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
 
-  // Hozirgi Oydagi joriy narxni bilish funksiyasi
   const getPrice = (groupName) => {
     if (student.groupsData && Array.isArray(student.groupsData) && student.groupsData.length > 0) {
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
@@ -93,30 +92,33 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const debtDetails = [];
   let OVERALL_DEBT = 0;
 
-  // 🔥 YANGI: Qarzni hisoblashda Endi ASL narxdan emas, to'lovlar ichidagi tarixiy (Snapshot) narxdan foydalaniladi
   if (studentGroups.length > 0) {
     studentGroups.forEach(g => {
       const currentPrice = getPrice(g); 
       const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
       
-      // Jami qilingan to'lovlar summasi
       const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
       
-      // Jami kutilgan qarz (Shartnomalar summasi) - Agar to'lov qilgan bo'lsa Snapshot narxi, qilmagan oylariga joriy narxi hisoblanadi
       let expectedTotalFromHistory = 0;
       let paidMonthsCount = 0;
 
-      // Unikal oylarni topamiz (Bir oyda 2 marta to'lagan bo'lsa ham asl narxi bitta olinadi)
       const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
 
       uniqueMonths.forEach(m => {
-        const firstPaymentForMonth = groupPayments.find(p => p.month === m);
-        // Agar Snapshot narx saqlangan bo'lsa o'shani, yo'qsa joriy narxni olamiz
-        expectedTotalFromHistory += Number(firstPaymentForMonth.priceAtThatTime) || currentPrice;
+        const paymentsForThisMonth = groupPayments.filter(p => p.month === m);
+        const firstPaymentForMonth = paymentsForThisMonth[0];
+        
+        // 🔥 Xuddi shu to'g'rilangan logika
+        const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+        
+        const historicalPrice = firstPaymentForMonth.priceAtThatTime 
+          ? Number(firstPaymentForMonth.priceAtThatTime) 
+          : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
+
+        expectedTotalFromHistory += historicalPrice;
         paidMonthsCount++;
       });
 
-      // Agar o'quvchi 3 oy o'qib faqat 1 oyini to'lagan bo'lsa, qolgan 2 oyi uchun JO'RIY narxda qarz qo'shamiz
       const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
       expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
 
@@ -128,7 +130,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       }
     });
   } else {
-    // Guruhsiz o'quvchilar uchun
     const COURSE_PRICE = 300000;
     const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
     const totalPaid = studentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -445,8 +446,16 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                 const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
 
                 uniqueMonths.forEach(m => {
-                  const firstPaymentForMonth = groupPayments.find(p => p.month === m);
-                  expectedTotalFromHistory += Number(firstPaymentForMonth.priceAtThatTime) || currentPrice;
+                  const paymentsForThisMonth = groupPayments.filter(p => p.month === m);
+                  const firstPaymentForMonth = paymentsForThisMonth[0];
+                  
+                  // 🔥 Aynan shu to'g'rilangan kod
+                  const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+                  const historicalPrice = firstPaymentForMonth.priceAtThatTime 
+                    ? Number(firstPaymentForMonth.priceAtThatTime) 
+                    : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
+
+                  expectedTotalFromHistory += historicalPrice;
                   paidMonthsCount++;
                 });
 

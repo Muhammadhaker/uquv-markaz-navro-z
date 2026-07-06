@@ -123,7 +123,6 @@ export default function Groups() {
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
-  // 🔥 YAXSHILANGAN MATEMATIKA: Qarz hisoblash asosi "Tarixiy Snapshot"ga ulangan
   const studentsWithStatus = students.map((s) => {
     const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
     const activeCycles = calculateCycles(s.addedAt);
@@ -144,9 +143,18 @@ export default function Groups() {
         const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
 
         uniqueMonths.forEach(m => {
-          const firstPaymentForMonth = groupPayments.find(p => p.month === m);
-          // Agar bazada o'sha vaqtdagi Snapshot narx bo'lsa o'shani oling, aks holda hozirgi narx
-          expectedTotalFromHistory += Number(firstPaymentForMonth.priceAtThatTime) || currentPrice;
+          const paymentsForThisMonth = groupPayments.filter(p => p.month === m);
+          const firstPaymentForMonth = paymentsForThisMonth[0];
+          
+          // 🔥 ESKI TO'LOVLAR UCHUN XIMOYA:
+          // Agar arxivda Snapshot narx yozilmagan bo'lsa, o'sha oydagi jami to'lagan summani 100% narx deb oladi!
+          const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+          
+          const historicalPrice = firstPaymentForMonth.priceAtThatTime 
+            ? Number(firstPaymentForMonth.priceAtThatTime) 
+            : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
+
+          expectedTotalFromHistory += historicalPrice;
           paidMonthsCount++;
         });
 
@@ -154,14 +162,12 @@ export default function Groups() {
         expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
       });
     } else {
-      // Agar guruhsiz bo'lsa standart 300ming ishlaydi
       expectedTotalFromHistory = 300000 * activeCycles;
       studentPaymentsAllTime.forEach(p => { totalPaid += Number(p.amount) || 0; });
     }
 
     const qarz = expectedTotalFromHistory - totalPaid;
     
-    // Istisno holatini aniqlash (Joriy oy uchun)
     const today = new Date();
     let year = today.getFullYear();
     let month = today.getMonth() + 1;
@@ -237,9 +243,7 @@ export default function Groups() {
         </div>
       )}
 
-      {/* 🔥 MOBILDA BARCHASI ZAMONAVIY VA MOSLASHUVCHAN (RESPONSIVE) BO'LDI */}
       <div className="flex flex-col lg:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input
@@ -309,7 +313,6 @@ export default function Groups() {
                 className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col sm:flex-row justify-between sm:items-center hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer gap-3"
               >
                 <div className="flex items-start sm:items-center gap-3">
-                  
                   <div className="w-10 h-10 bg-indigo-50 text-indigo-600 font-black rounded-xl flex items-center justify-center flex-shrink-0 border border-indigo-100 shadow-sm mt-1 sm:mt-0">
                     {index + 1}
                   </div>
