@@ -5,7 +5,7 @@ import AddStudentModal from "./AddStudentModal";
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [studentToEdit, setStudentToEdit] = useState(null); 
+  const [studentToEdit, setStudentToEdit] = useState(null);
   const dropdownRef = useRef(null);
 
   const fetchNewStudents = async () => {
@@ -52,14 +52,14 @@ export default function NotificationBell() {
   };
 
   const handleStudentClick = (student) => {
-    setStudentToEdit(student); 
-    setIsOpen(false); 
-    markAsRead(null, student._id); 
+    setStudentToEdit(student);
+    setIsOpen(false);
+    markAsRead(null, student._id);
   };
 
   return (
     <div className="relative z-50" ref={dropdownRef}>
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 bg-white rounded-full shadow-sm hover:bg-slate-50 transition-colors"
       >
@@ -72,52 +72,76 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        // 🔥 YANGILANISH: Mobil va Kompyuter uchun Responsive (Moslashuvchan) oyna
-        <div className="absolute right-[-10px] sm:right-0 mt-3 w-[300px] sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50">
+        <div
+          className="
+      fixed left-3 right-3 top-16
+      sm:absolute sm:right-0 sm:left-auto sm:top-auto sm:mt-3
+      sm:w-80
+      bg-white rounded-2xl shadow-2xl border border-slate-100
+      overflow-hidden z-[9999]
+      max-h-[80vh]
+    "
+        >
           <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
-            <h3 className="font-bold">Yangi o'quvchilar</h3>
-            <span className="text-xs bg-indigo-500 px-2 py-1 rounded-full">{notifications.length} ta</span>
+            <h3 className="font-bold text-sm sm:text-base">
+              Yangi o'quvchilar
+            </h3>
+
+            <span className="text-xs bg-indigo-500 px-2 py-1 rounded-full">
+              {notifications.length} ta
+            </span>
           </div>
-          
-          <div className="max-h-80 overflow-y-auto">
+
+          <div className="max-h-[65vh] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-6 text-center text-slate-500 text-sm">
                 Hozircha yangi o'quvchilar yo'q.
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {notifications.map(student => (
-                  <div 
-                    key={student._id} 
-                    onClick={() => handleStudentClick(student)} 
-                    className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-center group cursor-pointer"
+                {notifications.map((student) => (
+                  <div
+                    key={student._id}
+                    onClick={() => handleStudentClick(student)}
+                    className="p-3 sm:p-4 hover:bg-slate-50 transition-colors flex justify-between items-start gap-2 cursor-pointer"
                   >
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
-                        <UserPlus size={14} className="text-indigo-500 min-w-[14px]" />
-                        {/* Ismlar juda uzun bo'lib ketsa, ekranga siqish uchun */}
-                        <span className="truncate max-w-[170px] inline-block">
+                        <UserPlus
+                          size={15}
+                          className="text-indigo-500 flex-shrink-0"
+                        />
+
+                        <span className="truncate">
                           {student.name}
                         </span>
                       </div>
-                      
+
                       {student.parentName && (
-                        <div className="text-[11px] text-slate-400 mt-0.5 ml-5">
-                          Ota-onasi: <span className="text-slate-500 font-medium">{student.parentName}</span>
+                        <div className="text-[11px] text-slate-400 mt-1 ml-6 truncate">
+                          Ota-onasi:
+                          <span className="text-slate-500 font-medium">
+                            {" "}
+                            {student.parentName}
+                          </span>
                         </div>
                       )}
-                      
-                      <div className="text-xs text-slate-500 mt-1 ml-5">
-                        {student.group} • {new Date(student.addedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+
+                      <div className="text-xs text-slate-500 mt-1 ml-6">
+                        {student.group} •{" "}
+                        {new Date(student.addedAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </div>
-                    <button 
+
+                    <button
                       onClick={(e) => {
-                        e.stopPropagation(); 
+                        e.stopPropagation();
                         markAsRead(e, student._id);
                       }}
-                      className="p-2 text-slate-300 hover:text-emerald-500 transition-colors flex-shrink-0"
-                      title="Ko'rildi qilib belgilash"
+                      className="p-2 text-slate-300 hover:text-emerald-500 flex-shrink-0"
                     >
                       <CheckCircle2 size={20} />
                     </button>
