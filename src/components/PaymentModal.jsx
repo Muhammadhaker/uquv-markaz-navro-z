@@ -3,6 +3,9 @@ import { Loader2, CheckCircle, X, DollarSign, Calendar, CreditCard, BookOpen } f
 
 export default function PaymentModal({ isOpen, onClose, student, groupName }) {
   const [amount, setAmount] = useState("");
+  // 🔥 YANGI: O'sha vaqtdagi ASL narxni ham kiritish uchun State (majburiy emas, qulaylik)
+  const [basePrice, setBasePrice] = useState("");
+  
   const [paymentType, setPaymentType] = useState("Naqd");
   const [paymentMonth, setPaymentMonth] = useState("");
   const [group, setGroup] = useState("");
@@ -29,11 +32,11 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, "0");
 
-      // 🔥 5 kunlik qoida olib tashlandi. Endi doim JO'RIY OYni tanlaydi
       setPaymentMonth(`${year}-${month}`);
       
       setGroup(groupName || (studentSubjects.length > 0 ? studentSubjects[0] : "Umumiy"));
       setAmount("");
+      setBasePrice(""); // Asl narxni tozalash
       setSuccess(false);
       setErrorMessage("");
     }
@@ -51,11 +54,23 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     setAmount(formattedValue);
   };
 
+  const handleBasePriceChange = (e) => {
+    let rawValue = e.target.value.replace(/\D/g, "");
+    if (rawValue === "") {
+      setBasePrice("");
+      return;
+    }
+    let formattedValue = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    setBasePrice(formattedValue);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
 
     const numericAmount = Number(amount.replace(/\s/g, ""));
+    // Agar Asl Narx kiritilmagan bo'lsa, O'quvchi to'lagan to'liq summani asl narx deb olamiz
+    const numericBasePrice = basePrice ? Number(basePrice.replace(/\s/g, "")) : numericAmount;
 
     if (!numericAmount || numericAmount <= 0) {
       setErrorMessage("Iltimos, to'lov summasini to'g'ri kiriting!");
@@ -84,6 +99,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
           studentName: student.name,
           groupName: group,
           amount: numericAmount, 
+          priceAtThatTime: numericBasePrice, // 🔥 BAZAGA SNAPSHOT UCHUN YUBORILMOQDA
           paymentType: paymentType,
           month: paymentMonth, 
           adminName: adminName,
@@ -181,24 +197,41 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
-                <DollarSign size={14} /> To'lov summasi
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  className="w-full border-2 border-slate-200 p-3.5 pr-14 rounded-2xl font-black text-xl text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all shadow-inner bg-slate-50/30 text-center tracking-wide"
-                  placeholder="300 000"
-                  value={amount}
-                  onChange={handleAmountChange}
-                  required
-                  autoFocus
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-extrabold text-sm text-slate-400 select-none">
-                  SO'M
-                </span>
+            {/* 🔥 TO'LOV VA ASL NARX QISMI YONMA-YON */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
+                  <DollarSign size={14} /> Kiritiladigan summa
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="w-full border-2 border-indigo-200 p-3.5 rounded-xl font-black text-lg text-indigo-700 focus:border-indigo-500 outline-none transition-all bg-indigo-50/30 text-center tracking-wide"
+                    placeholder="Masalan: 300 000"
+                    value={amount}
+                    onChange={handleAmountChange}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
+                  💡 Bu oydagi asl narx
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="w-full border-2 border-slate-200 p-3.5 rounded-xl font-bold text-lg text-slate-600 focus:border-slate-400 outline-none transition-all bg-slate-50/50 text-center tracking-wide"
+                    placeholder="(Ixtiyoriy)"
+                    title="Agar o'quvchi to'liq to'lamayotgan bo'lsa (qarz bilan), shu oydagi asl to'liq narxni bu yerga yozing."
+                    value={basePrice}
+                    onChange={handleBasePriceChange}
+                  />
+                </div>
               </div>
             </div>
 

@@ -81,6 +81,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
 
+  // Hozirgi Oydagi joriy narxni bilish funksiyasi
   const getPrice = (groupName) => {
     if (student.groupsData && Array.isArray(student.groupsData) && student.groupsData.length > 0) {
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
@@ -92,15 +93,34 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const debtDetails = [];
   let OVERALL_DEBT = 0;
 
+  // 🔥 YANGI: Qarzni hisoblashda Endi ASL narxdan emas, to'lovlar ichidagi tarixiy (Snapshot) narxdan foydalaniladi
   if (studentGroups.length > 0) {
     studentGroups.forEach(g => {
-      const COURSE_PRICE = getPrice(g);
-      const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
-
+      const currentPrice = getPrice(g); 
       const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
+      
+      // Jami qilingan to'lovlar summasi
       const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      
+      // Jami kutilgan qarz (Shartnomalar summasi) - Agar to'lov qilgan bo'lsa Snapshot narxi, qilmagan oylariga joriy narxi hisoblanadi
+      let expectedTotalFromHistory = 0;
+      let paidMonthsCount = 0;
 
-      const qarz = EXPECTED_TOTAL - totalPaid;
+      // Unikal oylarni topamiz (Bir oyda 2 marta to'lagan bo'lsa ham asl narxi bitta olinadi)
+      const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
+
+      uniqueMonths.forEach(m => {
+        const firstPaymentForMonth = groupPayments.find(p => p.month === m);
+        // Agar Snapshot narx saqlangan bo'lsa o'shani, yo'qsa joriy narxni olamiz
+        expectedTotalFromHistory += Number(firstPaymentForMonth.priceAtThatTime) || currentPrice;
+        paidMonthsCount++;
+      });
+
+      // Agar o'quvchi 3 oy o'qib faqat 1 oyini to'lagan bo'lsa, qolgan 2 oyi uchun JO'RIY narxda qarz qo'shamiz
+      const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
+      expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
+
+      const qarz = expectedTotalFromHistory - totalPaid;
 
       if (qarz > 0) {
         debtDetails.push({ group: g, qarz });
@@ -108,6 +128,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       }
     });
   } else {
+    // Guruhsiz o'quvchilar uchun
     const COURSE_PRICE = 300000;
     const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
     const totalPaid = studentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -169,7 +190,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             <tr>
               <th>O'quvchi</th>
               <th>Fan/Guruh</th>
-              <th>Summa</th>
+              <th>To'langan</th>
+              <th>Asl Narx (Shartnoma)</th>
               <th>To'lov turi</th>
               <th>Oy</th>
               <th>Sana</th>
@@ -182,6 +204,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         <td class="bold">${student.name}</td>
         <td class="text-center">${p.groupName || student.group}</td>
         <td class="num">${Number(p.amount).toLocaleString("ru-RU")}</td>
+        <td class="text-center">${p.priceAtThatTime ? Number(p.priceAtThatTime).toLocaleString("ru-RU") : "N/A"}</td>
         <td class="text-center">${p.paymentType}</td>
         <td class="text-center">${formatMonth(p.month)}</td>
         <td class="text-center">${new Date(p.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
@@ -201,7 +224,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   };
 
   const shareReceipt = async (p) => {
-    const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${student.name}\n📚 *Fan:* ${p.groupName || student.group}\n💰 *Summa:* ${Number(p.amount).toLocaleString()} so'm\n💳 *Turi:* ${p.paymentType}\n📅 *Oy:* ${formatMonth(p.month)}\n📅 *To'lov vaqti:* ${new Date(p.date).toLocaleString("ru-RU")}\n\n✅ _To'lov qabul qilindi!_`;
+    const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${student.name}\n📚 *Fan:* ${p.groupName || student.group}\n💰 *To'landi:* ${Number(p.amount).toLocaleString()} so'm\n💳 *Turi:* ${p.paymentType}\n📅 *Oy:* ${formatMonth(p.month)}\n📅 *To'lov vaqti:* ${new Date(p.date).toLocaleString("ru-RU")}\n\n✅ _To'lov qabul qilindi!_`;
 
     if (student.telegramChatId) {
       try {
@@ -412,11 +435,25 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va Jami To'lov ({activeCycles} oylik davr)</h3>
 
               {studentGroups.length > 0 ? studentGroups.map((g, idx) => {
-                const COURSE_PRICE = getPrice(g);
-                const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
+                const currentPrice = getPrice(g);
                 const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
+                
                 const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-                const qarz = EXPECTED_TOTAL - totalPaid;
+                
+                let expectedTotalFromHistory = 0;
+                let paidMonthsCount = 0;
+                const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
+
+                uniqueMonths.forEach(m => {
+                  const firstPaymentForMonth = groupPayments.find(p => p.month === m);
+                  expectedTotalFromHistory += Number(firstPaymentForMonth.priceAtThatTime) || currentPrice;
+                  paidMonthsCount++;
+                });
+
+                const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
+                expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
+
+                const qarz = expectedTotalFromHistory - totalPaid;
 
                 const isGroupPaid = qarz <= 0;
                 const isPartial = totalPaid > 0 && qarz > 0;
@@ -440,7 +477,6 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                         <span className="bg-rose-100 text-rose-700 px-2 py-1.5 rounded-lg text-xs font-bold">To'lanmagan</span>
                       )}
 
-                      {/* 🔥 To'lash tugmasi endi HAR DOIM ko'rinadi */}
                       <button
                         onClick={() => setPayGroup(g)}
                         className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1 justify-center whitespace-nowrap"
@@ -522,12 +558,14 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                       <div className="flex justify-between items-center text-sm mb-1.5">
                         <span className="font-bold text-slate-800">{formatMonth(p.month)}</span>
                         <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                          {Number(p.amount).toLocaleString("ru-RU")}
+                          + {Number(p.amount).toLocaleString("ru-RU")}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-500 font-medium mb-2 flex items-center gap-1">
-                        <BookOpen size={12} /> <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{p.groupName || "Umumiy"}</span>
+                      <div className="text-[11px] text-slate-500 font-medium flex justify-between items-center mb-2">
+                         <span className="flex items-center gap-1"><BookOpen size={12} /> <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{p.groupName || "Umumiy"}</span></span>
+                         {p.priceAtThatTime && <span>(Asl narxi: {Number(p.priceAtThatTime).toLocaleString()} so'm)</span>}
                       </div>
+                      
                       <button
                         onClick={() => shareReceipt(p)}
                         className="w-full mt-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex justify-center items-center gap-2 hover:bg-blue-100 transition-colors"

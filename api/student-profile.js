@@ -20,7 +20,6 @@ export default async function handler(req, res) {
     try {
       const { action, studentId } = req.body;
       if (action === 'disconnect') {
-        // Shu o'quvchidan telegramChatId ni o'chirib tashlaymiz (null qilamiz)
         await Student.findByIdAndUpdate(studentId, { $set: { telegramChatId: null } });
         return res.status(200).json({ success: true, message: "Profil hisobdan uzildi!" });
       }
@@ -34,7 +33,6 @@ export default async function handler(req, res) {
     try {
       const { chatId } = req.query;
       
-      // Bitta odamga ulangan BARCHA o'quvchilarni topamiz (find ishlatildi)
       const students = await Student.find({ 
         $or: [
           { telegramChatId: Number(chatId) },
@@ -60,7 +58,6 @@ export default async function handler(req, res) {
       
       const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
 
-      // Barcha o'quvchilarning to'lov holatini bittama-bitta hisoblab chiqamiz
       const enrichedStudents = await Promise.all(students.map(async (student) => {
         const safeId = student._id.toString();
 
@@ -84,16 +81,24 @@ export default async function handler(req, res) {
         let totalPaidForMonth = 0;
         let overallQarz = 0;
 
+        // 🔥 YANGI: Telegram botida oylik hisobotni ko'rsatishda Snapshot tahlil
         if (studentGroups.length > 0) {
           studentGroups.forEach(g => {
-            const COURSE_PRICE = getPrice(g); 
-            EXPECTED_TOTAL += COURSE_PRICE;
+            const currentPrice = getPrice(g); 
+            
+            const groupPaymentsForMonth = currentMonthPayments.filter(p => p.groupName === g || !p.groupName);
+            const paidForGroup = groupPaymentsForMonth.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+            
+            // Agar joriy oyga umuman to'lov qilmagan bo'lsa joriy narx, qisman to'lagan bo'lsa o'sha hujjatdagi narx (Snapshot) bo'ladi
+            let expectedForGroupThisMonth = currentPrice;
+            if (groupPaymentsForMonth.length > 0) {
+               expectedForGroupThisMonth = Number(groupPaymentsForMonth[0].priceAtThatTime) || currentPrice;
+            }
 
-            const groupPayments = currentMonthPayments.filter(p => p.groupName === g || !p.groupName);
-            const paidForGroup = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+            EXPECTED_TOTAL += expectedForGroupThisMonth;
             totalPaidForMonth += paidForGroup;
 
-            const qarzForGroup = COURSE_PRICE - paidForGroup;
+            const qarzForGroup = expectedForGroupThisMonth - paidForGroup;
             if (qarzForGroup > 0) {
               overallQarz += qarzForGroup;
             }
@@ -103,7 +108,7 @@ export default async function handler(req, res) {
               paid: paidForGroup,
               qarz: qarzForGroup > 0 ? qarzForGroup : 0,
               isPaid: qarzForGroup <= 0,
-              coursePrice: COURSE_PRICE 
+              coursePrice: expectedForGroupThisMonth 
             });
           });
         } else {
@@ -130,7 +135,6 @@ export default async function handler(req, res) {
           $or: [ { studentId: student._id }, { studentId: safeId } ]
         }).sort({ date: -1 });
 
-        // Har bir o'quvchining shaxsiy hisoboti
         return {
           data: student,
           paymentStatus: paymentStatus, 
