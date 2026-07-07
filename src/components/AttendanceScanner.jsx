@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-import { Loader2, CheckCircle, AlertCircle, Camera, X, FlipHorizontal } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Camera, X, FlipHorizontal, SwitchCamera } from "lucide-react";
 
 export default function AttendanceScanner({ onScan }) {
   const [status, setStatus] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   
-  // Noutbuk uchun oyna (mirror) rejimi
+  // Ko'zgu rejimi
   const [isMirrored, setIsMirrored] = useState(true); 
   
+  // 🔥 YANGI: Kameralar ro'yxati va tanlangan kamera indeksi
+  const [cameras, setCameras] = useState([]);
+  const [activeCameraIdx, setActiveCameraIdx] = useState(0);
+
   const scannerRef = useRef(null);
 
   useEffect(() => {
@@ -20,9 +24,18 @@ export default function AttendanceScanner({ onScan }) {
     };
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = async (deviceIdToUse = null) => {
     setStatus({ type: "", text: "" });
     try {
+      // 1. Kameralarni tizimdan qidirib topamiz
+      let availableCameras = cameras;
+      if (availableCameras.length === 0) {
+        availableCameras = await Html5Qrcode.getCameras();
+        if (availableCameras && availableCameras.length > 0) {
+          setCameras(availableCameras);
+        }
+      }
+
       const html5QrCode = new Html5Qrcode("reader", {
         formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
         experimentalFeatures: {
@@ -32,9 +45,16 @@ export default function AttendanceScanner({ onScan }) {
       
       scannerRef.current = html5QrCode;
 
+      // 2. Qaysi kamerani yoqishni hal qilamiz (Asosiy yoki USB)
+      let cameraConfig = { facingMode: "environment" };
+      if (deviceIdToUse) {
+         cameraConfig = { deviceId: { exact: deviceIdToUse } };
+      } else if (availableCameras.length > 0) {
+         cameraConfig = { deviceId: { exact: availableCameras[activeCameraIdx].id } };
+      }
+
       await html5QrCode.start(
-        // 🔥 XATO TUZATILDI: Yana "environment" ga qaytardik. Kompyuter bor kamerasini qotmasdan tez ochadi.
-        { facingMode: "environment" }, 
+        cameraConfig, 
         { 
           fps: 30, 
           qrbox: (viewfinderWidth, viewfinderHeight) => {
@@ -53,9 +73,7 @@ export default function AttendanceScanner({ onScan }) {
           }
           await processQR(decodedText);
         },
-        (errorMessage) => {
-          // Kichik xatolarni yashiramiz
-        }
+        (errorMessage) => {}
       );
       setIsCameraOpen(true);
     } catch (err) {
@@ -74,6 +92,30 @@ export default function AttendanceScanner({ onScan }) {
       } catch (e) {
         console.error("Kamerani o'chirishda xatolik:", e);
       }
+    }
+  };
+
+  // 🔥 YANGI: Kamerani biridan ikkinchisiga almashtiruvchi funksiya
+  const handleSwitchCamera = async () => {
+    if (cameras.length <= 1) return; // Bitta kamera bo'lsa ishlamaydi
+    
+    setLoading(true);
+    try {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      }
+
+      // Keyingi kamerani tanlash (ichki -> USB -> ichki...)
+      const nextIdx = (activeCameraIdx + 1) % cameras.length;
+      setActiveCameraIdx(nextIdx);
+
+      // Tanlangan kamerani ishga tushirish
+      await startCamera(cameras[nextIdx].id);
+    } catch (e) {
+      console.error("Kamera almashtirishda xato:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -135,23 +177,38 @@ export default function AttendanceScanner({ onScan }) {
       <h2 className="text-2xl font-bold text-slate-800">Davomat Kioski</h2>
       <p className="text-sm text-slate-500 -mt-4">O'quvchi bejigini kamerasiga tuting</p>
       
-      <div className="relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-black shadow-xl min-h-[450px] flex items-center justify-center">
+      <div className="relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-black shadow-xl min-h-[450px] flex items-center justify-center group">
         
         {isCameraOpen && (
-          <button 
-            onClick={() => setIsMirrored(!isMirrored)}
-            className="absolute top-4 right-4 z-[60] bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg text-slate-700 hover:text-indigo-600 transition-colors"
-            title="O'ng va chapni almashtirish (Ko'zgu)"
-          >
-            <FlipHorizontal size={24} />
-          </button>
+          <div className="absolute top-4 right-4 z-[60] flex flex-col gap-3">
+            {/* O'ng va chapni almashtirish tugmasi */}
+            <button 
+              onClick={() => setIsMirrored(!isMirrored)}
+              className="bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg text-slate-700 hover:text-indigo-600 transition-colors"
+              title="O'ng va chapni almashtirish (Ko'zgu)"
+            >
+              <FlipHorizontal size={24} />
+            </button>
+
+            {/* 🔥 YANGI: Kamerani almashtirish tugmasi (Faqat kompyuterda 2 ta va undan ko'p kamera bo'lsa chiqadi) */}
+            {cameras.length > 1 && (
+              <button 
+                onClick={handleSwitchCamera}
+                disabled={loading}
+                className="bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg text-slate-700 hover:text-indigo-600 transition-colors disabled:opacity-50"
+                title="Kamerani almashtirish (Ichki / USB)"
+              >
+                <SwitchCamera size={24} />
+              </button>
+            )}
+          </div>
         )}
 
         {!isCameraOpen && !loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 z-10 p-6">
              <Camera size={56} className="text-indigo-300 mb-4" />
              <button 
-               onClick={startCamera}
+               onClick={() => startCamera(null)}
                className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-5 rounded-2xl font-bold transition-all shadow-md active:scale-95 text-lg"
              >
                Kamerani ishga tushirish
@@ -199,7 +256,6 @@ export default function AttendanceScanner({ onScan }) {
           overflow: hidden;
         }
         #reader video {
-          /* CSS orqali kompyuterda ko'zgu qilib qo'yish saqlanib qoldi */
           transform: ${isMirrored ? 'scaleX(-1)' : 'none'} !important; 
           width: 100% !important;
           object-fit: cover !important;
