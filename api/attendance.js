@@ -27,6 +27,10 @@ const Attendance = mongoose.models.Attendance || mongoose.model('Attendance', at
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   try {
     await connectDB();
     
@@ -56,7 +60,7 @@ export default async function handler(req, res) {
       const oldDataMap = {};
       if (oldDoc) {
          oldDoc.records.forEach(r => {
-             oldDataMap[r.studentId] = { status: r.status, messageId: r.messageId };
+             oldDataMap[r.studentId] = { status: r.status, messageId: r.messageId, lastScan: r.lastScan };
          });
       }
 
@@ -69,7 +73,19 @@ export default async function handler(req, res) {
 
         if (existingIndex >= 0) {
             let existing = currentRecords[existingIndex];
-            if (existing.status === 'keldi' || existing.status === 'kechikdi') {
+            const timePassed = now - (existing.lastScan || 0);
+            
+            // 🔥 YECHIM: Aniq 30 daqiqa (1 800 000 ms)
+            if (timePassed < 1800000) {
+                return res.status(200).json({ success: true, data: oldDoc }); 
+            }
+
+            // 🔥 YECHIM 2: 5 soat o'tgan bo'lsa yangi Keldi
+            if (timePassed > 18000000) {
+                scannedRecord.status = 'keldi';
+                scannedRecord.arrivalTime = timeStr;
+            }
+            else if (existing.status === 'keldi' || existing.status === 'kechikdi') {
                 scannedRecord.status = 'ketdi';
                 scannedRecord.leaveTime = timeStr;
                 scannedRecord.arrivalTime = existing.arrivalTime; 
@@ -108,11 +124,11 @@ export default async function handler(req, res) {
                   return '❌ Darsga kelmadi';
                };
 
-               let text = oldDataMap[scannedRecord.studentId] 
+               const isCorrection = existingIndex >= 0 && oldDataMap[scannedRecord.studentId].status !== "" && scannedRecord.status === "ketdi";
+               let text = isCorrection 
                  ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${scannedRecord.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(scannedRecord)}*`
                  : `📋 *Davomat natijasi*\n\nHurmatli *${scannedRecord.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(scannedRecord)}*`;
 
-               // 🔥 MULTI-ACCOUNT YUBORISH
                const chatIds = student.telegramChatId.split(',').filter(Boolean);
                let firstMsgId = null;
 
@@ -181,7 +197,6 @@ export default async function handler(req, res) {
                      const allChatIds = chatIdsMap[record.studentId];
                      if (!allChatIds) return;
                      
-                     // 🔥 MULTI-ACCOUNT
                      const cIds = allChatIds.split(',').filter(Boolean);
                      let firstMsgId = null;
 
@@ -195,7 +210,7 @@ export default async function handler(req, res) {
                              } catch(e) {}
                          }
 
-                         const isCorrection = oldDataMap[record.studentId] !== undefined && oldDataMap[record.studentId].status !== ""; 
+                         const isCorrection = oldDataMap[record.studentId] !== undefined && oldDataMap[record.studentId].status !== "" && record.status === "ketdi"; 
                          let text = isCorrection 
                              ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(record)}*`
                              : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(record)}*`;

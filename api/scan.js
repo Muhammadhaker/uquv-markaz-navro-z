@@ -39,14 +39,8 @@ export default async function handler(req, res) {
     let anyUpdate = false; 
 
     for (const groupName of studentGroups) {
-        // 🔥 ENG ASOSIY JOYI: Avval shu o'quvchi bugun umuman qatnashganligini (chala ma'lumot bilan bo'lsa ham) izlaymiz
-        let oldAttendance = await Attendance.findOne({ 
-            groupName, 
-            date, 
-            "records.studentId": studentId.toString() 
-        });
+        let oldAttendance = await Attendance.findOne({ groupName, date, "records.studentId": studentId.toString() });
 
-        // Agar bugun umuman kelmagan bo'lsa, davomat faylini olamiz
         if (!oldAttendance) {
             oldAttendance = await Attendance.findOne({ groupName, date });
         }
@@ -61,33 +55,30 @@ export default async function handler(req, res) {
         if (studentIndex >= 0) {
             let current = existingRecords[studentIndex];
             const currentStatus = (current.status || '').toLowerCase();
+            const timePassed = now - (current.lastScan || 0);
             
-            // 30 daqiqalik (1800000ms) asabga tegmaslik va spam himoyasi
-            if (now - (current.lastScan || 0) < 1800000) {
-               continue; // Hali vaqt o'tmadi, yana "Keldi" demaydi, xato ham bermaydi, shunchaki e'tiborsiz qoldiradi
+            // 🔥 YECHIM: Kamida 30 daqiqa (1 800 000 ms) o'tmaguncha qabul qilmaydi
+            if (timePassed < 1800000) {
+               continue; 
             }
 
-            // Agar oldin "keldi" bo'lsa -> endi "ketdi" qilamiz
-            if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
+            // 🔥 YECHIM 2: Agar 5 soatdan (18 000 000 ms) ko'p vaqt o'tgan bo'lsa, avtomat yangi "Keldi" qiladi
+            if (timePassed > 18000000) {
+                newStatus = 'keldi';
+                arrTime = timeStr;
+            } 
+            else if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
                 newStatus = 'ketdi';
-                // Eski kod bo'yicha arrTime bo'lmagan bo'lishi mumkin, shunda '--:--' qo'yib ketadi
                 arrTime = current.arrivalTime || '--:--'; 
                 levTime = timeStr; 
             } 
-            // Allaqachon "ketdi" bo'lgan bo'lsa -> tegmaymiz
             else if (currentStatus === 'ketdi') {
                 continue; 
             } 
-            // Boshqa holat bo'lsa
-            else {
-                newStatus = 'keldi';
-                arrTime = timeStr;
-            }
         }
 
         anyUpdate = true;
         
-        // Multi-Account (Dada, Oyi) uchun xabar yuborish
         let firstMsgId = null;
         let currentOldMsgId = studentIndex >= 0 ? existingRecords[studentIndex].messageId : null;
 
@@ -101,7 +92,7 @@ export default async function handler(req, res) {
                return '❌ Darsga kelmadi';
             };
 
-            const isCorrection = studentIndex >= 0 && existingRecords[studentIndex].status !== "";
+            const isCorrection = studentIndex >= 0 && existingRecords[studentIndex].status !== "" && newStatus === 'ketdi';
             let text = isCorrection 
                 ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`
                 : `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
@@ -115,7 +106,6 @@ export default async function handler(req, res) {
                         });
                     } catch(e) {}
                 }
-
                 try {
                     const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -143,7 +133,6 @@ export default async function handler(req, res) {
             existingRecords.push(newRecordData);
         }
 
-        // Ustoz ID sini tiklash
         let teacherId = oldAttendance ? oldAttendance.teacherId : null;
         if (!teacherId) {
             if (student.groupsData && Array.isArray(student.groupsData)) {
@@ -163,7 +152,7 @@ export default async function handler(req, res) {
     }
 
     if (!anyUpdate) {
-         return res.status(200).json({ success: true, message: `${student.name} xolati o'zgarmadi (Hali 30 daqiqa o'tmadi).` });
+         return res.status(200).json({ success: true, message: `${student.name} qayd etilmadi (Hali 30 daqiqa o'tmadi).` });
     }
 
     return res.status(200).json({ success: true, message: `${student.name} muvaffaqiyatli belgilandi!` });
