@@ -1,20 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { Loader2, CheckCircle, AlertCircle, Camera, X, FlipHorizontal } from "lucide-react";
 
 export default function AttendanceScanner({ onScan }) {
   const [status, setStatus] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [isMirrored, setIsMirrored] = useState(false);
+  
+  // 🔥 NOUTBUK UCHUN: Veb-kamera doim ko'zgu (mirror) bo'lishi shart, shunda bolalar bejikni oson to'g'rilaydi!
+  const [isMirrored, setIsMirrored] = useState(true); 
   
   const scannerRef = useRef(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth > 768) {
-      setIsMirrored(true);
-    }
-    
     return () => {
       if (scannerRef.current && scannerRef.current.isScanning) {
         scannerRef.current.stop().then(() => scannerRef.current.clear()).catch(() => {});
@@ -25,13 +23,23 @@ export default function AttendanceScanner({ onScan }) {
   const startCamera = async () => {
     setStatus({ type: "", text: "" });
     try {
-      const html5QrCode = new Html5Qrcode("reader");
+      const html5QrCode = new Html5Qrcode("reader", {
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true 
+        }
+      });
+      
       scannerRef.current = html5QrCode;
 
       await html5QrCode.start(
-        { facingMode: "environment" }, 
+        // 🔥 ASOSIY O'ZGARISH: "user" qilingani noutbukning veb-kamerasini avtomat ochadi!
         { 
-          fps: 15, 
+          facingMode: "user",
+          advanced: [{ focusMode: "continuous" }] 
+        }, 
+        { 
+          fps: 30, 
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const minEdgePercentage = 0.85; 
             const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
@@ -49,13 +57,13 @@ export default function AttendanceScanner({ onScan }) {
           await processQR(decodedText);
         },
         (errorMessage) => {
-          // Xatolar e'tiborga olinmaydi
+          // Xira tushgan kadrlardagi ichki xatoliklarni e'tiborsiz qoldiramiz
         }
       );
       setIsCameraOpen(true);
     } catch (err) {
       console.error(err);
-      setStatus({ type: "error", text: "❌ Kameraga ruxsat berilmadi yoki kamera topilmadi!" });
+      setStatus({ type: "error", text: "❌ Noutbuk veb-kamerasi topilmadi yoki ruxsat berilmagan!" });
     }
   };
 
@@ -81,19 +89,17 @@ export default function AttendanceScanner({ onScan }) {
       studentId = decodedText.split("?start=")[1].trim();
     }
 
-    // 🔥 MANA SHU YERDA XATO YASHIRINGAN EDI
     if (onScan) {
-      onScan(studentId); // Davomat sahifasiga yuboradi
+      onScan(studentId);
       setLoading(false);
       
-      // Skanerni keyingi o'quvchi uchun 2 soniyadan so'ng yana ishga tushiramiz
       setTimeout(() => {
         if (scannerRef.current && scannerRef.current.getState() === 3) {
            scannerRef.current.resume();
         }
-      }, 2000);
+      }, 1500); 
       
-      return; // 🔥 DIQQAT: Ushbu RETURN so'zi bo'lmagani uchun pastki eski kodga ham tushib ketib xato berayotgan edi! Endi bu yerda aniq to'xtaydi.
+      return; 
     }
 
     try {
@@ -123,14 +129,14 @@ export default function AttendanceScanner({ onScan }) {
         if (scannerRef.current && scannerRef.current.getState() === 3) {
            scannerRef.current.resume();
         }
-      }, 2000);
+      }, 1500);
     }
   };
 
   return (
-    <div className="p-4 w-full max-w-lg mx-auto text-center space-y-6 pb-24 relative">
-      <h2 className="text-2xl font-bold text-slate-800">QR-Davomat</h2>
-      <p className="text-sm text-slate-500 -mt-4">O'quvchi bejigidagi kodni kameraga tuting</p>
+    <div className="p-4 w-full max-w-2xl mx-auto text-center space-y-6 pb-24 relative">
+      <h2 className="text-2xl font-bold text-slate-800">Davomat Kioski</h2>
+      <p className="text-sm text-slate-500 -mt-4">O'quvchi bejigini noutbuk kamerasiga tuting</p>
       
       <div className="relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-black shadow-xl min-h-[450px] flex items-center justify-center">
         
@@ -149,12 +155,12 @@ export default function AttendanceScanner({ onScan }) {
              <Camera size={56} className="text-indigo-300 mb-4" />
              <button 
                onClick={startCamera}
-               className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-md active:scale-95 text-lg"
+               className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-5 rounded-2xl font-bold transition-all shadow-md active:scale-95 text-lg"
              >
-               Kamerani yoqish
+               Kamerani ishga tushirish
              </button>
              <p className="text-xs text-slate-400 mt-4 text-center px-4">
-               Tugmani bosing va brauzer so'raganda <br/> <b>"Allow" (Ruxsat)</b> tugmasini tanlang.
+               Tugmani bosing va noutbuk so'raganda <br/> <b>"Allow" (Ruxsat)</b> tugmasini tanlang.
              </p>
           </div>
         )}
@@ -196,6 +202,7 @@ export default function AttendanceScanner({ onScan }) {
           overflow: hidden;
         }
         #reader video {
+          /* 🔥 Ko'zgu effekti kompyuter uchun ideal holatda */
           transform: ${isMirrored ? 'scaleX(-1)' : 'none'} !important; 
           width: 100% !important;
           object-fit: cover !important;
