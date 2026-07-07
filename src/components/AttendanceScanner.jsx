@@ -1,13 +1,29 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { Loader2, CheckCircle, AlertCircle, Camera, X } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Camera, X, FlipHorizontal } from "lucide-react";
 
-// 🔥 DIQQAT: onScan propsini qabul qilyapmiz!
 export default function AttendanceScanner({ onScan }) {
   const [status, setStatus] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  
+  // 🔥 YANGI: Kompyuter uchun ko'zgu (Mirror) rejimi
+  const [isMirrored, setIsMirrored] = useState(false);
+  
   const scannerRef = useRef(null);
+
+  useEffect(() => {
+    // Agar ekran kompyuter bo'lsa (kengligi 768px dan katta bo'lsa), avtomat ko'zgu rejimini yoqamiz
+    if (typeof window !== 'undefined' && window.innerWidth > 768) {
+      setIsMirrored(true);
+    }
+    
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().then(() => scannerRef.current.clear()).catch(() => {});
+      }
+    };
+  }, []);
 
   const startCamera = async () => {
     setStatus({ type: "", text: "" });
@@ -17,7 +33,18 @@ export default function AttendanceScanner({ onScan }) {
 
       await html5QrCode.start(
         { facingMode: "environment" }, 
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        { 
+          fps: 15, 
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdgePercentage = 0.85; 
+            const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+            return {
+              width: minEdgeSize * minEdgePercentage,
+              height: minEdgeSize * minEdgePercentage
+            };
+          },
+          disableFlip: true // Kutubxonaning o'zi noto'g'ri burishini to'xtatamiz
+        },
         async (decodedText) => {
           if (scannerRef.current && scannerRef.current.getState() === 2) {
              scannerRef.current.pause(true);
@@ -48,37 +75,25 @@ export default function AttendanceScanner({ onScan }) {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().then(() => scannerRef.current.clear()).catch(() => {});
-      }
-    };
-  }, []);
-
-  // 🔥 QR KODNI QAYTA ISHLASH VA BAZAGA YUBORISH
   const processQR = async (decodedText) => {
     setLoading(true);
     setStatus({ type: "", text: "" });
 
-    // 1. URL ICHIDAN FAQAT "ID" QISMINI QIRQIB OLISH!
     let studentId = decodedText;
     if (decodedText.includes("?start=")) {
       studentId = decodedText.split("?start=")[1].trim();
     }
 
     try {
-      // 2. PARENT (Attendance.jsx) GA ID NI YUBORISH (Kechikdi/Keldi rangini o'zgartirish uchun)
       if (onScan) {
         onScan(studentId);
       }
 
-      // 3. API GA TO'G'RI ID BILAN SO'ROV YUBORISH
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          studentId: studentId, // Ochiq toza ID ketadi
+          studentId: studentId, 
           date: new Date().toISOString().split("T")[0], 
           adminName: localStorage.getItem("username") || "Admin"
         }),
@@ -95,7 +110,6 @@ export default function AttendanceScanner({ onScan }) {
       setStatus({ type: "error", text: "❌ Server bilan bog'lanishda xato." });
     } finally {
       setLoading(false);
-      // Skanerni yana yangi o'quvchini kutish uchun ishga tushirish
       setTimeout(() => {
         setStatus({ type: "", text: "" });
         if (scannerRef.current && scannerRef.current.getState() === 3) {
@@ -106,18 +120,29 @@ export default function AttendanceScanner({ onScan }) {
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto text-center space-y-6 pb-24">
+    <div className="p-4 w-full max-w-lg mx-auto text-center space-y-6 pb-24 relative">
       <h2 className="text-2xl font-bold text-slate-800">QR-Davomat</h2>
       <p className="text-sm text-slate-500 -mt-4">O'quvchi bejigidagi kodni kameraga tuting</p>
       
-      <div className="relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-white shadow-xl min-h-[300px] flex items-center justify-center">
+      <div className="relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-black shadow-xl min-h-[450px] flex items-center justify-center">
         
+        {/* 🔥 YANGI: O'ng/Chapni buruvchi tugma (Faqat kamera yonganda ko'rinadi) */}
+        {isCameraOpen && (
+          <button 
+            onClick={() => setIsMirrored(!isMirrored)}
+            className="absolute top-4 right-4 z-[60] bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg text-slate-700 hover:text-indigo-600 transition-colors"
+            title="O'ng va chapni almashtirish (Ko'zgu)"
+          >
+            <FlipHorizontal size={24} />
+          </button>
+        )}
+
         {!isCameraOpen && !loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 z-10 p-6">
-             <Camera size={48} className="text-indigo-300 mb-4" />
+             <Camera size={56} className="text-indigo-300 mb-4" />
              <button 
                onClick={startCamera}
-               className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-md active:scale-95"
+               className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-md active:scale-95 text-lg"
              >
                Kamerani yoqish
              </button>
@@ -133,29 +158,47 @@ export default function AttendanceScanner({ onScan }) {
       {isCameraOpen && (
          <button 
            onClick={stopCamera}
-           className="bg-rose-100 hover:bg-rose-200 text-rose-600 px-6 py-3 rounded-xl font-bold transition-all w-full flex items-center justify-center gap-2"
+           className="bg-rose-100 hover:bg-rose-200 text-rose-600 px-6 py-4 rounded-xl font-bold transition-all w-full flex items-center justify-center gap-2 text-lg"
          >
-           <X size={20} /> Kamerani yopish
+           <X size={24} /> Kamerani yopish
          </button>
       )}
 
       {loading && (
         <div className="flex justify-center items-center p-4 bg-indigo-50 rounded-2xl border border-indigo-100 animate-pulse">
           <Loader2 className="animate-spin text-indigo-600 mr-3" size={24} />
-          <span className="font-bold text-indigo-700">Tizimga yozilmoqda...</span>
+          <span className="font-bold text-indigo-700 text-lg">Tizimga yozilmoqda...</span>
         </div>
       )}
 
       {status.text && (
-        <div className={`p-4 rounded-2xl font-bold text-sm shadow-sm flex items-center justify-center gap-2 ${
+        <div className={`p-4 rounded-2xl font-bold text-base shadow-sm flex items-center justify-center gap-2 ${
           status.type === "success" 
             ? "bg-emerald-100 text-emerald-700 border border-emerald-200" 
             : "bg-rose-100 text-rose-700 border border-rose-200"
         }`}>
-          {status.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+          {status.type === "success" ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
           {status.text}
         </div>
       )}
+
+      {/* 🔥 CSS orqali Ko'zgu (Mirror) rejimini vizual burish */}
+      <style jsx global>{`
+        #reader {
+          width: 100%;
+          border-radius: 1.5rem;
+          overflow: hidden;
+        }
+        #reader video {
+          transform: ${isMirrored ? 'scaleX(-1)' : 'none'} !important; 
+          width: 100% !important;
+          object-fit: cover !important;
+        }
+        #qr-shaded-region {
+          border-width: 6px !important;
+          border-color: rgba(79, 70, 229, 0.8) !important;
+        }
+      `}</style>
     </div>
   );
 }
