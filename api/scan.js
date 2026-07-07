@@ -15,14 +15,20 @@ export default async function handler(req, res) {
     await connectDB();
     const { studentId, date, adminName } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+    // 🔥 MUAMMO YECHIMI: QR koddan kelgan ID ni ortiqcha bo'sh joylardan (probellardan) tozalaymiz
+    const cleanInputId = studentId ? studentId.toString().trim() : "";
+    
+    if (!cleanInputId || !mongoose.Types.ObjectId.isValid(cleanInputId)) {
         return res.status(400).json({ success: false, message: "Noto'g'ri QR-kod tizimi!" });
     }
     
-    const student = await Student.findById(studentId);
+    const student = await Student.findById(cleanInputId);
     if (!student) {
         return res.status(404).json({ success: false, message: "Bunday o'quvchi topilmadi!" });
     }
+
+    // Tizim endi faqat toza, haqiqiy ID ni ishlatadi
+    const validStudentIdStr = student._id.toString();
 
     const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
     if (studentGroups.length === 0) {
@@ -39,14 +45,16 @@ export default async function handler(req, res) {
     let anyUpdate = false; 
 
     for (const groupName of studentGroups) {
-        let oldAttendance = await Attendance.findOne({ groupName, date, "records.studentId": studentId.toString() });
+        let oldAttendance = await Attendance.findOne({ groupName, date, "records.studentId": validStudentIdStr });
 
         if (!oldAttendance) {
             oldAttendance = await Attendance.findOne({ groupName, date });
         }
 
         let existingRecords = oldAttendance ? oldAttendance.records : [];
-        const studentIndex = existingRecords.findIndex(r => String(r.studentId) === String(studentId));
+        
+        // 🔥 QATTIQ TEKSHIRUV: Qanday render bo'lmasin, o'quvchini qat'iy topadi
+        const studentIndex = existingRecords.findIndex(r => r.studentId && r.studentId.toString().trim() === validStudentIdStr);
         
         let newStatus = "keldi";
         let arrTime = timeStr;
@@ -54,17 +62,18 @@ export default async function handler(req, res) {
 
         if (studentIndex >= 0) {
             let current = existingRecords[studentIndex];
-            const currentStatus = (current.status || '').toLowerCase();
+            const currentStatus = (current.status || '').toLowerCase().trim();
             
-            // 🔥 XUDDI SHU FIX BU YERGA HAM QO'YILDI
-            let safeLastScan = current.lastScan || (now - 1860000); 
+            let safeLastScan = current.lastScan ? Number(current.lastScan) : 0; 
             const timePassed = now - safeLastScan;
             
-            if (timePassed < 1800000) {
+            // 30 daqiqa himoyasi
+            if (safeLastScan > 0 && timePassed < 1800000) {
                continue; 
             }
 
-            if (timePassed > 18000000) {
+            // 5 soatdan oshsa yangidan "Keldi", aks holda "Ketdi"
+            if (safeLastScan === 0 || timePassed > 18000000) {
                 newStatus = 'keldi';
                 arrTime = timeStr;
                 levTime = null;
@@ -75,7 +84,9 @@ export default async function handler(req, res) {
                 levTime = timeStr; 
             } 
             else if (currentStatus === 'ketdi') {
-                continue; 
+                newStatus = 'keldi';
+                arrTime = timeStr;
+                levTime = null;
             } 
         }
 
@@ -95,6 +106,8 @@ export default async function handler(req, res) {
             };
 
             const isCorrection = studentIndex >= 0 && existingRecords[studentIndex].status !== "" && newStatus === 'ketdi';
+            
+            // 🔥 YANGI MATN: Aynan skanerdan o'tgani bilinib turadi
             let text = isCorrection 
                 ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`
                 : `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
@@ -120,7 +133,7 @@ export default async function handler(req, res) {
         }
 
         const newRecordData = {
-            studentId: student._id.toString(),
+            studentId: validStudentIdStr,
             studentName: student.name,
             status: newStatus,
             arrivalTime: arrTime,
