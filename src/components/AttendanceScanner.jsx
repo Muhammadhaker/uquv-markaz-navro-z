@@ -6,14 +6,11 @@ export default function AttendanceScanner({ onScan }) {
   const [status, setStatus] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  
-  // 🔥 YANGI: Kompyuter uchun ko'zgu (Mirror) rejimi
   const [isMirrored, setIsMirrored] = useState(false);
   
   const scannerRef = useRef(null);
 
   useEffect(() => {
-    // Agar ekran kompyuter bo'lsa (kengligi 768px dan katta bo'lsa), avtomat ko'zgu rejimini yoqamiz
     if (typeof window !== 'undefined' && window.innerWidth > 768) {
       setIsMirrored(true);
     }
@@ -43,7 +40,7 @@ export default function AttendanceScanner({ onScan }) {
               height: minEdgeSize * minEdgePercentage
             };
           },
-          disableFlip: true // Kutubxonaning o'zi noto'g'ri burishini to'xtatamiz
+          disableFlip: true 
         },
         async (decodedText) => {
           if (scannerRef.current && scannerRef.current.getState() === 2) {
@@ -84,11 +81,22 @@ export default function AttendanceScanner({ onScan }) {
       studentId = decodedText.split("?start=")[1].trim();
     }
 
-    try {
-      if (onScan) {
-        onScan(studentId);
-      }
+    // 🔥 MANA SHU YERDA XATO YASHIRINGAN EDI
+    if (onScan) {
+      onScan(studentId); // Davomat sahifasiga yuboradi
+      setLoading(false);
+      
+      // Skanerni keyingi o'quvchi uchun 2 soniyadan so'ng yana ishga tushiramiz
+      setTimeout(() => {
+        if (scannerRef.current && scannerRef.current.getState() === 3) {
+           scannerRef.current.resume();
+        }
+      }, 2000);
+      
+      return; // 🔥 DIQQAT: Ushbu RETURN so'zi bo'lmagani uchun pastki eski kodga ham tushib ketib xato berayotgan edi! Endi bu yerda aniq to'xtaydi.
+    }
 
+    try {
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,7 +134,6 @@ export default function AttendanceScanner({ onScan }) {
       
       <div className="relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-black shadow-xl min-h-[450px] flex items-center justify-center">
         
-        {/* 🔥 YANGI: O'ng/Chapni buruvchi tugma (Faqat kamera yonganda ko'rinadi) */}
         {isCameraOpen && (
           <button 
             onClick={() => setIsMirrored(!isMirrored)}
@@ -182,7 +189,6 @@ export default function AttendanceScanner({ onScan }) {
         </div>
       )}
 
-      {/* 🔥 CSS orqali Ko'zgu (Mirror) rejimini vizual burish */}
       <style jsx global>{`
         #reader {
           width: 100%;
