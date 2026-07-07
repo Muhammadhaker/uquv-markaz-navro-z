@@ -55,17 +55,19 @@ export default async function handler(req, res) {
         if (studentIndex >= 0) {
             let current = existingRecords[studentIndex];
             const currentStatus = (current.status || '').toLowerCase();
-            const timePassed = now - (current.lastScan || 0);
             
-            // 🔥 YECHIM: Kamida 30 daqiqa (1 800 000 ms) o'tmaguncha qabul qilmaydi
+            // 🔥 XUDDI SHU FIX BU YERGA HAM QO'YILDI
+            let safeLastScan = current.lastScan || (now - 1860000); 
+            const timePassed = now - safeLastScan;
+            
             if (timePassed < 1800000) {
                continue; 
             }
 
-            // 🔥 YECHIM 2: Agar 5 soatdan (18 000 000 ms) ko'p vaqt o'tgan bo'lsa, avtomat yangi "Keldi" qiladi
             if (timePassed > 18000000) {
                 newStatus = 'keldi';
                 arrTime = timeStr;
+                levTime = null;
             } 
             else if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
                 newStatus = 'ketdi';
