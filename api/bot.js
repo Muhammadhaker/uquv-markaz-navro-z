@@ -8,9 +8,11 @@ const connectDB = async () => {
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 const Attendance = mongoose.models.Attendance || mongoose.model('Attendance', new mongoose.Schema({}, { strict: false }), 'attendances');
 const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({}, { strict: false }));
-// 🔥 YANGI: Moliya hisobotlari uchun modellar
 const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
 const Expense = mongoose.models.Expense || mongoose.model('Expense', new mongoose.Schema({}, { strict: false }), 'expenses');
+
+// 🔥 YANGI: Bot qaysi chat ID lar Admin ekanligini eslab qolishi uchun maxsus JADVAL
+const BotAdmin = mongoose.models.BotAdmin || mongoose.model('BotAdmin', new mongoose.Schema({ chatId: String }), 'bot_admins');
 
 const formatDate = (dateString) => {
   if (!dateString) return "Noma'lum";
@@ -86,6 +88,24 @@ export default async function handler(req, res) {
         return res.status(200).send('OK'); 
     }
 
+    // 🔥 XABAR YUBORUVCHINING ADMIN EKANLIGINI TEKSHIRISH
+    let isAdminActive = false;
+    if (chatId) {
+        const adminDoc = await BotAdmin.findOne({ chatId });
+        if (adminDoc) isAdminActive = true;
+    }
+
+    const adminMenuMarkup = {
+        inline_keyboard: [
+            [{ text: "📊 Umumiy statistika", callback_data: "admin_stats" }],
+            [{ text: "✅ Ulanganlar ro'yxati", callback_data: "admin_connected" }],
+            [{ text: "❌ Ulanmaganlar ro'yxati", callback_data: "admin_unconnected" }],
+            [{ text: "📢 Barchaga xabar yuborish", callback_data: "admin_broadcast_info" }],
+            [{ text: "💰 Joriy oy moliyasi", callback_data: "admin_finance" }],
+            [{ text: "🚪 Paneldan chiqish", callback_data: "admin_logout" }]
+        ]
+    };
+
     const getInlineMenu = (cId) => ({
         inline_keyboard: [
             [{ text: "🚀 Shaxsiy Kabinetni ochish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${cId}` } }],
@@ -96,46 +116,38 @@ export default async function handler(req, res) {
     });
 
     // ========================================================
-    // 🔥 1. SUPER ADMIN PANEL UCHUN MAXSUS BUYRUQ (/navroz)
+    // 🔥 SUPER ADMIN LOGIN (/navroz)
     // ========================================================
     if (!isCallback && text === '/navroz') {
+        // Tizimga admin sifatida yozib qo'yamiz
+        await BotAdmin.findOneAndUpdate({ chatId }, { chatId }, { upsert: true });
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: chatId,
-                text: "👑 *Super Admin Paneliga xush kelibsiz!*\n\nBu yerdagi ma'lumotlar faqat siz uchun. Kerakli bo'limni tanlang:",
+                text: "👑 *Super Admin Paneliga xush kelibsiz!*\n\nBu yerdagi ma'lumotlar faqat siz uchun. Siz tizimda Admin sifatida saqlandingiz.",
                 parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "📊 Umumiy statistika", callback_data: "admin_stats" }],
-                        [{ text: "❌ Botga ulanmaganlar", callback_data: "admin_unconnected" }],
-                        [{ text: "📢 Barchaga xabar yuborish", callback_data: "admin_broadcast_info" }],
-                        [{ text: "💰 Joriy oy moliyasi", callback_data: "admin_finance" }]
-                    ]
-                }
+                reply_markup: adminMenuMarkup
             })
         });
         return res.status(200).send('OK');
     }
 
     // ========================================================
-    // 🔥 2. BARCHAGA XABAR YUBORISH FUNKSIYASI (/elon)
+    // 🔥 BARCHAGA XABAR YUBORISH FUNKSIYASI (/elon)
     // ========================================================
     if (!isCallback && text.startsWith('/elon ')) {
         const messageToBroadcast = text.substring(6).trim();
         if (!messageToBroadcast) return res.status(200).send('OK');
 
-        // Barcha botga ulangan va chat ID si bor foydalanuvchilarni topamiz
         const allConnected = await Student.find({ telegramChatId: { $ne: null } });
         const uniqueChatIds = [...new Set(allConnected.map(s => s.telegramChatId).filter(id => id && id.length > 5))];
 
-        // Adminga jarayon boshlanganini xabar beramiz
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: `⏳ Xabar yuborish boshlandi...\nJami foydalanuvchilar: ${uniqueChatIds.length} ta` })
+            body: JSON.stringify({ chat_id: chatId, text: `⏳ Xabar yuborish boshlandi...\nJami qabul qiluvchilar: ${uniqueChatIds.length} ta` })
         });
 
-        // Barchaga yuborish tsikli
         let successCount = 0;
         await Promise.all(uniqueChatIds.map(async (uChatId) => {
             try {
@@ -148,7 +160,6 @@ export default async function handler(req, res) {
             } catch (e) {}
         }));
 
-        // Adminga natija
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: chatId, text: `✅ *Xabar muvaffaqiyatli yuborildi!*\n\nQabul qildi: ${successCount} kishi.`, parse_mode: 'Markdown' })
@@ -251,11 +262,65 @@ export default async function handler(req, res) {
     }
     
     // ========================================================
-    // 🔥 INLINE TUGMALAR VA ADMIN CALLBACKLARIGA JAVOBLAR
+    // 🔥 START VA CALLBACKLAR BOSHQRUVI
     // ========================================================
+    if (text === '/start') {
+        await setupChatUI(chatId, token); 
+        
+        // Agar admin bo'lsa, start bossa ham admin panel chiqadi
+        if (isAdminActive) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: chatId, 
+                    text: "👑 *Super Admin Paneli*\n\nKerakli bo'limni tanlang:", 
+                    reply_markup: adminMenuMarkup, 
+                    parse_mode: 'Markdown' 
+                })
+            });
+            return res.status(200).send('OK');
+        }
+
+        if (linkedStudents.length > 0) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: chatId, 
+                    text: `Assalomu alaykum! 🎓\n\nSizning hisobingizga *${linkedStudents.length} ta* o'quvchi ulangan. Pastki menyudan kerakli bo'limni tanlang 👇`, 
+                    reply_markup: getInlineMenu(chatId), 
+                    parse_mode: 'Markdown' 
+                })
+            });
+        } else {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: chatId, 
+                    text: `Assalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Profilingizni ulash uchun bejigingizdagi QR kodni kameraga tuting yoki pastdan ro'yxatdan o'ting 👇`, 
+                    reply_markup: { 
+                        inline_keyboard: [ 
+                            [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }], 
+                            [{ text: "ℹ️ O'quv markaz haqida", callback_data: "about" }],
+                            [{ text: "✈️ Telegram", url: "https://t.me/gulomov_math_group" }, { text: "📸 Instagram", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
+                        ] 
+                    }, 
+                    parse_mode: 'Markdown' 
+                })
+            });
+        }
+        return res.status(200).send('OK');
+    }
+
     if (isCallback) {
-        // Admin: Statistika
-        if (text === "admin_stats") {
+        // 🔥 ADMIN CHIQISHI
+        if (text === "admin_logout") {
+            await BotAdmin.findOneAndDelete({ chatId });
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, text: "🚪 Admin paneldan chiqdingiz. Oddiy o'quvchi rejimiga qaytish uchun /start buyrug'ini yuboring." })
+            });
+        }
+        else if (text === "admin_stats") {
             const allStudents = await Student.countDocuments();
             const connectedStudents = await Student.countDocuments({ telegramChatId: { $ne: null } });
             const notConnected = allStudents - connectedStudents;
@@ -267,9 +332,8 @@ export default async function handler(req, res) {
                 body: JSON.stringify({ chat_id: chatId, text: statMsg, parse_mode: 'Markdown' })
             });
         }
-        // Admin: Ulanmaganlar
         else if (text === "admin_unconnected") {
-            const notConnectedList = await Student.find({ telegramChatId: null }).limit(60);
+            const notConnectedList = await Student.find({ telegramChatId: null }).limit(50);
             const totalUnconnected = await Student.countDocuments({ telegramChatId: null });
 
             if (notConnectedList.length === 0) {
@@ -278,14 +342,15 @@ export default async function handler(req, res) {
                     body: JSON.stringify({ chat_id: chatId, text: "✅ Barcha o'quvchilar botga ulangan!" })
                 });
             } else {
-                let msg = `❌ *Botga ulanmagan o'quvchilar ro'yxati:*\n\n`;
+                // 🔥 O'QISHGA JIDA QULAY FORMAT
+                let msg = `❌ *Botga ulanmagan o'quvchilar:*\n\n`;
                 notConnectedList.forEach((st, i) => {
-                    msg += `${i+1}. ${st.name} (${st.group || 'Guruhsiz'})\n`;
+                    msg += `*${i+1}. ${st.name}*\n➖ _${st.group || 'Guruhsiz'}_\n\n`;
                 });
-                if (totalUnconnected > 60) {
-                    msg += `\n_...va yana ${totalUnconnected - 60} ta o'quvchi._`;
+                if (totalUnconnected > 50) {
+                    msg += `_...va yana ${totalUnconnected - 50} ta o'quvchi._\n\n`;
                 }
-                msg += `\n\n📌 _Ularga QR kodini berib botga ulanishlarini so'rang._`;
+                msg += `📌 _Ularga QR kodini berib botga ulanishlarini so'rang._`;
                 
                 await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -293,7 +358,31 @@ export default async function handler(req, res) {
                 });
             }
         }
-        // Admin: Xabar yuborish qoidasi
+        else if (text === "admin_connected") {
+            const connectedList = await Student.find({ telegramChatId: { $ne: null } }).limit(50);
+            const totalConnected = await Student.countDocuments({ telegramChatId: { $ne: null } });
+
+            if (connectedList.length === 0) {
+                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: chatId, text: "Hali hech kim botga ulanmagan." })
+                });
+            } else {
+                // 🔥 ULANGANLAR RO'YXATI UCHUN FORMAT
+                let msg = `✅ *Botga ulangan o'quvchilar:*\n\n`;
+                connectedList.forEach((st, i) => {
+                    msg += `*${i+1}. ${st.name}*\n➖ _${st.group || 'Guruhsiz'}_\n\n`;
+                });
+                if (totalConnected > 50) {
+                    msg += `_...va yana ${totalConnected - 50} ta o'quvchi._`;
+                }
+                
+                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown' })
+                });
+            }
+        }
         else if (text === "admin_broadcast_info") {
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -304,7 +393,6 @@ export default async function handler(req, res) {
                 })
             });
         }
-        // Admin: Kassa
         else if (text === "admin_finance") {
             const now = new Date();
             const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -322,7 +410,6 @@ export default async function handler(req, res) {
                 body: JSON.stringify({ chat_id: chatId, text: finMsg, parse_mode: 'Markdown' })
             });
         }
-        // O'quvchi menyulari
         else if (text === "about") {
             const captionText = `📐 *Matematika fanidan tajribali va A+ sertifikatlangan ustoz Gʻulomov Navro'z*\n\n🌟 _Biz bilan orzuingiz roʻyobga chiqadi!_\n\n✅ Prezident maktablariga tayyorlov\n✅ Al-Xorazmiy maktablariga tayyorlov\n✅ Ixtisoslashtirilgan maktablarga tayyorlov\n✅ DTM va xalqaro sertifikat imtihonlariga tayyorlov\n\n🏆 *Natijalarimiz:*\n👨‍🎓 6 nafar Al-Xorazmiy maktabi oʻquvchisi\n🏅 15+ nafar xalqaro sertifikat sohiblari\n💯 100+ nafar ixtisoslashtirilgan maktab oʻquvchilari\n\n📍 *Manzil:* Kattaqoʻrgʻon tumani, Kadan chorrahasi, Ziyo Nur oʻquv markazi\n\n📞 *Murojaat uchun:* +998 93 271 70 79\n\n🔥 *QABUL OCHIQ!*`;
             await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
@@ -377,38 +464,6 @@ export default async function handler(req, res) {
             }
         }
         return res.status(200).send('OK');
-    }
-
-    if (text === '/start') {
-        await setupChatUI(chatId, token); 
-        
-        if (linkedStudents.length > 0) {
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: chatId, 
-                    text: `Assalomu alaykum! 🎓\n\nSizning hisobingizga *${linkedStudents.length} ta* o'quvchi ulangan. Pastki menyudan kerakli bo'limni tanlang 👇`, 
-                    reply_markup: getInlineMenu(chatId), 
-                    parse_mode: 'Markdown' 
-                })
-            });
-        } else {
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: chatId, 
-                    text: `Assalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Profilingizni ulash uchun bejigingizdagi QR kodni kameraga tuting yoki pastdan ro'yxatdan o'ting 👇`, 
-                    reply_markup: { 
-                        inline_keyboard: [ 
-                            [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }], 
-                            [{ text: "ℹ️ O'quv markaz haqida", callback_data: "about" }],
-                            [{ text: "✈️ Telegram", url: "https://t.me/gulomov_math_group" }, { text: "📸 Instagram", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
-                        ] 
-                    }, 
-                    parse_mode: 'Markdown' 
-                })
-            });
-        }
     }
 
     return res.status(200).send('OK');
