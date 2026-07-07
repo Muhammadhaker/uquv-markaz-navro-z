@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, Bell, User, LogOut, X, CheckCheck } from "lucide-react"; // 🔥 CheckCheck ikonasi qo'shildi
+import { Menu, Bell, User, LogOut, X, CheckCheck } from "lucide-react"; 
 
 export default function Header({ setIsOpen }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -23,7 +23,6 @@ export default function Header({ setIsOpen }) {
     assistant: "Yordamchi"
   };
 
-  // 🔥 YANGI: MongoDB ID si ichidan vaqtni ajratib olish (Millisoniyalarda)
   const extractTimeFromId = (id) => {
     if (!id || id.length < 8) return 0;
     const time = parseInt(id.substring(0, 8), 16) * 1000;
@@ -36,10 +35,8 @@ export default function Header({ setIsOpen }) {
         const res = await fetch(`/api/bot?action=notifications&t=${Date.now()}`);
         const json = await res.json();
         if (json.success) {
-          // Xotiradan qachon "O'qildi" bosilganini topamiz
           const clearTime = parseInt(localStorage.getItem('notifClearTime') || '0', 10);
           
-          // Faqatgina "Tozalangan vaqt"dan keyin qo'shilgan YANGI o'quvchilarni filtrlaymiz
           const newNotifs = json.data.filter(s => extractTimeFromId(s._id) > clearTime);
           setNotifications(newNotifs);
         }
@@ -53,13 +50,9 @@ export default function Header({ setIsOpen }) {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔥 YANGI: Barchasini o'qilgan deb belgilash funksiyasi
   const clearNotifications = () => {
-    // Hozirgi vaqtni xotiraga yozamiz
     localStorage.setItem('notifClearTime', Date.now().toString());
-    // Ro'yxatni tozalaymiz (Qizil nuqta darhol o'chadi)
     setNotifications([]);
-    // Oynani yopamiz
     setShowNotifications(false);
   };
 
@@ -81,7 +74,7 @@ export default function Header({ setIsOpen }) {
       <div className="flex items-center gap-2 sm:gap-4">
         <button 
           onClick={() => setIsOpen(true)}
-          className="md:hidden p-2 hover:bg-slate-100 rounded-xl transition-colors"
+          className="md:hidden p-2 hover:bg-slate-100 rounded-xl transition-colors focus:outline-none"
         >
           <Menu size={24} className="text-slate-600" />
         </button>
@@ -94,7 +87,7 @@ export default function Header({ setIsOpen }) {
         <div className="relative">
           <button 
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+            className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors focus:outline-none"
             title="Bildirishnomalar"
           >
             <Bell size={20} className="sm:w-[22px] sm:h-[22px]" />
@@ -104,47 +97,59 @@ export default function Header({ setIsOpen }) {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 z-50">
-              
-              <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
-                <h3 className="font-bold text-slate-800 text-sm">
-                  Yangi o'quvchilar {notifications.length > 0 && `(${notifications.length})`}
-                </h3>
+            <>
+              {/* 🔥 MOBIL UCHUN ORQA FON (BLUR): Menyuni chiroyli bo'rtib chiqishi uchun */}
+              <div 
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[90] sm:hidden animate-in fade-in duration-200"
+                onClick={() => setShowNotifications(false)}
+              ></div>
+
+              {/* 🔥 GIBRID OYNA: Mobilda markazlashgan (fixed top-20), kompyuterda o'ng tomonda (absolute right-0) */}
+              <div className="fixed top-20 left-4 right-4 sm:absolute sm:top-full sm:left-auto sm:right-0 mt-2 sm:mt-4 w-auto sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 z-[100] animate-in zoom-in-95 sm:slide-in-from-top-2 duration-200">
                 
-                <div className="flex items-center gap-2">
-                  {/* 🔥 O'QILDI TUGMASI */}
-                  {notifications.length > 0 && (
+                <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-100">
+                  <h3 className="font-bold text-slate-800 text-sm">
+                    Yangi o'quvchilar {notifications.length > 0 && <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full ml-1">{notifications.length}</span>}
+                  </h3>
+                  
+                  <div className="flex items-center gap-2">
+                    {/* O'QILDI TUGMASI */}
+                    {notifications.length > 0 && (
+                      <button 
+                        onClick={clearNotifications} 
+                        className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:bg-emerald-100 bg-emerald-50 px-2 py-1.5 rounded-md transition-colors border border-emerald-100 focus:outline-none"
+                        title="Barchasini o'qilgan deb belgilash"
+                      >
+                        <CheckCheck size={14} />
+                        O'qildi
+                      </button>
+                    )}
                     <button 
-                      onClick={clearNotifications} 
-                      className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:bg-emerald-100 bg-emerald-50 px-2 py-1.5 rounded-md transition-colors border border-emerald-100"
-                      title="Barchasini o'qilgan deb belgilash"
+                      onClick={() => setShowNotifications(false)} 
+                      className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors p-1 focus:outline-none"
                     >
-                      <CheckCheck size={14} />
-                      O'qildi
+                      <X size={18}/>
                     </button>
+                  </div>
+                </div>
+
+                <div className="max-h-[50vh] sm:max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {notifications.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                      <Bell size={32} className="opacity-20 mb-2" />
+                      <p className="text-xs font-medium">Yangi xabarlar yo'q 🎉</p>
+                    </div>
+                  ) : (
+                    notifications.map(s => (
+                      <div key={s._id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-700 flex items-center gap-3 hover:bg-indigo-50 transition-colors cursor-default">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span> 
+                        <span className="truncate">{s.name} tizimga qo'shildi</span>
+                      </div>
+                    ))
                   )}
-                  <button 
-                    onClick={() => setShowNotifications(false)} 
-                    className="text-slate-400 hover:text-rose-500 transition-colors p-1"
-                  >
-                    <X size={18}/>
-                  </button>
                 </div>
               </div>
-
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {notifications.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-6 font-medium">Yangi xabarlar yo'q 🎉</p>
-                ) : (
-                  notifications.map(s => (
-                    <div key={s._id} className="p-2.5 bg-slate-50/80 rounded-lg border border-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2 hover:bg-slate-100 transition-colors">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span> 
-                      {s.name} tizimga qo'shildi
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            </>
           )}
         </div>
 
@@ -164,13 +169,21 @@ export default function Header({ setIsOpen }) {
           
           <button 
             onClick={handleLogout}
-            className="ml-0 sm:ml-2 p-1.5 sm:p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+            className="ml-0 sm:ml-2 p-1.5 sm:p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors focus:outline-none"
             title="Tizimdan chiqish"
           >
             <LogOut size={18} className="sm:w-[20px] sm:h-[20px]" />
           </button>
         </div>
       </div>
+      
+      {/* Scrollbar uchun CSS */}
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      `}</style>
     </header>
   );
 }
