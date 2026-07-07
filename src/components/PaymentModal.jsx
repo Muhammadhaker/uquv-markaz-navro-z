@@ -72,9 +72,12 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     try {
       const adminName = localStorage.getItem("username") || "Admin";
 
-      // 🔥 YANGI: Tanlangan guruh qaysi ustozga tegishli ekanligini bazaga topib jo'natamiz
+      // 🔥 Eski profil va yangi profilni aniqlab ustoz IDsini ajratib olamiz
       const selectedGroupData = student.groupsData?.find(g => g.name === group);
-      const targetTeacherId = selectedGroupData?.teacherId || currentUserId;
+      let targetTeacherId = selectedGroupData?.teacherId;
+      if (!targetTeacherId) {
+          targetTeacherId = student.teacherIds?.[0] || student.teacherId || currentUserId;
+      }
 
       const res = await fetch("/api/payments", {
         method: "POST",
@@ -89,7 +92,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
           month: paymentMonth, 
           adminName: adminName,
           telegramChatId: student.telegramChatId || null, 
-          targetTeacherId: targetTeacherId // Pul haqiqiy egasiga boradi!
+          targetTeacherId: targetTeacherId 
         }),
       });
 
@@ -122,7 +125,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
 
         {success ? (
           <div className="p-8 text-center flex flex-col items-center justify-center min-h-[320px] animate-in fade-in duration-300">
-            <div className="w-20 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-5 shadow-inner animate-bounce">
+            <div className="w-20 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-5 shadow-inner animate-bounce mx-auto">
               <CheckCircle size={40} className="stroke-[2.5]" />
             </div>
             <h3 className="text-xl font-black text-slate-800">
@@ -183,14 +186,14 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
-                  <DollarSign size={14} /> Kiritiladigan summa
+                  <DollarSign size={14} /> Summa
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     inputMode="numeric"
                     className="w-full border-2 border-indigo-200 p-3.5 rounded-xl font-black text-lg text-indigo-700 focus:border-indigo-500 outline-none transition-all bg-indigo-50/30 text-center tracking-wide"
-                    placeholder="Masalan: 300 000"
+                    placeholder="300 000"
                     value={amount}
                     onChange={handleAmountChange}
                     required
@@ -200,7 +203,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1" title="To'liq to'lamasa ham, joriy oyning to'liq narxini yozib qo'yish kerak.">
                   💡 Bu oydagi asl narx
                 </label>
                 <div className="relative">
@@ -209,7 +212,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
                     inputMode="numeric"
                     className="w-full border-2 border-slate-200 p-3.5 rounded-xl font-bold text-lg text-slate-600 focus:border-slate-400 outline-none transition-all bg-slate-50/50 text-center tracking-wide"
                     placeholder="(Ixtiyoriy)"
-                    title="Agar o'quvchi to'liq to'lamayotgan bo'lsa (qarz bilan), shu oydagi asl to'liq narxni bu yerga yozing."
                     value={basePrice}
                     onChange={handleBasePriceChange}
                   />
@@ -241,7 +243,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
-                  <Calendar size={14} /> Qaysi oy uchun
+                  <Calendar size={14} /> Qaysi oy
                 </label>
                 <input
                   type="month"
