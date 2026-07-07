@@ -7,6 +7,8 @@ const connectDB = async () => {
 
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
+// 🔥 YANGI: Ustozlarning haqiqiy ismlarini olish uchun User modeli
+const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({}, { strict: false }), 'users');
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -15,7 +17,6 @@ export default async function handler(req, res) {
 
   await connectDB();
 
-  // 🔥 1. PROFILNI UZIB TASHLASH (DISCONNECT)
   if (req.method === 'POST') {
     try {
       const { action, studentId } = req.body;
@@ -28,7 +29,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // 🔥 2. BARCHA ULANGAN PROFILLARNI OLIB KELISH
   if (req.method === 'GET') {
     try {
       const { chatId } = req.query;
@@ -81,7 +81,6 @@ export default async function handler(req, res) {
         let totalPaidForMonth = 0;
         let overallQarz = 0;
 
-        // 🔥 YANGI: Telegram botida oylik hisobotni ko'rsatishda Snapshot tahlil
         if (studentGroups.length > 0) {
           studentGroups.forEach(g => {
             const currentPrice = getPrice(g); 
@@ -89,7 +88,6 @@ export default async function handler(req, res) {
             const groupPaymentsForMonth = currentMonthPayments.filter(p => p.groupName === g || !p.groupName);
             const paidForGroup = groupPaymentsForMonth.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
             
-            // Agar joriy oyga umuman to'lov qilmagan bo'lsa joriy narx, qisman to'lagan bo'lsa o'sha hujjatdagi narx (Snapshot) bo'ladi
             let expectedForGroupThisMonth = currentPrice;
             if (groupPaymentsForMonth.length > 0) {
                expectedForGroupThisMonth = Number(groupPaymentsForMonth[0].priceAtThatTime) || currentPrice;
@@ -135,6 +133,27 @@ export default async function handler(req, res) {
           $or: [ { studentId: student._id }, { studentId: safeId } ]
         }).sort({ date: -1 });
 
+        // 🔥 YANGI: O'quvchining barcha ustozlarining ismlarini bazadan qidirish
+        let teacherNamesArray = [];
+        let teacherIdsToSearch = [];
+
+        if (student.groupsData && Array.isArray(student.groupsData)) {
+          teacherIdsToSearch = student.groupsData.map(g => g.teacherId).filter(Boolean);
+        }
+        if (teacherIdsToSearch.length === 0) {
+          teacherIdsToSearch = student.teacherIds || [];
+          if (teacherIdsToSearch.length === 0 && student.teacherId) teacherIdsToSearch.push(student.teacherId);
+        }
+
+        const uniqueTIds = [...new Set(teacherIdsToSearch)];
+        
+        if (uniqueTIds.length > 0) {
+          const teachersFromDb = await User.find({ _id: { $in: uniqueTIds } });
+          teacherNamesArray = teachersFromDb.map(t => t.fullName || t.username);
+        }
+
+        const finalTeacherNames = teacherNamesArray.length > 0 ? teacherNamesArray.join(', ') : "O'quv markazi ustozi";
+
         return {
           data: student,
           paymentStatus: paymentStatus, 
@@ -143,7 +162,8 @@ export default async function handler(req, res) {
           totalPaid: totalPaidForMonth, 
           qarz: overallQarz, 
           debtDetails: debtDetails, 
-          paymentsHistory: paymentsHistory 
+          paymentsHistory: paymentsHistory,
+          teacherName: finalTeacherNames // 🔥 Biriktirilgan ustoz(lar) ro'yxati
         };
       }));
 

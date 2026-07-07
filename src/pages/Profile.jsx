@@ -32,7 +32,6 @@ export default function Profile() {
       const params = new URLSearchParams(window.location.search);
       currentChatId = params.get('chatId');
 
-      // 🔥 Telegram Web App ni xavfsiz (crash'larsiz) yuklash
       if (window.Telegram?.WebApp) {
         try {
           const tg = window.Telegram.WebApp;
@@ -138,9 +137,6 @@ export default function Profile() {
     );
   }
 
-  // ==========================================
-  // 🔥 1. PROFIL TANLASH EKRANI
-  // ==========================================
   if (selectedIdx === null) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col p-6 animate-in fade-in duration-300">
@@ -171,9 +167,6 @@ export default function Profile() {
     );
   }
 
-  // ==========================================
-  // 🔥 2. ASOSIY PROFIL EKRANI
-  // ==========================================
   const currentProfile = studentsList[selectedIdx];
   const student = currentProfile.data;
   const paymentStatus = currentProfile.paymentStatus;
@@ -184,7 +177,7 @@ export default function Profile() {
   const totalPaid = currentProfile.totalPaid;
   const coursePrice = currentProfile.coursePrice;
   const debtDetails = currentProfile.debtDetails; 
-  const teacherName = currentProfile.teacherName; // API dan olingan ustoz ismi
+  const teacherName = currentProfile.teacherName; 
 
   let statusConfig = {
     iconBg: "bg-rose-100 text-rose-600", badgeBg: "bg-rose-500 text-white", text: "Qarzdor",
@@ -204,12 +197,15 @@ export default function Profile() {
   uniqueHistoryMonths.sort((a, b) => b.localeCompare(a));
   const filteredHistory = selectedHistoryMonth === "all" ? history : history.filter(p => p.month === selectedHistoryMonth);
 
+  // Ustozlar qatorini yozuvi
+  const isMultipleTeachers = teacherName.includes(',');
+  const teacherLabel = isMultipleTeachers ? "Sizning Ustozlaringiz" : "Sizning Ustozingiz";
+
   return (
     <div className="min-h-screen bg-slate-50 pb-20 animate-in fade-in duration-300">
       <div className="max-w-md mx-auto min-h-screen bg-white shadow-lg relative">
         
         <div className="bg-indigo-600 px-6 py-10 text-center rounded-b-[3rem] relative overflow-visible">
-          
           <div className="absolute top-4 right-4 z-50">
             <button 
               onClick={() => setShowMenu(!showMenu)} 
@@ -252,12 +248,11 @@ export default function Profile() {
 
         <div className="p-6 -mt-6 relative z-20 space-y-4">
           
-          {/* 🔥 YANGI: USTOZNI KO'RSATUVCHI BLOK */}
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4 animate-in slide-in-from-bottom-2 duration-300">
             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><UserCheck size={20} /></div>
-            <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Sizning Ustozingiz</p>
-              <p className="font-bold text-slate-800 text-lg leading-tight">{teacherName}</p>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">{teacherLabel}</p>
+              <p className="font-bold text-slate-800 text-lg leading-tight truncate">{teacherName}</p>
             </div>
           </div>
 
