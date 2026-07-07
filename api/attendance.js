@@ -35,19 +35,27 @@ export default async function handler(req, res) {
     const parentId = req.headers['x-parent-id'];
     
     if (req.method === 'GET') {
-      const { groupName, date } = req.query;
+      const { groupName, date, teacherId } = req.query;
       
       let query = { groupName, date };
-      if (role === 'teacher') query.teacherId = userId;
-      else if (role === 'assistant') query.teacherId = parentId;
+      
+      // 🔥 YANGI: Aniq ustoz ID si kelgan bo'lsa o'shani qidiradi
+      if (teacherId) {
+        query.teacherId = teacherId;
+      } else {
+        if (role === 'teacher') query.teacherId = userId;
+        else if (role === 'assistant') query.teacherId = parentId;
+      }
 
       const data = await Attendance.findOne(query);
       return res.status(200).json({ success: true, data });
     }
     
     if (req.method === 'POST') {
-      const { groupName, date, adminName, records, isScan, scannedRecord } = req.body;
-      const ownerId = role === 'assistant' ? parentId : userId;
+      const { groupName, date, adminName, records, isScan, scannedRecord, teacherId } = req.body;
+      
+      // 🔥 YANGI: Agar frontend ustoz ID sini jo'natgan bo'lsa, Super Admin uni buza olmaydi!
+      const ownerId = teacherId || (role === 'assistant' ? parentId : userId);
       
       const oldDoc = await Attendance.findOne({ groupName, date, teacherId: ownerId });
       const oldDataMap = {};
@@ -57,7 +65,6 @@ export default async function handler(req, res) {
          });
       }
 
-      // 🔥 AGAR QR KODDAN SCAN QILINSA (Bitta o'quvchi darhol qo'shiladi va saqlanadi)
       if (isScan && scannedRecord) {
         let currentRecords = oldDoc ? [...oldDoc.records] : [];
         const existingIndex = currentRecords.findIndex(r => r.studentId === scannedRecord.studentId);
@@ -68,10 +75,8 @@ export default async function handler(req, res) {
           currentRecords.push(scannedRecord);
         }
         
-        // Bu skaner qilingan bolani xabari ketyaptimi shuni aniqlaymiz (xuddi siz yozgandek)
         const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
         if (telegramToken && (!oldDataMap[scannedRecord.studentId] || oldDataMap[scannedRecord.studentId].status !== scannedRecord.status)) {
-           // Telegram xabar yuborish mantiqi (Siznikidek qoldirdim, faqat shu bitta o'quvchi uchun ishlaydi)
            try {
              let student = await Student.findById(scannedRecord.studentId);
              if(student && student.telegramChatId) {
@@ -92,7 +97,6 @@ export default async function handler(req, res) {
                  ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${scannedRecord.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(scannedRecord)}*`
                  : `📋 *Davomat natijasi*\n\nHurmatli *${scannedRecord.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(scannedRecord)}*`;
 
-               // Eski xabarni o'chirish
                if(oldDataMap[scannedRecord.studentId]?.messageId) {
                  await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
                      method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -120,9 +124,7 @@ export default async function handler(req, res) {
         );
         return res.status(200).json({ success: true, data });
 
-      } 
-      // 🔥 AGAR QO'LDA (MANUAL) "SAQLASH" TUGMASI BOSILSA
-      else {
+      } else {
         const finalRecords = records.map(r => ({
             studentId: r.studentId,
             studentName: r.studentName,
@@ -137,14 +139,16 @@ export default async function handler(req, res) {
         
         if (telegramToken && finalRecords.length > 0) {
            try {
-              // FAQAT O'ZGARTIRILGAN YOKI YANGI STATUS QO'YILGANLARNI TOPAMIZ
               const changedRecords = finalRecords.filter(r => r.status && r.status !== "" && (!oldDoc || oldDataMap[r.studentId]?.status !== r.status));
               
               if (changedRecords.length > 0) {
                  const objectIds = [];
                  changedRecords.forEach(r => {
-                    if (mongoose.Types.ObjectId.isValid(r.studentId)) objectIds.push(new mongoose.Types.ObjectId(r.studentId));
-                    objectIds.push(r.studentId);
+                    if (mongoose.Types.ObjectId.isValid(r.studentId)) {
+                        objectIds.push(new mongoose.Types.ObjectId(r.studentId));
+                    } else {
+                        objectIds.push(r.studentId);
+                    }
                  });
                  
                  const studentsInDb = await Student.find({ _id: { $in: objectIds } });
@@ -168,7 +172,6 @@ export default async function handler(req, res) {
                      const chatId = chatIdsMap[record.studentId];
                      if (!chatId) return;
 
-                     // Agar oldin sms borgan bo'lsa uni o'chiramiz (Toza bo'lishi uchun)
                      if (record.messageId) {
                          try {
                              await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
@@ -203,7 +206,6 @@ export default async function handler(req, res) {
            } catch (tgError) {}
         }
 
-        // MA'LUMOTNI BIR UMRGA BAZAGA MUHRLAYMIZ
         const data = await Attendance.findOneAndUpdate(
           { groupName, date, teacherId: ownerId },
           { groupName, date, adminName, teacherId: ownerId, records: finalRecords },

@@ -14,8 +14,6 @@ export default function Attendance() {
   const [status, setStatus] = useState({ type: "", text: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const [showScanner, setShowScanner] = useState(false);
-
-  // Bu o'zgartirish qilingan o'quvchilar ro'yxati (Tugma bosilsa yashil bo'lishi uchun kerak)
   const [unsavedChanges, setUnsavedChanges] = useState(false);
 
   const scanCooldowns = useRef({});
@@ -26,6 +24,18 @@ export default function Attendance() {
     "x-user-id": localStorage.getItem("userId") || "",
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
+
+  // 🔥 YANGI: Tanlangan guruh ustozining ID sini aniqlovchi aqlli funksiya
+  const getGroupTeacherId = () => {
+    let fallbackId = localStorage.getItem("userId"); 
+    for (let s of students) {
+      if (s.groupsData && Array.isArray(s.groupsData)) {
+        const gData = s.groupsData.find(g => g.name === selectedGroup);
+        if (gData && gData.teacherId) return gData.teacherId;
+      }
+    }
+    return fallbackId;
+  };
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -56,7 +66,8 @@ export default function Attendance() {
     const fetchAttendance = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/attendance?groupName=${selectedGroup}&date=${selectedDate}`, { headers: getAuthHeaders() });
+        const teacherId = getGroupTeacherId();
+        const res = await fetch(`/api/attendance?groupName=${encodeURIComponent(selectedGroup)}&date=${selectedDate}&teacherId=${teacherId}`, { headers: getAuthHeaders() });
         const result = await res.json();
         if (result?.success && result.data && Array.isArray(result.data.records)) {
           const mapped = {};
@@ -81,7 +92,7 @@ export default function Attendance() {
       }
     };
     fetchAttendance();
-  }, [selectedGroup, selectedDate]);
+  }, [selectedGroup, selectedDate, students]); // students o'zgarganda ham teacherId ni aniqlashi uchun
 
   const currentGroupStudents = students.filter((s) => {
     if (!selectedGroup) return false;
@@ -91,7 +102,6 @@ export default function Attendance() {
     return matchesGroup && matchesSearch;
   });
 
-  // 🔥 FAQAT EKRANDA O'ZGARADI
   const markAllPresent = () => {
     const newRecords = { ...attendanceRecords };
     const now = Date.now();
@@ -103,10 +113,9 @@ export default function Attendance() {
       }
     });
     setAttendanceRecords(newRecords);
-    setUnsavedChanges(true); // O'zgarganini sezish uchun
+    setUnsavedChanges(true); 
   };
 
-  // 🔥 FAQAT EKRANDA TOZALANADI
   const clearAllAttendance = () => {
     if(!window.confirm(`Haqiqatan ham ${selectedDate} sanasidagi barcha davomatni tozalab tashlamoqchimisiz?`)) return;
     
@@ -118,7 +127,6 @@ export default function Attendance() {
     setUnsavedChanges(true);
   };
 
-  // 📸 QR SCAN QILISH (Bu oldingidek bittada yuboradi)
   const handleScan = async (scannedId) => {
     const studentObj = students.find(s => s._id === scannedId);
     if (!studentObj) {
@@ -182,8 +190,9 @@ export default function Attendance() {
         body: JSON.stringify({
           groupName: selectedGroup,
           date: selectedDate,
+          teacherId: getGroupTeacherId(), // 🔥 Ustoz ID si qo'shildi
           adminName: localStorage.getItem("username") || "Admin",
-          isScan: true, // Bunisi scan ekanligini bildiradi
+          isScan: true, 
           scannedRecord: {
             studentId: scannedId,
             studentName: studentObj.name,
@@ -196,7 +205,6 @@ export default function Attendance() {
     }
   };
 
-  // 🔥 FAQAT EKRANDA O'ZGARADI
   const handleManualStatus = (studentId, newStatus) => {
     const now = Date.now();
     const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
@@ -214,10 +222,9 @@ export default function Attendance() {
         }
       };
     });
-    setUnsavedChanges(true); // O'zgarganini belgilaydi
+    setUnsavedChanges(true); 
   };
 
-  // 🔥 FAQAT EKRANDA TOZALANADI
   const handleClearStatus = (studentId) => {
     setAttendanceRecords((prev) => ({
       ...prev,
@@ -226,13 +233,13 @@ export default function Attendance() {
     setUnsavedChanges(true);
   };
 
-  // 📥 MANA SHU TUGMA BARCHASINI BAZAGA BIR UMRGA MUHRLAYDI
   const handleSave = async () => {
     setSaving(true);
     try {
       const payload = {
         groupName: selectedGroup,
         date: selectedDate,
+        teacherId: getGroupTeacherId(), // 🔥 Bu qism eng muhimi: Aniq o'sha ustoz fayliga yozadi
         adminName: localStorage.getItem("username") || "Admin",
         records: currentGroupStudents.map((s) => {
           const rec = attendanceRecords[s._id] || {};
@@ -255,13 +262,13 @@ export default function Attendance() {
 
       if (res.ok) {
         setStatus({ type: "success", text: "Davomat muvaffaqiyatli saqlandi!" });
-        setUnsavedChanges(false); // Saqlanganidan so'ng ogohlantirish o'chadi
+        setUnsavedChanges(false); 
       } else {
         setStatus({ type: "error", text: "Saqlashda muammo chiqdi." });
       }
       setTimeout(() => setStatus({ type: "", text: "" }), 3000);
     } catch (error) {
-      setStatus({ type: "error", text: "Internet yo'q." });
+      setStatus({ type: "error", text: "Internet yo'q yoki server xatosi." });
       setTimeout(() => setStatus({ type: "", text: "" }), 3000);
     } finally {
       setSaving(false);
@@ -388,7 +395,6 @@ export default function Attendance() {
         <button 
           onClick={handleSave} 
           disabled={saving || loading} 
-          // Agar o'zgarish bo'lsa tugma yonib o'chadi (Eslatma)
           className={`${unsavedChanges ? "bg-amber-500 hover:bg-amber-600 animate-pulse border-2 border-amber-300" : "bg-indigo-600 hover:bg-indigo-700"} text-white p-4 rounded-full shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2`}
         >
           {saving ? <Loader2 className="animate-spin" size={28} /> : <><Save size={28} /><span className="hidden md:inline font-bold pr-2">{unsavedChanges ? "SAQLASH KERAK!" : "Saqlash"}</span></>}
