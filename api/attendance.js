@@ -36,10 +36,8 @@ export default async function handler(req, res) {
     
     if (req.method === 'GET') {
       const { groupName, date, teacherId } = req.query;
-      
       let query = { groupName, date };
       
-      // 🔥 YANGI: Aniq ustoz ID si kelgan bo'lsa o'shani qidiradi
       if (teacherId) {
         query.teacherId = teacherId;
       } else {
@@ -53,8 +51,6 @@ export default async function handler(req, res) {
     
     if (req.method === 'POST') {
       const { groupName, date, adminName, records, isScan, scannedRecord, teacherId } = req.body;
-      
-      // 🔥 YANGI: Agar frontend ustoz ID sini jo'natgan bo'lsa, Super Admin uni buza olmaydi!
       const ownerId = teacherId || (role === 'assistant' ? parentId : userId);
       
       const oldDoc = await Attendance.findOne({ groupName, date, teacherId: ownerId });
@@ -67,12 +63,38 @@ export default async function handler(req, res) {
 
       if (isScan && scannedRecord) {
         let currentRecords = oldDoc ? [...oldDoc.records] : [];
-        const existingIndex = currentRecords.findIndex(r => r.studentId === scannedRecord.studentId);
+        const existingIndex = currentRecords.findIndex(r => String(r.studentId) === String(scannedRecord.studentId));
         
+        const now = Date.now();
+        // Server vaqti orqali doimiy to'g'ri soat (Toshkent vaqti bilan)
+        const timeStr = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit' });
+
+        // 🔥 YANGI LOGIKA: Server o'zi Keldi/Ketdi ekanligini bazaga qarab aniq hisoblaydi!
         if (existingIndex >= 0) {
-          currentRecords[existingIndex] = { ...currentRecords[existingIndex], ...scannedRecord };
+            let existing = currentRecords[existingIndex];
+            
+            // Agar u allaqachon darsda bo'lsa -> Endi Ketdi qilamiz
+            if (existing.status === 'keldi' || existing.status === 'kechikdi') {
+                scannedRecord.status = 'ketdi';
+                scannedRecord.leaveTime = timeStr;
+                scannedRecord.arrivalTime = existing.arrivalTime; 
+            } else if (existing.status === 'ketdi') {
+                // Allaqachon ketib bo'lgan bo'lsa o'zgartirmaymiz
+                scannedRecord.status = 'ketdi';
+                scannedRecord.leaveTime = existing.leaveTime;
+                scannedRecord.arrivalTime = existing.arrivalTime;
+            } else {
+                scannedRecord.status = 'keldi';
+                scannedRecord.arrivalTime = timeStr;
+            }
+            scannedRecord.lastScan = now;
+            currentRecords[existingIndex] = { ...existing, ...scannedRecord };
         } else {
-          currentRecords.push(scannedRecord);
+            // Birinchi marta uryapti -> Keldi
+            scannedRecord.status = 'keldi';
+            scannedRecord.arrivalTime = timeStr;
+            scannedRecord.lastScan = now;
+            currentRecords.push(scannedRecord);
         }
         
         const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -144,11 +166,8 @@ export default async function handler(req, res) {
               if (changedRecords.length > 0) {
                  const objectIds = [];
                  changedRecords.forEach(r => {
-                    if (mongoose.Types.ObjectId.isValid(r.studentId)) {
-                        objectIds.push(new mongoose.Types.ObjectId(r.studentId));
-                    } else {
-                        objectIds.push(r.studentId);
-                    }
+                    if (mongoose.Types.ObjectId.isValid(r.studentId)) objectIds.push(new mongoose.Types.ObjectId(r.studentId));
+                    else objectIds.push(r.studentId);
                  });
                  
                  const studentsInDb = await Student.find({ _id: { $in: objectIds } });
@@ -182,7 +201,6 @@ export default async function handler(req, res) {
                      }
 
                      const isCorrection = oldDataMap[record.studentId] !== undefined && oldDataMap[record.studentId].status !== ""; 
-                     
                      let text = isCorrection 
                          ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(record)}*`
                          : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(record)}*`;
@@ -193,14 +211,9 @@ export default async function handler(req, res) {
                              body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
                          });
                          const tgData = await tgRes.json();
-                         if (tgData.ok) {
-                             record.messageId = tgData.result.message_id; 
-                         } else {
-                             record.messageId = null;
-                         }
-                     } catch(e) {
-                         record.messageId = null;
-                     }
+                         if (tgData.ok) record.messageId = tgData.result.message_id; 
+                         else record.messageId = null;
+                     } catch(e) { record.messageId = null; }
                  }));
               }
            } catch (tgError) {}

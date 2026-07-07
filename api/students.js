@@ -12,10 +12,10 @@ const studentSchema = new mongoose.Schema({
   phone: { type: String, default: "Kiritilmagan" }, 
   group: { type: String, required: true },
   telegramChatId: { type: String, default: null },
-  groupsData: { type: Array, default: [] }, // Ichida { name, price, teacherId } bo'ladi
+  groupsData: { type: Array, default: [] },
   isNewStudent: { type: Boolean, default: true },
   exceptionMonths: { type: [String], default: [] },
-  teacherIds: { type: [String], default: [] }, // 🔥 YANGI: O'quvchiga dars o'tadigan BARCHA ustozlar ID lari
+  teacherIds: { type: [String], default: [] }, 
   addedAt: { type: Date, default: Date.now }
 }, { strict: false }); 
 
@@ -42,12 +42,11 @@ export default async function handler(req, res) {
       const targetTeacherId = role === 'assistant' ? parentId : userId;
       
       if (role === 'teacher' || role === 'assistant') {
-        query = { teacherIds: targetTeacherId }; // Ustoz faqat o'ziga aloqador o'quvchilarni oladi
+        query = { teacherIds: targetTeacherId }; 
       }
 
       const students = await Student.find(query).sort({ addedAt: -1 });
 
-      // 🔥 YANGI: Agar ustoz kirgan bo'lsa, o'quvchining profildan boshqa ustozlarning fanlarini yashiramiz!
       const filteredStudents = students.map(s => {
         const sObj = s.toObject();
         if (role === 'teacher' || role === 'assistant') {
@@ -63,13 +62,11 @@ export default async function handler(req, res) {
     if (req.method === 'POST' || req.method === 'PUT') {
       const { groupsData } = req.body;
       
-      // Guruhlardan hamma ustozlar ID sini yig'ib olamiz
       let tIds = [];
       if (groupsData && Array.isArray(groupsData)) {
         tIds = groupsData.map(g => g.teacherId).filter(Boolean);
       }
       
-      // Agar ustoz o'zi qoshyotgan bo'lsa, avtomat o'zini ID sini qo'shamiz
       const creatorId = role === 'assistant' ? parentId : userId;
       if (tIds.length === 0 && role !== 'super_admin') {
         tIds.push(creatorId);
@@ -82,21 +79,44 @@ export default async function handler(req, res) {
       if (req.method === 'POST') {
         savedStudent = await Student.create(req.body);
         
-        // Telegram xabarnoma qismi
+        // 🔥 YANGI: Telegram xabarnoma qismi (Ixcham inline tugmalar bilan)
         if (savedStudent.telegramChatId && savedStudent.telegramChatId.trim() !== "") {
           try {
-            await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            const token = process.env.TELEGRAM_BOT_TOKEN;
+            const cId = savedStudent.telegramChatId;
+            
+            // 1. Menu tugmani tiklash
+            await fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: cId, menu_button: { type: "web_app", text: "Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${cId}` } } })
+            });
+
+            // 2. Katta eski tugmani uzoqlashtirish xabari
+            const rmMsg = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: cId, text: "🔄 Yangilanmoqda...", reply_markup: { remove_keyboard: true } })
+            });
+            const rmData = await rmMsg.json();
+            if(rmData.ok) {
+                await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+                     method: 'POST', headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ chat_id: cId, message_id: rmData.result.message_id })
+                });
+            }
+
+            // 3. Toza va yozishmalarga xalaqit bermaydigan Inline tugma orqali tabriknoma jo'natish
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                chat_id: savedStudent.telegramChatId,
-                text: `🎉 *Tabriklaymiz, ${savedStudent.name}!*\n\nSiz ro'yxatdan o'tdingiz.\n\n👇 _Pastki menyudan Shaxsiy Kabinetingizga kirishingiz mumkin!_`,
+                chat_id: cId,
+                text: `🎉 *Tabriklaymiz, ${savedStudent.name}!*\n\nSiz o'quv markazimizga muvaffaqiyatli qabul qilindingiz.\n\n👇 _Pastki menyudan "Shaxsiy Kabinet"ga kirishingiz mumkin!_`,
                 parse_mode: 'Markdown',
                 reply_markup: {
-                  keyboard: [
-                    [{ text: "👤 Shaxsiy Kabinet", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${savedStudent.telegramChatId}` } }],
-                    [{ text: "📊 Oylik hisobot" }],
-                    [{ text: "📋 Mening ma'lumotlarim" }]
-                  ], resize_keyboard: true, is_persistent: true
+                  inline_keyboard: [
+                    [{ text: "🚀 Shaxsiy Kabinetni ochish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${cId}` } }],
+                    [{ text: "📊 Oylik hisobot", callback_data: "stat" }, { text: "📋 Ma'lumotlarim", callback_data: "info" }],
+                    [{ text: "ℹ️ Markaz haqida", callback_data: "about" }]
+                  ]
                 }
               })
             });
