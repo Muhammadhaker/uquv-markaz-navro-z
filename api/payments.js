@@ -46,10 +46,15 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, data: payments });
     }
 
-    if (req.method === 'POST') {
-      // 🔥 priceAtThatTime ni ham front-enddan kutamiz
-      const { studentId, studentName, groupName, amount, priceAtThatTime, paymentType, month, adminName, telegramChatId } = req.body;
+if (req.method === 'POST') {
+      // 🔥 targetTeacherId va priceAtThatTime ni front-enddan kutamiz
+      const { studentId, studentName, groupName, amount, priceAtThatTime, paymentType, month, adminName, telegramChatId, targetTeacherId } = req.body;
+      
       const ownerId = role === 'assistant' ? parentId : userId;
+      
+      // 🔥 Agar targetTeacherId kelsa o'shanga yozamiz (Super Admin qabul qilganda), bo'lmasa o'ziga yoziladi.
+      const finalOwnerId = targetTeacherId || ownerId; 
+      
       let messageId = null;
 
       if (telegramChatId) {
@@ -77,7 +82,7 @@ export default async function handler(req, res) {
         priceAtThatTime: priceAtThatTime || amount, // Agar alohida kelmasa, to'lagan summasini narx deb hisoblaydi
         paymentType, month, adminName, telegramChatId,
         telegramMessageId: messageId,
-        teacherId: ownerId 
+        teacherId: finalOwnerId // 🔥 Pul aniq o'z egasi bo'lgan ustozning kassasiga kirdi!
       });
 
       return res.status(201).json({ success: true, data: newPayment });

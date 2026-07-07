@@ -3,9 +3,7 @@ import { Loader2, CheckCircle, X, DollarSign, Calendar, CreditCard, BookOpen } f
 
 export default function PaymentModal({ isOpen, onClose, student, groupName }) {
   const [amount, setAmount] = useState("");
-  // 🔥 YANGI: O'sha vaqtdagi ASL narxni ham kiritish uchun State (majburiy emas, qulaylik)
   const [basePrice, setBasePrice] = useState("");
-  
   const [paymentType, setPaymentType] = useState("Naqd");
   const [paymentMonth, setPaymentMonth] = useState("");
   const [group, setGroup] = useState("");
@@ -14,10 +12,13 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const role = localStorage.getItem("userRole");
+  const currentUserId = localStorage.getItem("userId");
+
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
-    "x-user-role": localStorage.getItem("userRole") || "",
-    "x-user-id": localStorage.getItem("userId") || "",
+    "x-user-role": role || "",
+    "x-user-id": currentUserId || "",
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
 
@@ -28,15 +29,13 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
   useEffect(() => {
     if (isOpen && student) {
       const today = new Date();
-      
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, "0");
 
       setPaymentMonth(`${year}-${month}`);
-      
       setGroup(groupName || (studentSubjects.length > 0 ? studentSubjects[0] : "Umumiy"));
       setAmount("");
-      setBasePrice(""); // Asl narxni tozalash
+      setBasePrice(""); 
       setSuccess(false);
       setErrorMessage("");
     }
@@ -46,20 +45,14 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
 
   const handleAmountChange = (e) => {
     let rawValue = e.target.value.replace(/\D/g, "");
-    if (rawValue === "") {
-      setAmount("");
-      return;
-    }
+    if (rawValue === "") { setAmount(""); return; }
     let formattedValue = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     setAmount(formattedValue);
   };
 
   const handleBasePriceChange = (e) => {
     let rawValue = e.target.value.replace(/\D/g, "");
-    if (rawValue === "") {
-      setBasePrice("");
-      return;
-    }
+    if (rawValue === "") { setBasePrice(""); return; }
     let formattedValue = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     setBasePrice(formattedValue);
   };
@@ -69,27 +62,19 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     setErrorMessage("");
 
     const numericAmount = Number(amount.replace(/\s/g, ""));
-    // Agar Asl Narx kiritilmagan bo'lsa, O'quvchi to'lagan to'liq summani asl narx deb olamiz
     const numericBasePrice = basePrice ? Number(basePrice.replace(/\s/g, "")) : numericAmount;
 
-    if (!numericAmount || numericAmount <= 0) {
-      setErrorMessage("Iltimos, to'lov summasini to'g'ri kiriting!");
-      return;
-    }
-
-    if (!group) {
-      setErrorMessage("Iltimos, to'lov qilinayotgan guruhni tanlang!");
-      return;
-    }
-
-    if (!paymentMonth) {
-      setErrorMessage("Iltimos, to'lov qaysi oy uchun ekanligini tanlang!");
-      return;
-    }
+    if (!numericAmount || numericAmount <= 0) return setErrorMessage("Iltimos, to'lov summasini to'g'ri kiriting!");
+    if (!group) return setErrorMessage("Iltimos, to'lov qilinayotgan guruhni tanlang!");
+    if (!paymentMonth) return setErrorMessage("Iltimos, to'lov qaysi oy uchun ekanligini tanlang!");
 
     setLoading(true);
     try {
       const adminName = localStorage.getItem("username") || "Admin";
+
+      // 🔥 YANGI: Tanlangan guruh qaysi ustozga tegishli ekanligini bazaga topib jo'natamiz
+      const selectedGroupData = student.groupsData?.find(g => g.name === group);
+      const targetTeacherId = selectedGroupData?.teacherId || currentUserId;
 
       const res = await fetch("/api/payments", {
         method: "POST",
@@ -99,11 +84,12 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
           studentName: student.name,
           groupName: group,
           amount: numericAmount, 
-          priceAtThatTime: numericBasePrice, // 🔥 BAZAGA SNAPSHOT UCHUN YUBORILMOQDA
+          priceAtThatTime: numericBasePrice, 
           paymentType: paymentType,
           month: paymentMonth, 
           adminName: adminName,
           telegramChatId: student.telegramChatId || null, 
+          targetTeacherId: targetTeacherId // Pul haqiqiy egasiga boradi!
         }),
       });
 
@@ -111,14 +97,11 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
 
       if (res.ok && data.success) {
         setSuccess(true);
-        setTimeout(() => {
-          onClose();
-        }, 1800);
+        setTimeout(() => { onClose(); }, 1800);
       } else {
         setErrorMessage(data.message || "To'lovni saqlashda xatolik yuz berdi.");
       }
     } catch (err) {
-      console.error("Payment error:", err);
       setErrorMessage("Server bilan aloqa o'rnatib bo'lmadi. Internetni tekshiring!");
     } finally {
       setLoading(false);
@@ -197,7 +180,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
               )}
             </div>
 
-            {/* 🔥 TO'LOV VA ASL NARX QISMI YONMA-YON */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 ml-1">
@@ -267,7 +249,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
                   value={paymentMonth}
                   onChange={(e) => setPaymentMonth(e.target.value)}
                   required
-                  title="Qarz yoki oldindan to'lov qilish uchun oyni o'zgartiring"
                 />
               </div>
             </div>
@@ -278,14 +259,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-60 disabled:cursor-not-allowed flex justify-center items-center gap-2 active:scale-[0.99] text-base"
                 disabled={loading || !amount || !paymentMonth}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="animate-spin text-white" size={22} />
-                    <span>Kassaga yozilmoqda...</span>
-                  </>
-                ) : (
-                  <span>To'lovni tasdiqlash</span>
-                )}
+                {loading ? <Loader2 className="animate-spin text-white" size={22} /> : <span>To'lovni tasdiqlash</span>}
               </button>
             </div>
 
