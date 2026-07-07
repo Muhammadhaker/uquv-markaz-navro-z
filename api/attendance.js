@@ -38,9 +38,8 @@ export default async function handler(req, res) {
       const { groupName, date, teacherId } = req.query;
       let query = { groupName, date };
       
-      if (teacherId) {
-        query.teacherId = teacherId;
-      } else {
+      if (teacherId) query.teacherId = teacherId;
+      else {
         if (role === 'teacher') query.teacherId = userId;
         else if (role === 'assistant') query.teacherId = parentId;
       }
@@ -66,20 +65,15 @@ export default async function handler(req, res) {
         const existingIndex = currentRecords.findIndex(r => String(r.studentId) === String(scannedRecord.studentId));
         
         const now = Date.now();
-        // Server vaqti orqali doimiy to'g'ri soat (Toshkent vaqti bilan)
         const timeStr = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit' });
 
-        // 🔥 YANGI LOGIKA: Server o'zi Keldi/Ketdi ekanligini bazaga qarab aniq hisoblaydi!
         if (existingIndex >= 0) {
             let existing = currentRecords[existingIndex];
-            
-            // Agar u allaqachon darsda bo'lsa -> Endi Ketdi qilamiz
             if (existing.status === 'keldi' || existing.status === 'kechikdi') {
                 scannedRecord.status = 'ketdi';
                 scannedRecord.leaveTime = timeStr;
                 scannedRecord.arrivalTime = existing.arrivalTime; 
             } else if (existing.status === 'ketdi') {
-                // Allaqachon ketib bo'lgan bo'lsa o'zgartirmaymiz
                 scannedRecord.status = 'ketdi';
                 scannedRecord.leaveTime = existing.leaveTime;
                 scannedRecord.arrivalTime = existing.arrivalTime;
@@ -90,7 +84,6 @@ export default async function handler(req, res) {
             scannedRecord.lastScan = now;
             currentRecords[existingIndex] = { ...existing, ...scannedRecord };
         } else {
-            // Birinchi marta uryapti -> Keldi
             scannedRecord.status = 'keldi';
             scannedRecord.arrivalTime = timeStr;
             scannedRecord.lastScan = now;
@@ -119,21 +112,28 @@ export default async function handler(req, res) {
                  ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${scannedRecord.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(scannedRecord)}*`
                  : `📋 *Davomat natijasi*\n\nHurmatli *${scannedRecord.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(scannedRecord)}*`;
 
-               if(oldDataMap[scannedRecord.studentId]?.messageId) {
-                 await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
-                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ chat_id: student.telegramChatId, message_id: oldDataMap[scannedRecord.studentId].messageId })
-                 });
-               }
+               // 🔥 MULTI-ACCOUNT YUBORISH
+               const chatIds = student.telegramChatId.split(',').filter(Boolean);
+               let firstMsgId = null;
 
-               const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                   body: JSON.stringify({ chat_id: student.telegramChatId, text, parse_mode: 'Markdown' })
-               });
-               const tgData = await tgRes.json();
-               if (tgData.ok) {
+               await Promise.all(chatIds.map(async (cId) => {
+                   if(oldDataMap[scannedRecord.studentId]?.messageId) {
+                     await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
+                         method: 'POST', headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ chat_id: cId, message_id: oldDataMap[scannedRecord.studentId].messageId })
+                     });
+                   }
+                   const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+                       method: 'POST', headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
+                   });
+                   const tgData = await tgRes.json();
+                   if (tgData.ok && !firstMsgId) firstMsgId = tgData.result.message_id;
+               }));
+
+               if (firstMsgId) {
                  const updIndex = currentRecords.findIndex(r => r.studentId === scannedRecord.studentId);
-                 currentRecords[updIndex].messageId = tgData.result.message_id;
+                 currentRecords[updIndex].messageId = firstMsgId;
                }
              }
            } catch(e) {}
@@ -148,28 +148,18 @@ export default async function handler(req, res) {
 
       } else {
         const finalRecords = records.map(r => ({
-            studentId: r.studentId,
-            studentName: r.studentName,
-            status: r.status,
-            arrivalTime: r.arrivalTime || null,
-            leaveTime: r.leaveTime || null,
-            lastScan: r.lastScan || null,
+            studentId: r.studentId, studentName: r.studentName, status: r.status,
+            arrivalTime: r.arrivalTime || null, leaveTime: r.leaveTime || null, lastScan: r.lastScan || null,
             messageId: oldDataMap[r.studentId]?.messageId || null
         }));
 
         const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-        
         if (telegramToken && finalRecords.length > 0) {
            try {
               const changedRecords = finalRecords.filter(r => r.status && r.status !== "" && (!oldDoc || oldDataMap[r.studentId]?.status !== r.status));
               
               if (changedRecords.length > 0) {
-                 const objectIds = [];
-                 changedRecords.forEach(r => {
-                    if (mongoose.Types.ObjectId.isValid(r.studentId)) objectIds.push(new mongoose.Types.ObjectId(r.studentId));
-                    else objectIds.push(r.studentId);
-                 });
-                 
+                 const objectIds = changedRecords.map(r => mongoose.Types.ObjectId.isValid(r.studentId) ? new mongoose.Types.ObjectId(r.studentId) : r.studentId);
                  const studentsInDb = await Student.find({ _id: { $in: objectIds } });
                  const chatIdsMap = {};
                  studentsInDb.forEach(s => { chatIdsMap[s._id.toString()] = s.telegramChatId; });
@@ -188,32 +178,38 @@ export default async function handler(req, res) {
                  };
 
                  await Promise.all(changedRecords.map(async (record) => {
-                     const chatId = chatIdsMap[record.studentId];
-                     if (!chatId) return;
+                     const allChatIds = chatIdsMap[record.studentId];
+                     if (!allChatIds) return;
+                     
+                     // 🔥 MULTI-ACCOUNT
+                     const cIds = allChatIds.split(',').filter(Boolean);
+                     let firstMsgId = null;
 
-                     if (record.messageId) {
+                     await Promise.all(cIds.map(async (cId) => {
+                         if (record.messageId) {
+                             try {
+                                 await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
+                                     method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                     body: JSON.stringify({ chat_id: cId, message_id: record.messageId })
+                                 });
+                             } catch(e) {}
+                         }
+
+                         const isCorrection = oldDataMap[record.studentId] !== undefined && oldDataMap[record.studentId].status !== ""; 
+                         let text = isCorrection 
+                             ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(record)}*`
+                             : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(record)}*`;
+
                          try {
-                             await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
+                             const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ chat_id: chatId, message_id: record.messageId })
+                                 body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
                              });
-                         } catch(e) {}
-                     }
-
-                     const isCorrection = oldDataMap[record.studentId] !== undefined && oldDataMap[record.studentId].status !== ""; 
-                     let text = isCorrection 
-                         ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(record)}*`
-                         : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(record)}*`;
-
-                     try {
-                         const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-                             method: 'POST', headers: { 'Content-Type': 'application/json' },
-                             body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
-                         });
-                         const tgData = await tgRes.json();
-                         if (tgData.ok) record.messageId = tgData.result.message_id; 
-                         else record.messageId = null;
-                     } catch(e) { record.messageId = null; }
+                             const tgData = await tgRes.json();
+                             if (tgData.ok && !firstMsgId) firstMsgId = tgData.result.message_id; 
+                         } catch(e) { }
+                     }));
+                     record.messageId = firstMsgId;
                  }));
               }
            } catch (tgError) {}

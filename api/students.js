@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       const { telegramChatId } = req.query;
       if (telegramChatId) {
         const student = await Student.findOne({ 
-            $or: [ { telegramChatId: telegramChatId }, { telegramChatId: String(telegramChatId) }, { telegramChatId: Number(telegramChatId) } ] 
+          telegramChatId: { $regex: new RegExp("\\b" + telegramChatId + "\\b") }
         });
         return res.status(200).json({ exists: !!student });
       }

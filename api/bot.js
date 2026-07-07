@@ -71,11 +71,12 @@ export default async function handler(req, res) {
             body: JSON.stringify({ callback_query_id: callbackQueryId })
         }).catch(()=>{});
 
-        // 🔥 YANGI LOGIKA: Tugma bosilganda o'sha eski xabarni o'chirib yuboramiz (Tepada qolib ketmasligi uchun)
-        fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
-        }).catch(()=>{});
+        if (!text.startsWith("check_sub")) {
+            fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
+            }).catch(()=>{});
+        }
     } else {
         return res.status(200).send('OK'); 
     }
@@ -107,6 +108,14 @@ export default async function handler(req, res) {
 
     if (!isCallback && text === '/navroz') {
         await BotAdmin.findOneAndUpdate({ chatId }, { chatId }, { upsert: true });
+        
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: "🔄", reply_markup: { remove_keyboard: true } })
+        }).then(res => res.json()).then(data => {
+            if(data.ok) fetch(`https://api.telegram.org/bot${token}/deleteMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, message_id: data.result.message_id }) });
+        });
+
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -123,8 +132,17 @@ export default async function handler(req, res) {
         const messageToBroadcast = text.substring(6).trim();
         if (!messageToBroadcast) return res.status(200).send('OK');
 
-        const allConnected = await Student.find({ telegramChatId: { $ne: null } });
-        const uniqueChatIds = [...new Set(allConnected.map(s => s.telegramChatId).filter(id => id && id.length > 5))];
+        // 🔥 MULTI-ACCOUNT: Barcha chatI ID larni bitta ro'yxatga yig'amiz
+        const allStudents = await Student.find();
+        let uniqueChatIds = [];
+        
+        allStudents.forEach(s => {
+            if (s.telegramChatId && s.telegramChatId.trim().length > 5) {
+                const ids = s.telegramChatId.split(',').filter(Boolean);
+                uniqueChatIds.push(...ids);
+            }
+        });
+        uniqueChatIds = [...new Set(uniqueChatIds)]; // Takroriylarini olib tashlaymiz
 
         let successCount = 0;
         await Promise.all(uniqueChatIds.map(async (uChatId) => {
@@ -142,9 +160,9 @@ export default async function handler(req, res) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 chat_id: chatId, 
-                text: `✅ *Xabar muvaffaqiyatli yuborildi!*\n\nQabul qildi: ${successCount} kishi.`, 
+                text: `✅ *Xabar muvaffaqiyatli yuborildi!*\n\nJami yuborildi: ${successCount} kishiga.`, 
                 parse_mode: 'Markdown',
-                reply_markup: adminMenuMarkup // Admin menyusini qayta biriktiramiz
+                reply_markup: adminMenuMarkup 
             })
         });
         return res.status(200).send('OK');
@@ -162,15 +180,28 @@ export default async function handler(req, res) {
             else studentToLink = await Student.findOne({ _id: payload });
 
             if (studentToLink) {
-                await Student.updateOne({ _id: studentToLink._id }, { $set: { telegramChatId: chatId } });
-                const totalLinked = await Student.countDocuments({ $or: [ { telegramChatId: chatId }, { telegramChatId: Number(chatId) } ] });
+                // 🔥 MULTI-ACCOUNT QO'SHISH (Zanjir qilib ulaymiz)
+                let currentStr = studentToLink.telegramChatId || "";
+                let idsArr = currentStr.split(',').filter(Boolean);
+                if (!idsArr.includes(chatId)) {
+                    idsArr.push(chatId);
+                    await Student.updateOne({ _id: studentToLink._id }, { $set: { telegramChatId: idsArr.join(',') } });
+                }
 
                 await setupChatUI(chatId, token); 
+                
+                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: chatId, text: "🔄", reply_markup: { remove_keyboard: true } })
+                }).then(res => res.json()).then(data => {
+                    if(data.ok) fetch(`https://api.telegram.org/bot${token}/deleteMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, message_id: data.result.message_id }) });
+                });
+
                 await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         chat_id: chatId,
-                        text: `✅ *Yangi profil ulandi!*\n\nTabriklaymiz, *${studentToLink.name}* ham sizning hisobingizga qo'shildi.\nEndi siz jami ${totalLinked} ta o'quvchini nazorat qilasiz.`,
+                        text: `✅ *Yangi profil ulandi!*\n\nTabriklaymiz, *${studentToLink.name}* profilingizga muvaffaqiyatli bog'landi.\n(Bitta o'quvchini ham dada, ham onasi bemalol ulashi mumkin).`,
                         parse_mode: 'Markdown',
                         reply_markup: getInlineMenu(chatId) 
                     })
@@ -180,7 +211,8 @@ export default async function handler(req, res) {
         } catch (error) { console.log("QR Xato", error); }
     }
 
-    const linkedStudents = await Student.find({ $or: [ { telegramChatId: chatId }, { telegramChatId: Number(chatId) } ] });
+    // 🔥 REGEX orqali barcha bog'langan ID lar qidiriladi (O'quvchi va ota-onani bittada topish)
+    const linkedStudents = await Student.find({ telegramChatId: { $regex: new RegExp("\\b" + chatId + "\\b") } });
 
     if (linkedStudents.length > 0) {
         let isSubscribed = false;
@@ -214,6 +246,10 @@ export default async function handler(req, res) {
         }
 
         if (isCallback && text === "check_sub" && isSubscribed) {
+            await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
+            });
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -228,6 +264,13 @@ export default async function handler(req, res) {
     
     if (text === '/start') {
         await setupChatUI(chatId, token); 
+
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: "🔄", reply_markup: { remove_keyboard: true } })
+        }).then(res => res.json()).then(data => {
+            if(data.ok) fetch(`https://api.telegram.org/bot${token}/deleteMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, message_id: data.result.message_id }) });
+        });
         
         if (isAdminActive) {
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -261,142 +304,150 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    if (isCallback) {
-        if (text === "admin_logout") {
-            await BotAdmin.findOneAndDelete({ chatId });
+    const action = isCallback ? text : null;
+
+    if (action === "admin_logout") {
+        await BotAdmin.findOneAndDelete({ chatId });
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: "🚪 Admin paneldan chiqdingiz. Oddiy o'quvchi rejimiga o'tdingiz.", reply_markup: getInlineMenu(chatId) })
+        });
+    }
+    else if (action === "admin_stats") {
+        const allStudents = await Student.find();
+        const connectedStudents = allStudents.filter(s => s.telegramChatId && s.telegramChatId.trim().length > 5).length;
+        const allCount = allStudents.length;
+        const notConnected = allCount - connectedStudents;
+        const percentage = allCount > 0 ? Math.round((connectedStudents / allCount) * 100) : 0;
+
+        const statMsg = `📊 *Markaz Statistikasi*\n\n👥 Jami o'quvchilar: *${allCount} ta*\n✅ Botga ulanganlar: *${connectedStudents} ta* (${percentage}%)\n❌ Ulanmaganlar: *${notConnected} ta*`;
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: statMsg, parse_mode: 'Markdown', reply_markup: adminMenuMarkup })
+        });
+    }
+    else if (action === "admin_unconnected" || action === "admin_connected") {
+        const isUnconnected = action === "admin_unconnected";
+        const allStudents = await Student.find();
+        
+        const list = allStudents.filter(s => {
+            const hasId = s.telegramChatId && s.telegramChatId.trim().length > 5;
+            return isUnconnected ? !hasId : hasId;
+        });
+
+        if (list.length === 0) {
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: "🚪 Admin paneldan chiqdingiz. Oddiy o'quvchi rejimiga o'tdingiz.", reply_markup: getInlineMenu(chatId) })
+                body: JSON.stringify({ chat_id: chatId, text: isUnconnected ? "✅ Hamma ulangan!" : "Hali hech kim ulanmagan.", reply_markup: adminMenuMarkup })
             });
-        }
-        else if (text === "admin_stats") {
-            const allStudents = await Student.countDocuments();
-            const connectedStudents = await Student.countDocuments({ telegramChatId: { $ne: null } });
-            const notConnected = allStudents - connectedStudents;
-            const percentage = allStudents > 0 ? Math.round((connectedStudents / allStudents) * 100) : 0;
-
-            const statMsg = `📊 *Markaz Statistikasi*\n\n👥 Jami o'quvchilar: *${allStudents} ta*\n✅ Botga ulanganlar: *${connectedStudents} ta* (${percentage}%)\n❌ Ulanmaganlar: *${notConnected} ta*`;
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: statMsg, parse_mode: 'Markdown', reply_markup: adminMenuMarkup })
-            });
-        }
-        else if (text === "admin_unconnected" || text === "admin_connected") {
-            const isUnconnected = text === "admin_unconnected";
-            const queryObj = isUnconnected ? { telegramChatId: null } : { telegramChatId: { $ne: null } };
-            const list = await Student.find(queryObj).limit(80); // 80 tagacha ko'rsatadi
-            const total = await Student.countDocuments(queryObj);
-
-            if (list.length === 0) {
-                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, text: isUnconnected ? "✅ Hamma ulangan!" : "Hali hech kim ulanmagan.", reply_markup: adminMenuMarkup })
-                });
-            } else {
-                // 🔥 YONMA-YON (JADVAL) FORMATLASH LOGIKASI
-                let msg = isUnconnected ? `❌ *Botga ulanmaganlar:*\n\n` : `✅ *Botga ulanganlar:*\n\n`;
-                
-                const formatName = (name) => {
-                    let parts = name.split(' ');
-                    // Ism va familiya bosh harfi (Masalan: Tursunov M.)
-                    return parts.length > 1 ? `${parts[0]} ${parts[1].charAt(0)}.` : name;
-                };
-                const formatGroup = (g) => g ? g.split(' ')[0] : '-'; // (Matematika)
-
-                for (let i = 0; i < list.length; i += 2) {
-                    let st1 = list[i];
-                    let st2 = list[i+1];
-                    
-                    let col1 = `*${i+1}.* ${formatName(st1.name)} _(${formatGroup(st1.group)})_`;
-                    let col2 = st2 ? `  ｜  *${i+2}.* ${formatName(st2.name)} _(${formatGroup(st2.group)})_` : '';
-                    
-                    msg += `${col1}${col2}\n`;
-                }
-
-                if (total > 80) msg += `\n_...va yana ${total - 80} ta o'quvchi bor._`;
-                
-                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown', reply_markup: adminMenuMarkup })
-                });
-            }
-        }
-        else if (text === "admin_broadcast_info") {
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: chatId, 
-                    text: "📢 *Barchaga xabar yuborish uchun pastdagi kabi yozing:*\n\n`/elon Bu yerga xabaringiz matnini yozasiz.`\n\nMasalan:\n`/elon Ertaga markazimizda dam olish kuni!`", 
-                    parse_mode: 'Markdown', reply_markup: adminMenuMarkup
-                })
-            });
-        }
-        else if (text === "admin_finance") {
-            const now = new Date();
-            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        } else {
+            let msg = isUnconnected ? `❌ *Botga ulanmaganlar:*\n\n` : `✅ *Botga ulanganlar:*\n\n`;
             
-            const monthPayments = await Payment.find({ month: currentMonth });
-            const monthExpenses = await Expense.find({ month: currentMonth });
+            list.slice(0, 80).forEach((st, i) => {
+                let fan = st.group || 'Guruhsiz';
+                msg += `*${i+1}.* ${st.name} — _${fan}_\n`;
+            });
 
-            const totalIncome = monthPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-            const totalExpense = monthExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-            const profit = totalIncome - totalExpense;
-
-            const finMsg = `💰 *Kassa Hisoboti (${currentMonth})*\n\n🟢 *Tushumlar (To'lovlar):* ${totalIncome.toLocaleString()} so'm\n🔴 *Xarajatlar:* ${totalExpense.toLocaleString()} so'm\n\n💵 *Qoldiq (Foyda):* ${profit.toLocaleString()} so'm`;
+            if (list.length > 80) msg += `\n_...va yana ${list.length - 80} ta o'quvchi bor._`;
+            
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: finMsg, parse_mode: 'Markdown', reply_markup: adminMenuMarkup })
+                body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown', reply_markup: adminMenuMarkup })
             });
         }
-        // O'quvchi menyulari
-        else if (text === "about") {
-            const captionText = `📐 *Matematika fanidan tajribali va A+ sertifikatlangan ustoz Gʻulomov Navro'z*\n\n🌟 _Biz bilan orzuingiz roʻyobga chiqadi!_\n\n✅ Prezident maktablariga tayyorlov\n✅ Al-Xorazmiy maktablariga tayyorlov\n✅ Ixtisoslashtirilgan maktablarga tayyorlov\n✅ DTM va xalqaro sertifikat imtihonlariga tayyorlov\n\n🏆 *Natijalarimiz:*\n👨‍🎓 6 nafar Al-Xorazmiy maktabi oʻquvchisi\n🏅 15+ nafar xalqaro sertifikat sohiblari\n💯 100+ nafar ixtisoslashtirilgan maktab oʻquvchilari\n\n📍 *Manzil:* Kattaqoʻrgʻon tumani, Kadan chorrahasi, Ziyo Nur oʻquv markazi\n\n📞 *Murojaat uchun:* +998 93 271 70 79`;
-            await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, photo: "https://uquv-markaz-navroz.vercel.app/banner.jpg", caption: captionText, parse_mode: 'Markdown', reply_markup: getInlineMenu(chatId) })
-            });
-        }
-        else if (text === "info") {
-            if (linkedStudents.length > 0) {
-                let msg = `👥 *Sizning hisobingizdagi o'quvchilar (${linkedStudents.length} ta):*\n\n`;
-                for (let i = 0; i < linkedStudents.length; i++) {
-                    const st = linkedStudents[i];
-                    msg += `${i + 1}. *Ism:* ${st.name}\n📚 *Fanlar:* ${st.group || 'Guruhsiz'}\n🗓 *Qo'shilgan sana:* ${formatDate(st.addedAt)}\n\n`;
-                }
-                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown', reply_markup: getInlineMenu(chatId) })
-                });
-            }
-        }
-        else if (text === "stat") {
-            if (linkedStudents.length > 0) {
-                const now = new Date();
-                const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-                const monthNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
-                const monthAttendances = await Attendance.find({ date: { $regex: `^${currentMonthPrefix}` } });
+    }
+    else if (action === "admin_broadcast_info") {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chat_id: chatId, 
+                text: "📢 *Barchaga xabar yuborish uchun pastdagi kabi yozing:*\n\n`/elon Bu yerga xabaringiz matnini yozasiz.`\n\nMasalan:\n`/elon Ertaga markazimizda dam olish kuni!`", 
+                parse_mode: 'Markdown', reply_markup: adminMenuMarkup
+            })
+        });
+    }
+    else if (action === "admin_finance") {
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthPayments = await Payment.find({ month: currentMonth });
+        const monthExpenses = await Expense.find({ month: currentMonth });
 
-                let msg = `📊 *${monthNames[now.getMonth()]} oyi uchun umumiy hisobot:*\n\n`;
-                linkedStudents.forEach(st => {
-                    let totalClasses = 0, keldi = 0, kechikdi = 0, kelmadi = 0;
-                    monthAttendances.forEach(att => {
-                        const record = att.records?.find(r => String(r.studentId) === String(st._id));
-                        if (record) {
-                            totalClasses++;
-                            if (record.status === 'keldi' || record.status === 'ketdi') keldi++;
-                            else if (record.status === 'kechikdi') kechikdi++;
-                            else if (record.status === 'kelmadi') kelmadi++;
-                        }
-                    });
-                    msg += `👤 *O'quvchi:* ${st.name}\n📚 *Fan:* ${st.group || 'Guruhsiz'}\n🗓 *Jami darslar:* ${totalClasses} ta\n✅ *Qatnashdi:* ${keldi} marta\n❌ *Qoldirdi:* ${kelmadi} marta\n〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️\n`;
-                });
-                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown', reply_markup: getInlineMenu(chatId) })
-                });
+        const totalIncome = monthPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const totalExpense = monthExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        const profit = totalIncome - totalExpense;
+
+        const finMsg = `💰 *Kassa Hisoboti (${currentMonth})*\n\n🟢 *Tushumlar (To'lovlar):* ${totalIncome.toLocaleString()} so'm\n🔴 *Xarajatlar:* ${totalExpense.toLocaleString()} so'm\n\n💵 *Qoldiq (Foyda):* ${profit.toLocaleString()} so'm`;
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: finMsg, parse_mode: 'Markdown', reply_markup: adminMenuMarkup })
+        });
+    }
+    else if (action === "about" || text === "ℹ️ O'quv markaz haqida") {
+        const captionText = `📐 *Matematika fanidan tajribali va A+ sertifikatlangan ustoz Gʻulomov Navro'z*\n\n🌟 _Biz bilan orzuingiz roʻyobga chiqadi!_\n\n✅ Prezident maktablariga tayyorlov\n✅ Al-Xorazmiy maktablariga tayyorlov\n✅ Ixtisoslashtirilgan maktablarga tayyorlov\n✅ DTM va xalqaro sertifikat imtihonlariga tayyorlov\n\n🏆 *Natijalarimiz:*\n👨‍🎓 6 nafar Al-Xorazmiy maktabi oʻquvchisi\n🏅 15+ nafar xalqaro sertifikat sohiblari\n💯 100+ nafar ixtisoslashtirilgan maktab oʻquvchilari\n\n📍 *Manzil:* Kattaqoʻrgʻon tumani, Kadan chorrahasi, Ziyo Nur oʻquv markazi\n\n📞 *Murojaat uchun:* +998 93 271 70 79`;
+        await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, photo: "https://uquv-markaz-navroz.vercel.app/banner.jpg", caption: captionText, parse_mode: 'Markdown', reply_markup: getInlineMenu(chatId) })
+        });
+    }
+    else if (action === "info" || text === "📋 Mening ma'lumotlarim") {
+        if (linkedStudents.length > 0) {
+            let msg = `👥 *Sizning hisobingizdagi o'quvchilar (${linkedStudents.length} ta):*\n\n`;
+            for (let i = 0; i < linkedStudents.length; i++) {
+                const st = linkedStudents[i];
+                let teacherDetails = "Noma'lum";
+                if(st.teacherId) {
+                  const teacherInfo = await User.findById(st.teacherId);
+                  if(teacherInfo) teacherDetails = `${teacherInfo.fullName || "Noma'lum"} (${teacherInfo.subject || "Fan ko'rsatilmagan"})`;
+                }
+                msg += `${i + 1}. *Ism:* ${st.name}\n👨‍🏫 *Ustoz:* ${teacherDetails}\n📚 *Fanlar:* ${st.group || 'Guruhsiz'}\n🗓 *Qo'shilgan sana:* ${formatDate(st.addedAt)}\n\n`;
             }
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown', reply_markup: getInlineMenu(chatId) })
+            });
         }
-        return res.status(200).send('OK');
+    }
+    else if (action === "stat" || text === "📊 Oylik hisobot" || text === "/stat") {
+        if (linkedStudents.length > 0) {
+            const now = new Date();
+            const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const monthNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+            const monthAttendances = await Attendance.find({ date: { $regex: `^${currentMonthPrefix}` } });
+
+            let msg = `📊 *${monthNames[now.getMonth()]} oyi uchun umumiy hisobot:*\n\n`;
+            linkedStudents.forEach(st => {
+                let totalClasses = 0, keldi = 0, kechikdi = 0, kelmadi = 0;
+                monthAttendances.forEach(att => {
+                    const record = att.records?.find(r => String(r.studentId) === String(st._id));
+                    if (record) {
+                        totalClasses++;
+                        if (record.status === 'keldi' || record.status === 'ketdi') keldi++;
+                        else if (record.status === 'kechikdi') kechikdi++;
+                        else if (record.status === 'kelmadi') kelmadi++;
+                    }
+                });
+                msg += `👤 *O'quvchi:* ${st.name}\n📚 *Fan:* ${st.group || 'Guruhsiz'}\n🗓 *Jami darslar:* ${totalClasses} ta\n✅ *Qatnashdi:* ${keldi} marta\n❌ *Qoldirdi:* ${kelmadi} marta\n〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️\n`;
+            });
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown', reply_markup: getInlineMenu(chatId) })
+            });
+        }
+    }
+    else if (text === "👤 Shaxsiy Kabinet") {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chat_id: chatId, 
+                text: "🖥 *Shaxsiy kabinetingiz tayyor!*\n\nPastdagi tugmani bosib, hisobingizga kiring 👇", 
+                parse_mode: 'Markdown',
+                reply_markup: { 
+                    inline_keyboard: [ 
+                        [{ text: "🚀 Kabinetni ochish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/profile?chatId=${chatId}` } }] 
+                    ] 
+                } 
+            })
+        });
     }
 
     return res.status(200).send('OK');
