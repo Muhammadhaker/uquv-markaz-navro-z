@@ -132,7 +132,6 @@ export default async function handler(req, res) {
         const messageToBroadcast = text.substring(6).trim();
         if (!messageToBroadcast) return res.status(200).send('OK');
 
-        // 🔥 MULTI-ACCOUNT: Barcha chatI ID larni bitta ro'yxatga yig'amiz
         const allStudents = await Student.find();
         let uniqueChatIds = [];
         
@@ -142,7 +141,7 @@ export default async function handler(req, res) {
                 uniqueChatIds.push(...ids);
             }
         });
-        uniqueChatIds = [...new Set(uniqueChatIds)]; // Takroriylarini olib tashlaymiz
+        uniqueChatIds = [...new Set(uniqueChatIds)]; 
 
         let successCount = 0;
         await Promise.all(uniqueChatIds.map(async (uChatId) => {
@@ -180,7 +179,6 @@ export default async function handler(req, res) {
             else studentToLink = await Student.findOne({ _id: payload });
 
             if (studentToLink) {
-                // 🔥 MULTI-ACCOUNT QO'SHISH (Zanjir qilib ulaymiz)
                 let currentStr = studentToLink.telegramChatId || "";
                 let idsArr = currentStr.split(',').filter(Boolean);
                 if (!idsArr.includes(chatId)) {
@@ -211,7 +209,7 @@ export default async function handler(req, res) {
         } catch (error) { console.log("QR Xato", error); }
     }
 
-    // 🔥 REGEX orqali barcha bog'langan ID lar qidiriladi (O'quvchi va ota-onani bittada topish)
+    // MULTI-ACCOUNT QIDIRUVI
     const linkedStudents = await Student.find({ telegramChatId: { $regex: new RegExp("\\b" + chatId + "\\b") } });
 
     if (linkedStudents.length > 0) {
@@ -306,12 +304,37 @@ export default async function handler(req, res) {
 
     const action = isCallback ? text : null;
 
+    // 🔥 XATO SHU YERDA TO'G'RILANDI: Admin chiqishda ham ulanganlarni tekshiradi
     if (action === "admin_logout") {
         await BotAdmin.findOneAndDelete({ chatId });
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: "🚪 Admin paneldan chiqdingiz. Oddiy o'quvchi rejimiga o'tdingiz.", reply_markup: getInlineMenu(chatId) })
-        });
+        
+        if (linkedStudents.length > 0) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: chatId, 
+                    text: `🚪 Admin paneldan chiqdingiz.\n\nAssalomu alaykum! 🎓\nSizning hisobingizga *${linkedStudents.length} ta* o'quvchi ulangan. Pastki menyudan kerakli bo'limni tanlang 👇`, 
+                    reply_markup: getInlineMenu(chatId),
+                    parse_mode: 'Markdown'
+                })
+            });
+        } else {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: chatId, 
+                    text: `🚪 Admin paneldan chiqdingiz.\n\nAssalomu alaykum, *${firstName}*! 🎓\n\n"G'ulomov Math Group"ga xush kelibsiz. Profilingizni ulash uchun bejigingizdagi QR kodni kameraga tuting yoki pastdan ro'yxatdan o'ting 👇`, 
+                    reply_markup: { 
+                        inline_keyboard: [ 
+                            [{ text: "📝 Ro'yxatdan o'tish", web_app: { url: `https://uquv-markaz-navroz.vercel.app/bot-register?chatId=${chatId}` } }], 
+                            [{ text: "ℹ️ O'quv markaz haqida", callback_data: "about" }],
+                            [{ text: "✈️ Telegram", url: "https://t.me/gulomov_math_group" }, { text: "📸 Instagram", url: "https://www.instagram.com/gulomov_math_group/?hl=en" }] 
+                        ] 
+                    }, 
+                    parse_mode: 'Markdown' 
+                })
+            });
+        }
     }
     else if (action === "admin_stats") {
         const allStudents = await Student.find();
