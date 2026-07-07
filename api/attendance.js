@@ -73,17 +73,19 @@ export default async function handler(req, res) {
 
         if (existingIndex >= 0) {
             let existing = currentRecords[existingIndex];
-            const timePassed = now - (existing.lastScan || 0);
             
-            // 🔥 YECHIM: Aniq 30 daqiqa (1 800 000 ms)
+            // 🔥 MUAMMO YECHIMI: Agar lastScan yo'qolib qolsa, uni 1970-yil emas, 31 daqiqa oldin deb hisoblaydi!
+            let safeLastScan = existing.lastScan || (now - 1860000); 
+            const timePassed = now - safeLastScan;
+            
             if (timePassed < 1800000) {
                 return res.status(200).json({ success: true, data: oldDoc }); 
             }
 
-            // 🔥 YECHIM 2: 5 soat o'tgan bo'lsa yangi Keldi
             if (timePassed > 18000000) {
                 scannedRecord.status = 'keldi';
                 scannedRecord.arrivalTime = timeStr;
+                scannedRecord.leaveTime = null;
             }
             else if (existing.status === 'keldi' || existing.status === 'kechikdi') {
                 scannedRecord.status = 'ketdi';
@@ -96,12 +98,14 @@ export default async function handler(req, res) {
             } else {
                 scannedRecord.status = 'keldi';
                 scannedRecord.arrivalTime = timeStr;
+                scannedRecord.leaveTime = null;
             }
             scannedRecord.lastScan = now;
             currentRecords[existingIndex] = { ...existing, ...scannedRecord };
         } else {
             scannedRecord.status = 'keldi';
             scannedRecord.arrivalTime = timeStr;
+            scannedRecord.leaveTime = null;
             scannedRecord.lastScan = now;
             currentRecords.push(scannedRecord);
         }
@@ -165,7 +169,8 @@ export default async function handler(req, res) {
       } else {
         const finalRecords = records.map(r => ({
             studentId: r.studentId, studentName: r.studentName, status: r.status,
-            arrivalTime: r.arrivalTime || null, leaveTime: r.leaveTime || null, lastScan: r.lastScan || null,
+            arrivalTime: r.arrivalTime || null, leaveTime: r.leaveTime || null, 
+            lastScan: r.lastScan || oldDataMap[r.studentId]?.lastScan || null, // 🔥 FIX 2: Veb panelda pichka bosilganda vaqt yo'qolishini oldini oladi!
             messageId: oldDataMap[r.studentId]?.messageId || null
         }));
 
