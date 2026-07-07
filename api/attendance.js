@@ -58,9 +58,14 @@ export default async function handler(req, res) {
       
       const oldDoc = await Attendance.findOne({ groupName, date, teacherId: ownerId });
       const oldDataMap = {};
+      
+      // 🔥 MUAMMO YECHILDI: ID ni faqat toza String qilib olish
       if (oldDoc) {
          oldDoc.records.forEach(r => {
-             oldDataMap[r.studentId] = { status: r.status, messageId: r.messageId, lastScan: r.lastScan };
+             oldDataMap[String(r.studentId)] = { 
+                 status: r.status, messageId: r.messageId, 
+                 lastScan: r.lastScan, arrivalTime: r.arrivalTime, leaveTime: r.leaveTime 
+             };
          });
       }
 
@@ -74,7 +79,6 @@ export default async function handler(req, res) {
         if (existingIndex >= 0) {
             let existing = currentRecords[existingIndex];
             
-            // 🔥 MUAMMO YECHIMI: Agar lastScan yo'qolib qolsa, uni 1970-yil emas, 31 daqiqa oldin deb hisoblaydi!
             let safeLastScan = existing.lastScan || (now - 1860000); 
             const timePassed = now - safeLastScan;
             
@@ -111,7 +115,7 @@ export default async function handler(req, res) {
         }
         
         const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-        if (telegramToken && (!oldDataMap[scannedRecord.studentId] || oldDataMap[scannedRecord.studentId].status !== scannedRecord.status)) {
+        if (telegramToken && (!oldDataMap[String(scannedRecord.studentId)] || oldDataMap[String(scannedRecord.studentId)].status !== scannedRecord.status)) {
            try {
              let student = await Student.findById(scannedRecord.studentId);
              if(student && student.telegramChatId) {
@@ -128,7 +132,7 @@ export default async function handler(req, res) {
                   return '❌ Darsga kelmadi';
                };
 
-               const isCorrection = existingIndex >= 0 && oldDataMap[scannedRecord.studentId].status !== "" && scannedRecord.status === "ketdi";
+               const isCorrection = existingIndex >= 0 && oldDataMap[String(scannedRecord.studentId)]?.status && scannedRecord.status === "ketdi";
                let text = isCorrection 
                  ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${scannedRecord.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(scannedRecord)}*`
                  : `📋 *Davomat natijasi*\n\nHurmatli *${scannedRecord.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(scannedRecord)}*`;
@@ -137,10 +141,10 @@ export default async function handler(req, res) {
                let firstMsgId = null;
 
                await Promise.all(chatIds.map(async (cId) => {
-                   if(oldDataMap[scannedRecord.studentId]?.messageId) {
+                   if(oldDataMap[String(scannedRecord.studentId)]?.messageId) {
                      await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                         body: JSON.stringify({ chat_id: cId, message_id: oldDataMap[scannedRecord.studentId].messageId })
+                         body: JSON.stringify({ chat_id: cId, message_id: oldDataMap[String(scannedRecord.studentId)].messageId })
                      });
                    }
                    const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
@@ -152,7 +156,7 @@ export default async function handler(req, res) {
                }));
 
                if (firstMsgId) {
-                 const updIndex = currentRecords.findIndex(r => r.studentId === scannedRecord.studentId);
+                 const updIndex = currentRecords.findIndex(r => String(r.studentId) === String(scannedRecord.studentId));
                  currentRecords[updIndex].messageId = firstMsgId;
                }
              }
@@ -167,17 +171,24 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, data });
 
       } else {
-        const finalRecords = records.map(r => ({
-            studentId: r.studentId, studentName: r.studentName, status: r.status,
-            arrivalTime: r.arrivalTime || null, leaveTime: r.leaveTime || null, 
-            lastScan: r.lastScan || oldDataMap[r.studentId]?.lastScan || null, // 🔥 FIX 2: Veb panelda pichka bosilganda vaqt yo'qolishini oldini oladi!
-            messageId: oldDataMap[r.studentId]?.messageId || null
-        }));
+        // 🔥 FIX 2: Veb panel saqlaganda eski ma'lumotlarni "suvdek toza" qilib qayta yozish
+        const finalRecords = records.map(r => {
+            const oldRec = oldDataMap[String(r.studentId)];
+            return {
+                studentId: r.studentId, 
+                studentName: r.studentName, 
+                status: r.status || oldRec?.status || "keldi",
+                arrivalTime: r.arrivalTime || oldRec?.arrivalTime || null, 
+                leaveTime: r.leaveTime || oldRec?.leaveTime || null, 
+                lastScan: r.lastScan || oldRec?.lastScan || null, 
+                messageId: oldRec?.messageId || null
+            };
+        });
 
         const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
         if (telegramToken && finalRecords.length > 0) {
            try {
-              const changedRecords = finalRecords.filter(r => r.status && r.status !== "" && (!oldDoc || oldDataMap[r.studentId]?.status !== r.status));
+              const changedRecords = finalRecords.filter(r => r.status && r.status !== "" && (!oldDoc || oldDataMap[String(r.studentId)]?.status !== r.status));
               
               if (changedRecords.length > 0) {
                  const objectIds = changedRecords.map(r => mongoose.Types.ObjectId.isValid(r.studentId) ? new mongoose.Types.ObjectId(r.studentId) : r.studentId);
@@ -215,7 +226,7 @@ export default async function handler(req, res) {
                              } catch(e) {}
                          }
 
-                         const isCorrection = oldDataMap[record.studentId] !== undefined && oldDataMap[record.studentId].status !== "" && record.status === "ketdi"; 
+                         const isCorrection = oldDataMap[String(record.studentId)]?.status && record.status === "ketdi"; 
                          let text = isCorrection 
                              ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(record)}*`
                              : `📋 *Davomat natijasi*\n\nHurmatli *${record.studentName}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(record)}*`;
