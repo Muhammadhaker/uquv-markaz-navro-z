@@ -7,7 +7,7 @@ export default function AttendanceScanner({ onScan }) {
   const [loading, setLoading] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   
-  // 🔥 NOUTBUK UCHUN: Veb-kamera doim ko'zgu (mirror) bo'lishi shart, shunda bolalar bejikni oson to'g'rilaydi!
+  // Noutbuk uchun oyna (mirror) rejimi
   const [isMirrored, setIsMirrored] = useState(true); 
   
   const scannerRef = useRef(null);
@@ -33,11 +33,8 @@ export default function AttendanceScanner({ onScan }) {
       scannerRef.current = html5QrCode;
 
       await html5QrCode.start(
-        // 🔥 ASOSIY O'ZGARISH: "user" qilingani noutbukning veb-kamerasini avtomat ochadi!
-        { 
-          facingMode: "user",
-          advanced: [{ focusMode: "continuous" }] 
-        }, 
+        // 🔥 XATO TUZATILDI: Yana "environment" ga qaytardik. Kompyuter bor kamerasini qotmasdan tez ochadi.
+        { facingMode: "environment" }, 
         { 
           fps: 30, 
           qrbox: (viewfinderWidth, viewfinderHeight) => {
@@ -57,13 +54,13 @@ export default function AttendanceScanner({ onScan }) {
           await processQR(decodedText);
         },
         (errorMessage) => {
-          // Xira tushgan kadrlardagi ichki xatoliklarni e'tiborsiz qoldiramiz
+          // Kichik xatolarni yashiramiz
         }
       );
       setIsCameraOpen(true);
     } catch (err) {
       console.error(err);
-      setStatus({ type: "error", text: "❌ Noutbuk veb-kamerasi topilmadi yoki ruxsat berilmagan!" });
+      setStatus({ type: "error", text: "❌ Kamera topilmadi yoki ruxsat berilmagan!" });
     }
   };
 
@@ -136,7 +133,7 @@ export default function AttendanceScanner({ onScan }) {
   return (
     <div className="p-4 w-full max-w-2xl mx-auto text-center space-y-6 pb-24 relative">
       <h2 className="text-2xl font-bold text-slate-800">Davomat Kioski</h2>
-      <p className="text-sm text-slate-500 -mt-4">O'quvchi bejigini noutbuk kamerasiga tuting</p>
+      <p className="text-sm text-slate-500 -mt-4">O'quvchi bejigini kamerasiga tuting</p>
       
       <div className="relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-black shadow-xl min-h-[450px] flex items-center justify-center">
         
@@ -160,7 +157,7 @@ export default function AttendanceScanner({ onScan }) {
                Kamerani ishga tushirish
              </button>
              <p className="text-xs text-slate-400 mt-4 text-center px-4">
-               Tugmani bosing va noutbuk so'raganda <br/> <b>"Allow" (Ruxsat)</b> tugmasini tanlang.
+               Tugmani bosing va so'raganda <br/> <b>"Allow" (Ruxsat)</b> tugmasini tanlang.
              </p>
           </div>
         )}
@@ -202,7 +199,7 @@ export default function AttendanceScanner({ onScan }) {
           overflow: hidden;
         }
         #reader video {
-          /* 🔥 Ko'zgu effekti kompyuter uchun ideal holatda */
+          /* CSS orqali kompyuterda ko'zgu qilib qo'yish saqlanib qoldi */
           transform: ${isMirrored ? 'scaleX(-1)' : 'none'} !important; 
           width: 100% !important;
           object-fit: cover !important;
