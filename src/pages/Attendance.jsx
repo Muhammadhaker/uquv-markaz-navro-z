@@ -15,6 +15,9 @@ export default function Attendance() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showScanner, setShowScanner] = useState(false);
 
+  // Bu o'zgartirish qilingan o'quvchilar ro'yxati (Tugma bosilsa yashil bo'lishi uchun kerak)
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
+
   const scanCooldowns = useRef({});
 
   const getAuthHeaders = () => ({
@@ -55,19 +58,21 @@ export default function Attendance() {
       try {
         const res = await fetch(`/api/attendance?groupName=${selectedGroup}&date=${selectedDate}`, { headers: getAuthHeaders() });
         const result = await res.json();
-        if (result?.success && Array.isArray(result.data?.records)) {
+        if (result?.success && result.data && Array.isArray(result.data.records)) {
           const mapped = {};
           result.data.records.forEach((r) => { 
             mapped[r.studentId] = {
-              status: r.status || "", // Bo'sh bo'lsa xotirada qoladi
+              status: r.status || "", 
               arrivalTime: r.arrivalTime,
               leaveTime: r.leaveTime,
               lastScan: r.lastScan || 0
             }; 
           });
           setAttendanceRecords(mapped);
+          setUnsavedChanges(false);
         } else {
           setAttendanceRecords({});
+          setUnsavedChanges(false);
         }
       } catch (error) {
         console.error(error);
@@ -86,7 +91,7 @@ export default function Attendance() {
     return matchesGroup && matchesSearch;
   });
 
-  // 🔥 HAMMANI KELDI QILISH
+  // 🔥 FAQAT EKRANDA O'ZGARADI
   const markAllPresent = () => {
     const newRecords = { ...attendanceRecords };
     const now = Date.now();
@@ -95,13 +100,13 @@ export default function Attendance() {
     currentGroupStudents.forEach((s) => { 
       if (!newRecords[s._id] || newRecords[s._id].status === "kelmadi" || newRecords[s._id].status === "") {
         newRecords[s._id] = { status: "keldi", arrivalTime: timeStr, lastScan: now }; 
-        scanCooldowns.current[s._id] = now; 
       }
     });
     setAttendanceRecords(newRecords);
+    setUnsavedChanges(true); // O'zgarganini sezish uchun
   };
 
-  // 🔥 YANGI: HAMMASINI TOZALASH (Shu kun uchun)
+  // 🔥 FAQAT EKRANDA TOZALANADI
   const clearAllAttendance = () => {
     if(!window.confirm(`Haqiqatan ham ${selectedDate} sanasidagi barcha davomatni tozalab tashlamoqchimisiz?`)) return;
     
@@ -110,8 +115,10 @@ export default function Attendance() {
       newRecords[s._id] = { status: "", arrivalTime: null, leaveTime: null, lastScan: null }; 
     });
     setAttendanceRecords(newRecords);
+    setUnsavedChanges(true);
   };
 
+  // 📸 QR SCAN QILISH (Bu oldingidek bittada yuboradi)
   const handleScan = async (scannedId) => {
     const studentObj = students.find(s => s._id === scannedId);
     if (!studentObj) {
@@ -176,7 +183,7 @@ export default function Attendance() {
           groupName: selectedGroup,
           date: selectedDate,
           adminName: localStorage.getItem("username") || "Admin",
-          isScan: true,
+          isScan: true, // Bunisi scan ekanligini bildiradi
           scannedRecord: {
             studentId: scannedId,
             studentName: studentObj.name,
@@ -189,12 +196,11 @@ export default function Attendance() {
     }
   };
 
+  // 🔥 FAQAT EKRANDA O'ZGARADI
   const handleManualStatus = (studentId, newStatus) => {
     const now = Date.now();
     const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
     
-    scanCooldowns.current[studentId] = now;
-
     setAttendanceRecords((prev) => {
       const current = prev[studentId] || {};
       return {
@@ -208,16 +214,19 @@ export default function Attendance() {
         }
       };
     });
+    setUnsavedChanges(true); // O'zgarganini belgilaydi
   };
 
-  // 🔥 YANGI: FAQAT BITTA O'QUVCHINI TOZALASH
+  // 🔥 FAQAT EKRANDA TOZALANADI
   const handleClearStatus = (studentId) => {
     setAttendanceRecords((prev) => ({
       ...prev,
       [studentId]: { status: "", arrivalTime: null, leaveTime: null, lastScan: null }
     }));
+    setUnsavedChanges(true);
   };
 
+  // 📥 MANA SHU TUGMA BARCHASINI BAZAGA BIR UMRGA MUHRLAYDI
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -230,7 +239,7 @@ export default function Attendance() {
           return {
             studentId: s._id,
             studentName: s.name,
-            status: rec.status !== undefined ? rec.status : "", // 🔥 Tozalanilganlarni shundayligicha saqlaydi
+            status: rec.status !== undefined ? rec.status : "", 
             arrivalTime: rec.arrivalTime || null,
             leaveTime: rec.leaveTime || null,
             lastScan: rec.lastScan || null
@@ -238,19 +247,21 @@ export default function Attendance() {
         }),
       };
       
-      const updatedLocalRecords = {};
-      payload.records.forEach(r => { updatedLocalRecords[r.studentId] = r; });
-      setAttendanceRecords(updatedLocalRecords);
-
       const res = await fetch("/api/attendance", {
         method: "POST", 
         headers: getAuthHeaders(), 
         body: JSON.stringify(payload),
       });
-      if (res.ok) setStatus({ type: "success", text: "Davomat saqlandi!" });
+
+      if (res.ok) {
+        setStatus({ type: "success", text: "Davomat muvaffaqiyatli saqlandi!" });
+        setUnsavedChanges(false); // Saqlanganidan so'ng ogohlantirish o'chadi
+      } else {
+        setStatus({ type: "error", text: "Saqlashda muammo chiqdi." });
+      }
       setTimeout(() => setStatus({ type: "", text: "" }), 3000);
     } catch (error) {
-      setStatus({ type: "error", text: "Xatolik yuz berdi." });
+      setStatus({ type: "error", text: "Internet yo'q." });
       setTimeout(() => setStatus({ type: "", text: "" }), 3000);
     } finally {
       setSaving(false);
@@ -309,7 +320,6 @@ export default function Attendance() {
           </div>
         </div>
 
-        {/* 🔥 QIDIRUV VA X TUGMASI */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input
@@ -336,7 +346,7 @@ export default function Attendance() {
         ) : (
           currentGroupStudents.map((s) => {
             const rec = attendanceRecords[s._id] || {};
-            const currentStatus = rec.status || ""; // Boshlang'ich holat bo'sh
+            const currentStatus = rec.status || ""; 
             
             return (
               <div key={s._id} className="p-4 border-b flex flex-col md:flex-row justify-between md:items-center gap-3 hover:bg-slate-50 transition-colors">
@@ -355,7 +365,6 @@ export default function Attendance() {
                   <button onClick={() => handleManualStatus(s._id, "ketdi")} className={`flex-1 md:flex-none px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "ketdi" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Ketdi</button>
                   <button onClick={() => handleManualStatus(s._id, "kelmadi")} className={`flex-1 md:flex-none px-3 py-2 rounded-lg font-bold text-sm transition-all ${currentStatus === "kelmadi" ? "bg-rose-500 text-white shadow-sm" : "text-slate-500 hover:bg-slate-200"}`}>Kelmadi</button>
                   
-                  {/* 🔥 HAR BIRINI ALOHIDA TOZALASH TUGMASI (O'chirish / Qaytarish) */}
                   <button 
                     onClick={() => handleClearStatus(s._id)} 
                     className="flex-none px-3 py-2 rounded-lg font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-100 transition-all flex items-center justify-center" 
@@ -376,8 +385,13 @@ export default function Attendance() {
             {status.text}
           </div>
         )}
-        <button onClick={handleSave} disabled={saving} className="bg-indigo-600 text-white p-4 rounded-full shadow-xl hover:scale-105 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
-          {saving ? <Loader2 className="animate-spin" size={28} /> : <><Save size={28} /><span className="hidden md:inline font-bold pr-2">Saqlash</span></>}
+        <button 
+          onClick={handleSave} 
+          disabled={saving || loading} 
+          // Agar o'zgarish bo'lsa tugma yonib o'chadi (Eslatma)
+          className={`${unsavedChanges ? "bg-amber-500 hover:bg-amber-600 animate-pulse border-2 border-amber-300" : "bg-indigo-600 hover:bg-indigo-700"} text-white p-4 rounded-full shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2`}
+        >
+          {saving ? <Loader2 className="animate-spin" size={28} /> : <><Save size={28} /><span className="hidden md:inline font-bold pr-2">{unsavedChanges ? "SAQLASH KERAK!" : "Saqlash"}</span></>}
         </button>
       </div>
     </div>
