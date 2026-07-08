@@ -15,13 +15,12 @@ export default async function handler(req, res) {
     await connectDB();
     const { studentId, date, adminName } = req.body;
 
-    // 🔥 QR koddan kelgan ID ni ortiqcha bo'sh joylardan tozalaymiz
     const cleanInputId = studentId ? studentId.toString().trim() : "";
-
+    
     if (!cleanInputId || !mongoose.Types.ObjectId.isValid(cleanInputId)) {
         return res.status(400).json({ success: false, message: "Noto'g'ri QR-kod tizimi!" });
     }
-
+    
     const student = await Student.findById(cleanInputId);
     if (!student) {
         return res.status(404).json({ success: false, message: "Bunday o'quvchi topilmadi!" });
@@ -37,72 +36,62 @@ export default async function handler(req, res) {
     const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
     const [yyyy, mm, dd] = date.split("-");
     const formattedDate = `${dd}.${mm}.${yyyy}`;
-
+    
     const timeStr = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit' });
     const now = Date.now();
 
-    let anyUpdate = false;
+    let anyUpdate = false; 
 
     for (const groupName of studentGroups) {
+        let oldAttendance = await Attendance.findOne({ groupName, date, "records.studentId": validStudentIdStr });
 
-        // 1) Guruh/sana uchun hujjat borligini KAFOLATLAYMIZ.
-        //    records massiviga TEGMAYMIZ - shu bilan bir nechta dublikat hujjat
-        //    yaratilishining oldi olinadi.
-        await Attendance.findOneAndUpdate(
-            { groupName, date },
-            {
-                $setOnInsert: { groupName, date, records: [] },
-                $set: { adminName }
-            },
-            { upsert: true }
-        );
+        if (!oldAttendance) {
+            oldAttendance = await Attendance.findOne({ groupName, date });
+        }
 
-        // 2) O'quvchining ESKI yozuvini FAQAT shu odam uchun o'qib olamiz
-        //    (butun records massivini emas - $elemMatch orqali faqat kerakli elementni)
-        const doc = await Attendance.findOne(
-            { groupName, date },
-            { records: { $elemMatch: { studentId: validStudentIdStr } }, teacherId: 1 }
-        );
-
-        const current = (doc && doc.records && doc.records.length > 0) ? doc.records[0] : null;
-
+        let existingRecords = oldAttendance ? oldAttendance.records : [];
+        const studentIndex = existingRecords.findIndex(r => r.studentId && r.studentId.toString().trim() === validStudentIdStr);
+        
         let newStatus = "keldi";
         let arrTime = timeStr;
         let levTime = null;
 
-        if (current) {
+        if (studentIndex >= 0) {
+            let current = existingRecords[studentIndex];
             const currentStatus = (current.status || '').toLowerCase().trim();
-            const safeLastScan = current.lastScan ? Number(current.lastScan) : 0;
+            
+            let safeLastScan = current.lastScan ? Number(current.lastScan) : 0; 
             const timePassed = now - safeLastScan;
-
-            // 30 daqiqa himoyasi
+            
             if (safeLastScan > 0 && timePassed < 1800000) {
-                continue;
+               continue; 
             }
 
-            // 5 soatdan oshsa yangidan "Keldi", aks holda "Ketdi"
             if (safeLastScan === 0 || timePassed > 18000000) {
                 newStatus = 'keldi';
                 arrTime = timeStr;
                 levTime = null;
-            } else if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
+            } 
+            else if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
                 newStatus = 'ketdi';
-                arrTime = current.arrivalTime || '--:--';
-                levTime = timeStr;
-            } else if (currentStatus === 'ketdi') {
+                arrTime = current.arrivalTime || '--:--'; 
+                levTime = timeStr; 
+            } 
+            else if (currentStatus === 'ketdi') {
                 newStatus = 'keldi';
                 arrTime = timeStr;
                 levTime = null;
-            }
+            } 
         }
 
         anyUpdate = true;
-
+        
         let firstMsgId = null;
-        let currentOldMsgId = current ? current.messageId : null;
+        let currentOldMsgId = studentIndex >= 0 ? existingRecords[studentIndex].messageId : null;
 
         if (telegramToken && student.telegramChatId) {
-            const chatIds = student.telegramChatId.split(',').filter(Boolean);
+            // 🔥 Xavfsiz qilingan joyi
+            const chatIds = String(student.telegramChatId).split(',').filter(Boolean);
 
             const getStatusText = (st, arr, lev) => {
                if (st === 'keldi') return `✅ Darsga keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
@@ -111,9 +100,8 @@ export default async function handler(req, res) {
                return '❌ Darsga kelmadi';
             };
 
-            const isCorrection = !!current && current.status !== "" && newStatus === 'ketdi';
-
-            let text = isCorrection
+            const isCorrection = studentIndex >= 0 && existingRecords[studentIndex].status !== "" && newStatus === 'ketdi';
+            let text = isCorrection 
                 ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`
                 : `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
 
@@ -147,8 +135,13 @@ export default async function handler(req, res) {
             messageId: firstMsgId || currentOldMsgId
         };
 
-        // teacherId ni aniqlash
-        let teacherId = doc ? doc.teacherId : null;
+        if (studentIndex >= 0) {
+            existingRecords[studentIndex] = newRecordData;
+        } else {
+            existingRecords.push(newRecordData);
+        }
+
+        let teacherId = oldAttendance ? oldAttendance.teacherId : null;
         if (!teacherId) {
             if (student.groupsData && Array.isArray(student.groupsData)) {
                 const match = student.groupsData.find(x => x.name === groupName);
@@ -157,32 +150,13 @@ export default async function handler(req, res) {
             if (!teacherId && student.teacherIds && student.teacherIds.length > 0) teacherId = student.teacherIds[0];
         }
 
-        // 3) 🔥 ATOMIK YOZISH: butun massivni EMAS, faqat shu o'quvchining
-        //    elementini yozamiz - shu bilan boshqa o'quvchilarning parallel
-        //    yozuvlari YO'QOLIB KETMAYDI.
-        if (current) {
-            await Attendance.updateOne(
-                { groupName, date },
-                {
-                    $set: {
-                        "records.$[elem]": newRecordData,
-                        ...(teacherId ? { teacherId } : {})
-                    }
-                },
-                { arrayFilters: [{ "elem.studentId": validStudentIdStr }] }
-            );
-        } else {
-            // Poyga holatidan qo'shimcha himoya: agar shu oraliqda boshqa so'rov
-            // allaqachon shu o'quvchini qo'shib ulgurgan bo'lsa, $ne shartiga
-            // ko'ra bu yozuv hech narsani o'zgartirmaydi (dublikat bo'lmaydi).
-            await Attendance.updateOne(
-                { groupName, date, "records.studentId": { $ne: validStudentIdStr } },
-                {
-                    $push: { records: newRecordData },
-                    ...(teacherId ? { $set: { teacherId } } : {})
-                }
-            );
-        }
+        const updateQuery = oldAttendance ? { _id: oldAttendance._id } : { groupName, date };
+        
+        await Attendance.findOneAndUpdate(
+            updateQuery,
+            { groupName, date, adminName, ...(teacherId ? { teacherId } : {}), records: existingRecords },
+            { new: true, upsert: true }
+        );
     }
 
     if (!anyUpdate) {

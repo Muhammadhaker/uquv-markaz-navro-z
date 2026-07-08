@@ -136,8 +136,9 @@ export default async function handler(req, res) {
         let uniqueChatIds = [];
         
         allStudents.forEach(s => {
-            if (s.telegramChatId && s.telegramChatId.trim().length > 5) {
-                const ids = s.telegramChatId.split(',').filter(Boolean);
+            // 🔥 String xavfsizligi
+            if (s.telegramChatId && String(s.telegramChatId).trim().length > 5) {
+                const ids = String(s.telegramChatId).split(',').filter(Boolean);
                 uniqueChatIds.push(...ids);
             }
         });
@@ -179,7 +180,8 @@ export default async function handler(req, res) {
             else studentToLink = await Student.findOne({ _id: payload });
 
             if (studentToLink) {
-                let currentStr = studentToLink.telegramChatId || "";
+                // 🔥 String xavfsizligi
+                let currentStr = String(studentToLink.telegramChatId || "");
                 let idsArr = currentStr.split(',').filter(Boolean);
                 if (!idsArr.includes(chatId)) {
                     idsArr.push(chatId);
@@ -209,8 +211,13 @@ export default async function handler(req, res) {
         } catch (error) { console.log("QR Xato", error); }
     }
 
-    // MULTI-ACCOUNT QIDIRUVI
-    const linkedStudents = await Student.find({ telegramChatId: { $regex: new RegExp("\\b" + chatId + "\\b") } });
+    // 🔥 ESKI RAQAMLI ID'larni ham topishi uchun $or qo'shildi
+    const linkedStudents = await Student.find({ 
+        $or: [
+            { telegramChatId: { $regex: new RegExp("\\b" + chatId + "\\b") } },
+            { telegramChatId: Number(chatId) }
+        ]
+    });
 
     if (linkedStudents.length > 0) {
         let isSubscribed = false;
@@ -304,7 +311,6 @@ export default async function handler(req, res) {
 
     const action = isCallback ? text : null;
 
-    // 🔥 XATO SHU YERDA TO'G'RILANDI: Admin chiqishda ham ulanganlarni tekshiradi
     if (action === "admin_logout") {
         await BotAdmin.findOneAndDelete({ chatId });
         
@@ -338,7 +344,8 @@ export default async function handler(req, res) {
     }
     else if (action === "admin_stats") {
         const allStudents = await Student.find();
-        const connectedStudents = allStudents.filter(s => s.telegramChatId && s.telegramChatId.trim().length > 5).length;
+        // 🔥 String xavfsizligi
+        const connectedStudents = allStudents.filter(s => s.telegramChatId && String(s.telegramChatId).trim().length > 5).length;
         const allCount = allStudents.length;
         const notConnected = allCount - connectedStudents;
         const percentage = allCount > 0 ? Math.round((connectedStudents / allCount) * 100) : 0;
@@ -354,7 +361,8 @@ export default async function handler(req, res) {
         const allStudents = await Student.find();
         
         const list = allStudents.filter(s => {
-            const hasId = s.telegramChatId && s.telegramChatId.trim().length > 5;
+            // 🔥 String xavfsizligi
+            const hasId = s.telegramChatId && String(s.telegramChatId).trim().length > 5;
             return isUnconnected ? !hasId : hasId;
         });
 
