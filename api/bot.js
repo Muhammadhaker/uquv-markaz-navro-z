@@ -12,6 +12,13 @@ const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoos
 const Expense = mongoose.models.Expense || mongoose.model('Expense', new mongoose.Schema({}, { strict: false }), 'expenses');
 const BotAdmin = mongoose.models.BotAdmin || mongoose.model('BotAdmin', new mongoose.Schema({ chatId: String }), 'bot_admins');
 
+// 🔥 YANGILIK: Yangi fayl ochmasdan, xuddi shu yerning o'zida E'lonlar bazasini yaratamiz
+const Broadcast = mongoose.models.Broadcast || mongoose.model('Broadcast', new mongoose.Schema({
+  text: String,
+  date: { type: Date, default: Date.now },
+  messages: [{ chatId: String, messageId: Number }] // Kimga qaysi xabar borganini saqlaydi
+}), 'broadcasts');
+
 const formatDate = (dateString) => {
   if (!dateString) return "Noma'lum";
   const d = new Date(dateString);
@@ -71,12 +78,6 @@ export default async function handler(req, res) {
             body: JSON.stringify({ callback_query_id: callbackQueryId })
         }).catch(()=>{});
 
-        if (!text.startsWith("check_sub")) {
-            fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
-            }).catch(()=>{});
-        }
     } else {
         return res.status(200).send('OK'); 
     }
@@ -128,6 +129,7 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
+    // 🔥 YANGI: E'lon berish va uni bazaga saqlash
     if (!isCallback && text.startsWith('/elon ')) {
         const messageToBroadcast = text.substring(6).trim();
         if (!messageToBroadcast) return res.status(200).send('OK');
@@ -144,6 +146,8 @@ export default async function handler(req, res) {
         uniqueChatIds = [...new Set(uniqueChatIds)]; 
 
         let successCount = 0;
+        let sentMessagesArray = []; // Kimlarga borganini yozib boramiz
+
         await Promise.all(uniqueChatIds.map(async (uChatId) => {
             try {
                 const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -151,18 +155,128 @@ export default async function handler(req, res) {
                     body: JSON.stringify({ chat_id: uChatId, text: `🔔 *Yangi e'lon:*\n\n${messageToBroadcast}`, parse_mode: 'Markdown' })
                 });
                 const d = await res.json();
-                if (d.ok) successCount++;
+                if (d.ok) {
+                    successCount++;
+                    sentMessagesArray.push({ chatId: uChatId, messageId: d.result.message_id });
+                }
             } catch (e) {}
         }));
+
+        // Borgan xabarlarni bazaga saqlaymiz (agar o'chirish kerak bo'lib qolsa)
+        if (sentMessagesArray.length > 0) {
+            await Broadcast.create({ text: messageToBroadcast, messages: sentMessagesArray });
+        }
 
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 chat_id: chatId, 
-                text: `✅ *Xabar muvaffaqiyatli yuborildi!*\n\nJami yuborildi: ${successCount} kishiga.`, 
+                text: `✅ *Xabar muvaffaqiyatli yuborildi!*\n\nJami yuborildi: ${successCount} kishiga.\n\n⚠️ Agar xabarda xato ketgan bo'lsa, uni barchadan o'chirib tashlash uchun quyidagi buyruqni bosing:\n\n👉 /ochir`, 
                 parse_mode: 'Markdown',
                 reply_markup: adminMenuMarkup 
             })
+        });
+        return res.status(200).send('OK');
+    }
+
+    // 🔥 YANGI: Oxirgi e'lonni hammadan o'chirib tashlash
+    if (!isCallback && text === '/ochir') {
+        if (!isAdminActive) return res.status(200).send('OK');
+
+        const lastBroadcast = await Broadcast.findOne().sort({ date: -1 });
+
+        if (!lastBroadcast) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, text: "🗑 *O'chirish uchun xabar topilmadi!*", parse_mode: 'Markdown' })
+            });
+            return res.status(200).send('OK');
+        }
+
+        let deletedCount = 0;
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: "⏳ *Xabarlar barcha foydalanuvchilardan o'chirilmoqda, biroz kuting...*", parse_mode: 'Markdown' })
+        });
+
+        await Promise.all(lastBroadcast.messages.map(async (msg) => {
+            try {
+                const res = await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: msg.chatId, message_id: msg.messageId })
+                });
+                const d = await res.json();
+                if (d.ok) deletedCount++;
+            } catch (e) {}
+        }));
+
+        // O'chirilgach, uni bazadan ham olib tashlaymiz
+        await Broadcast.findByIdAndDelete(lastBroadcast._id);
+
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chat_id: chatId, 
+                text: `🗑 *Oxirgi e'lon barchadan muvaffaqiyatli o'chirildi!*\n\nJami o'chirilgan xabarlar: ${deletedCount} ta.`, 
+                parse_mode: 'Markdown',
+                reply_markup: adminMenuMarkup
+            })
+        });
+        return res.status(200).send('OK');
+    }
+
+    if (!isCallback && text.startsWith('/xabar ')) {
+        const payloadStr = text.substring(7).trim();
+        const splitIndex = payloadStr.indexOf('-');
+
+        if (splitIndex === -1) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, text: "❌ *Xato format!*\n\nTo'g'ri yozilishi:\n`/xabar O'quvchi Ismi - Xabar matni`\n\nMasalan:\n`/xabar Tursunov Muhammad - Ertaga darsga kechikmang.`", parse_mode: 'Markdown' })
+            });
+            return res.status(200).send('OK');
+        }
+
+        const searchName = payloadStr.substring(0, splitIndex).trim();
+        const messageToSend = payloadStr.substring(splitIndex + 1).trim();
+
+        const foundStudents = await Student.find({ name: { $regex: new RegExp(searchName, "i") } });
+
+        if (foundStudents.length === 0) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, text: `❌ *${searchName}* ismli o'quvchi topilmadi.\nIsmni to'g'ri yozganingizni tekshiring.`, parse_mode: 'Markdown' })
+            });
+            return res.status(200).send('OK');
+        }
+
+        let sentCount = 0;
+        let matchedNames = [];
+
+        await Promise.all(foundStudents.map(async (st) => {
+            if (st.telegramChatId && String(st.telegramChatId).trim().length > 5) {
+                matchedNames.push(st.name);
+                const ids = String(st.telegramChatId).split(',').map(id => id.trim()).filter(Boolean);
+                await Promise.all(ids.map(async (uChatId) => {
+                    try {
+                        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: uChatId, text: `📩 *Sizga xabar keldi:*\n\n${messageToSend}`, parse_mode: 'Markdown' })
+                        });
+                        const d = await res.json();
+                        if (d.ok) sentCount++;
+                    } catch (e) {}
+                }));
+            }
+        }));
+
+        const resultText = sentCount > 0
+            ? `✅ *Xabar yuborildi!*\n\nQabul qildi: ${matchedNames.join(', ')}\nJami ${sentCount} ta profilga yetib bordi.`
+            : `❌ *${searchName}* ismli o'quvchi topildi, lekin u hali botga ulanmagan.`;
+
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: resultText, parse_mode: 'Markdown' })
         });
         return res.status(200).send('OK');
     }
@@ -209,7 +323,6 @@ export default async function handler(req, res) {
         } catch (error) { console.log("QR Xato", error); }
     }
 
-    // 🔥 MUAMMO YECHILDI: Regex qat'iyan o'chirildi, xavfsiz Javascript qidiruvi
     const allStForBot = await Student.find();
     const linkedStudents = allStForBot.filter(s => {
         if (!s.telegramChatId) return false;
@@ -248,10 +361,6 @@ export default async function handler(req, res) {
         }
 
         if (isCallback && text === "check_sub" && isSubscribed) {
-            await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, message_id: update.callback_query.message.message_id })
-            });
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -387,7 +496,7 @@ export default async function handler(req, res) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 chat_id: chatId, 
-                text: "📢 *Barchaga xabar yuborish uchun pastdagi kabi yozing:*\n\n`/elon Bu yerga xabaringiz matnini yozasiz.`\n\nMasalan:\n`/elon Ertaga markazimizda dam olish kuni!`", 
+                text: "📢 *Xabar yuborish bo'yicha qo'llanma:*\n\n1️⃣ *Barchaga yuborish (E'lon):*\n`/elon Xabar matnini yozasiz`\n_Masalan: /elon Ertaga dars bo'lmaydi!_\n\n2️⃣ *Bitta o'quvchiga yuborish (Shaxsiy):*\n`/xabar O'quvchi Ismi - Xabaringiz`\n_Masalan: /xabar Tursunov Muhammad - Ertaga ota-onangiz bilan keling._", 
                 parse_mode: 'Markdown', reply_markup: adminMenuMarkup
             })
         });
