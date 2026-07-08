@@ -12,11 +12,10 @@ const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoos
 const Expense = mongoose.models.Expense || mongoose.model('Expense', new mongoose.Schema({}, { strict: false }), 'expenses');
 const BotAdmin = mongoose.models.BotAdmin || mongoose.model('BotAdmin', new mongoose.Schema({ chatId: String }), 'bot_admins');
 
-// 🔥 YANGILIK: Yangi fayl ochmasdan, xuddi shu yerning o'zida E'lonlar bazasini yaratamiz
 const Broadcast = mongoose.models.Broadcast || mongoose.model('Broadcast', new mongoose.Schema({
   text: String,
   date: { type: Date, default: Date.now },
-  messages: [{ chatId: String, messageId: Number }] // Kimga qaysi xabar borganini saqlaydi
+  messages: [{ chatId: String, messageId: Number }] 
 }), 'broadcasts');
 
 const formatDate = (dateString) => {
@@ -78,6 +77,18 @@ export default async function handler(req, res) {
             body: JSON.stringify({ callback_query_id: callbackQueryId })
         }).catch(()=>{});
 
+        // 🔥 YECHIM SHU YERDA: Xabarni o'zini saqlab, faqat tugmalarini o'chirib yuboramiz
+        if (!text.startsWith("check_sub")) {
+            fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: chatId, 
+                    message_id: update.callback_query.message.message_id,
+                    reply_markup: { inline_keyboard: [] } // Tugmalarni bo'm-bo'sh qilib qo'yish
+                })
+            }).catch(()=>{});
+        }
+
     } else {
         return res.status(200).send('OK'); 
     }
@@ -129,7 +140,6 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    // 🔥 YANGI: E'lon berish va uni bazaga saqlash
     if (!isCallback && text.startsWith('/elon ')) {
         const messageToBroadcast = text.substring(6).trim();
         if (!messageToBroadcast) return res.status(200).send('OK');
@@ -146,7 +156,7 @@ export default async function handler(req, res) {
         uniqueChatIds = [...new Set(uniqueChatIds)]; 
 
         let successCount = 0;
-        let sentMessagesArray = []; // Kimlarga borganini yozib boramiz
+        let sentMessagesArray = []; 
 
         await Promise.all(uniqueChatIds.map(async (uChatId) => {
             try {
@@ -162,7 +172,6 @@ export default async function handler(req, res) {
             } catch (e) {}
         }));
 
-        // Borgan xabarlarni bazaga saqlaymiz (agar o'chirish kerak bo'lib qolsa)
         if (sentMessagesArray.length > 0) {
             await Broadcast.create({ text: messageToBroadcast, messages: sentMessagesArray });
         }
@@ -179,7 +188,6 @@ export default async function handler(req, res) {
         return res.status(200).send('OK');
     }
 
-    // 🔥 YANGI: Oxirgi e'lonni hammadan o'chirib tashlash
     if (!isCallback && text === '/ochir') {
         if (!isAdminActive) return res.status(200).send('OK');
 
@@ -210,7 +218,6 @@ export default async function handler(req, res) {
             } catch (e) {}
         }));
 
-        // O'chirilgach, uni bazadan ham olib tashlaymiz
         await Broadcast.findByIdAndDelete(lastBroadcast._id);
 
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -361,6 +368,15 @@ export default async function handler(req, res) {
         }
 
         if (isCallback && text === "check_sub" && isSubscribed) {
+            // 🔥 YECHIM: Tasdiqlash tugmasini o'chiramiz, lekin "Obuna bo'ling" degan matn qolaveradi
+            await fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: chatId, 
+                    message_id: update.callback_query.message.message_id,
+                    reply_markup: { inline_keyboard: [] } 
+                })
+            });
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
