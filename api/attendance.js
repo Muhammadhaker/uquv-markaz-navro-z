@@ -44,7 +44,6 @@ export default async function handler(req, res) {
     }
     
     if (req.method === 'POST') {
-      // 🔥 Bu fayl faqat Web Paneldan (Saqlash tugmasidan) keladigan ma'lumotlarni qabul qiladi
       const { groupName, date, adminName, records, teacherId } = req.body;
       const ownerId = teacherId || (role === 'assistant' ? parentId : userId);
       
@@ -60,15 +59,16 @@ export default async function handler(req, res) {
          });
       }
 
+      // 🔥 MUAMMO YECHILDI: Endi bo'shliq ("") kelsa "Keldi" ga aylanib qolmaydi, bo'shligicha saqlanadi!
       const finalRecords = records.map(r => {
           const oldRec = oldDataMap[String(r.studentId)];
           return {
               studentId: r.studentId, 
               studentName: r.studentName, 
-              status: r.status || oldRec?.status || "keldi",
-              arrivalTime: r.arrivalTime || oldRec?.arrivalTime || null, 
-              leaveTime: r.leaveTime || oldRec?.leaveTime || null, 
-              lastScan: r.lastScan || oldRec?.lastScan || Date.now(), 
+              status: r.status !== undefined ? r.status : (oldRec?.status || ""),
+              arrivalTime: r.arrivalTime !== undefined ? r.arrivalTime : (oldRec?.arrivalTime || null), 
+              leaveTime: r.leaveTime !== undefined ? r.leaveTime : (oldRec?.leaveTime || null), 
+              lastScan: r.lastScan !== undefined ? r.lastScan : (oldRec?.lastScan || Date.now()), 
               messageId: oldRec?.messageId || null
           };
       });
