@@ -7,7 +7,6 @@ const connectDB = async () => {
 
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
-// 🔥 YANGI: Ustozlarning haqiqiy ismlarini olish uchun User modeli
 const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({}, { strict: false }), 'users');
 
 export default async function handler(req, res) {
@@ -33,11 +32,13 @@ export default async function handler(req, res) {
     try {
       const { chatId } = req.query;
       
-      const students = await Student.find({ 
-        $or: [
-          { telegramChatId: Number(chatId) },
-          { telegramChatId: String(chatId) }
-        ]
+      // 🔥 MUAMMO YECHILDI: Database dan to'g'ridan-to'g'ri izlamaymiz (Raqamlarda Crash bo'lmasligi uchun).
+      // Hamma o'quvchini olamiz va toza String qilib o'zimiz tekshiramiz.
+      const allDbStudents = await Student.find();
+      const students = allDbStudents.filter(s => {
+          if (!s.telegramChatId) return false;
+          const idsArr = String(s.telegramChatId).split(',').map(id => id.trim());
+          return idsArr.includes(String(chatId));
       });
 
       if (!students || students.length === 0) {
@@ -133,7 +134,6 @@ export default async function handler(req, res) {
           $or: [ { studentId: student._id }, { studentId: safeId } ]
         }).sort({ date: -1 });
 
-        // 🔥 YANGI: O'quvchining barcha ustozlarining ismlarini bazadan qidirish
         let teacherNamesArray = [];
         let teacherIdsToSearch = [];
 
@@ -163,7 +163,7 @@ export default async function handler(req, res) {
           qarz: overallQarz, 
           debtDetails: debtDetails, 
           paymentsHistory: paymentsHistory,
-          teacherName: finalTeacherNames // 🔥 Biriktirilgan ustoz(lar) ro'yxati
+          teacherName: finalTeacherNames
         };
       }));
 

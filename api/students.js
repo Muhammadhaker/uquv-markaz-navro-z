@@ -29,11 +29,15 @@ export default async function handler(req, res) {
     const userId = req.headers['x-user-id'];
     const parentId = req.headers['x-parent-id'];
 
-    if (req.method === 'GET') {
+if (req.method === 'GET') {
       const { telegramChatId } = req.query;
+      
+      // 🔥 MUAMMO YECHILDI: Regex o'chirildi, xavfsiz JavaScript qidiruviga o'tildi
       if (telegramChatId) {
-        const student = await Student.findOne({ 
-          telegramChatId: { $regex: new RegExp("\\b" + telegramChatId + "\\b") }
+        const allDocs = await Student.find();
+        const student = allDocs.find(s => {
+            if(!s.telegramChatId) return false;
+            return String(s.telegramChatId).split(',').map(i=>i.trim()).includes(String(telegramChatId));
         });
         return res.status(200).json({ exists: !!student });
       }
