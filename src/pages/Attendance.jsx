@@ -25,7 +25,6 @@ export default function Attendance() {
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
 
-  // 🔥 YANGI: Tanlangan guruh ustozining ID sini aniqlovchi aqlli funksiya
   const getGroupTeacherId = () => {
     let fallbackId = localStorage.getItem("userId"); 
     for (let s of students) {
@@ -92,7 +91,7 @@ export default function Attendance() {
       }
     };
     fetchAttendance();
-  }, [selectedGroup, selectedDate, students]); // students o'zgarganda ham teacherId ni aniqlashi uchun
+  }, [selectedGroup, selectedDate, students]);
 
   const currentGroupStudents = students.filter((s) => {
     if (!selectedGroup) return false;
@@ -127,6 +126,7 @@ export default function Attendance() {
     setUnsavedChanges(true);
   };
 
+  // 🔥 QR Skaner ishlaganda qotib qolmasligi uchun va yumshoqroq o'tishlar:
   const handleScan = async (scannedId) => {
     const studentObj = students.find(s => s._id === scannedId);
     if (!studentObj) {
@@ -167,9 +167,10 @@ export default function Attendance() {
       newStatus = "ketdi";
       levTime = timeStr; 
     } else if (record.status === "ketdi") {
-      setStatus({ type: "error", text: "Bu o'quvchi allaqachon ketgan!" });
-      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
-      return;
+        // MUHIM O'ZGARISH: Ketgan odam adashib yana bossa, avvalgidek qotirib, error bermay, yana Keldi ga aylantirib davom etaveradi. 
+      newStatus = "keldi";
+      arrTime = timeStr;
+      levTime = null; 
     }
 
     const updatedRecord = {
@@ -190,7 +191,7 @@ export default function Attendance() {
         body: JSON.stringify({
           groupName: selectedGroup,
           date: selectedDate,
-          teacherId: getGroupTeacherId(), // 🔥 Ustoz ID si qo'shildi
+          teacherId: getGroupTeacherId(),
           adminName: localStorage.getItem("username") || "Admin",
           isScan: true, 
           scannedRecord: {
@@ -239,7 +240,7 @@ export default function Attendance() {
       const payload = {
         groupName: selectedGroup,
         date: selectedDate,
-        teacherId: getGroupTeacherId(), // 🔥 Bu qism eng muhimi: Aniq o'sha ustoz fayliga yozadi
+        teacherId: getGroupTeacherId(),
         adminName: localStorage.getItem("username") || "Admin",
         records: currentGroupStudents.map((s) => {
           const rec = attendanceRecords[s._id] || {};
