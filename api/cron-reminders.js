@@ -118,20 +118,35 @@ export default async function handler(req, res) {
             continue; 
         }
 
+        // 🔥 KELISHILGAN O'ZGARISH: Barcha ulangan ota-onalarni alohida ajratib olish
+        const chatIds = student.telegramChatId.toString().split(',').map(id => id.trim()).filter(Boolean);
+
         try {
-          const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: student.telegramChatId, text: messageText, parse_mode: 'Markdown' })
-          });
+          let successCountForStudent = 0;
+          let lastError = null;
           
-          const tgData = await tgRes.json();
+          // Promise.allSettled yordamida har bir ota-onaga mustaqil xabar yuborish
+          await Promise.allSettled(chatIds.map(async (cId) => {
+            const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: cId, text: messageText, parse_mode: 'Markdown' })
+            });
+            const tgData = await tgRes.json();
+            
+            if (tgData.ok) {
+                successCountForStudent++;
+            } else {
+                lastError = tgData.description;
+            }
+          }));
           
-          if (tgData.ok) {
+          // Hech bo'lmasa bitta ota-onaga yetib borgan bo'lsa muvaffaqiyatli deb hisoblaymiz
+          if (successCountForStudent > 0) {
              sentStudents.push(student.name);
              await Student.updateOne({ _id: student._id }, { $set: { lastReminderDate: todayFormatted } });
           } else {
-             failedStudents.push({ name: student.name, error: tgData.description });
+             failedStudents.push({ name: student.name, error: lastError || "Telegram bloklagan bo'lishi mumkin" });
           }
         } catch (err) {
            failedStudents.push({ name: student.name, error: err.message });
