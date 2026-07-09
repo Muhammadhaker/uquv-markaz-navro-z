@@ -34,7 +34,6 @@ export default async function handler(req, res) {
     let oldDoc = await Attendance.findOne({ groupName, date, teacherId });
     let existingRecords = [];
     
-    // Eski ma'lumotlarni xavfsiz ko'chirib olish
     if (oldDoc) {
         oldDoc.records.forEach(r => {
             existingRecords.push({
@@ -67,16 +66,13 @@ export default async function handler(req, res) {
         let safeLastScan = current.lastScan ? Number(current.lastScan) : 0; 
         const timePassed = now - safeLastScan;
         
-        // 30 daqiqa himoyasi
+        // 🔥 30 daqiqa himoyasi (spamni oldini oladi)
         if (safeLastScan > 0 && timePassed < 1800000) {
            return res.status(200).json({ success: true, message: `${student.name} qayd etilmadi (Hali 30 daqiqa o'tmadi).` });
         }
 
-        if (safeLastScan === 0 || timePassed > 18000000) {
-            newStatus = 'keldi';
-            arrTime = timeStr;
-            levTime = null;
-        } else if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
+        // 🔥 Asosiy mantiq: Keldi -> Ketdi -> Keldi bo'lib almashadi
+        if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
             newStatus = 'ketdi';
             arrTime = current.arrivalTime || '--:--'; 
             levTime = timeStr; 
@@ -84,7 +80,11 @@ export default async function handler(req, res) {
             newStatus = 'keldi';
             arrTime = timeStr;
             levTime = null;
-        } 
+        } else {
+            newStatus = 'keldi';
+            arrTime = timeStr;
+            levTime = null;
+        }
     }
 
     // Telegramga xabar jo'natish
@@ -101,17 +101,15 @@ export default async function handler(req, res) {
            return '❌ Darsga kelmadi';
         };
 
-        const isCorrection = studentIndex >= 0 && existingRecords[studentIndex].status !== "" && newStatus === 'ketdi';
         const [yyyy, mm, dd] = date.split("-");
         const formattedDate = `${dd}.${mm}.${yyyy}`;
 
-        let text = isCorrection 
-            ? `✏️ *Davomat o'zgartirildi*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Yangi holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`
-            : `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
+        let text = `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
 
         await Promise.all(chatIds.map(async (cId) => {
             if (currentOldMsgId) {
                 try {
+                    // Chat toza turishi uchun avvalgi "Keldi" xabarini o'chirib, o'rniga "Ketdi"ni tashlaydi
                     await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ chat_id: cId, message_id: currentOldMsgId })
@@ -151,7 +149,7 @@ export default async function handler(req, res) {
         { new: true, upsert: true }
     );
 
-    return res.status(200).json({ success: true, message: `${student.name} muvaffaqiyatli belgilandi!` });
+    return res.status(200).json({ success: true, message: `${student.name} - ${newStatus === 'ketdi' ? 'Ketdi' : 'Keldi'} belgilandi!` });
 
   } catch (error) {
     console.error("QR Scan Xatosi:", error);
