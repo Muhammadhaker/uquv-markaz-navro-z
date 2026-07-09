@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Save, Loader2, Search, QrCode, X, Eraser } from "lucide-react";
 import AttendanceScanner from "../components/AttendanceScanner";
 
@@ -36,6 +36,35 @@ export default function Attendance() {
     return fallbackId;
   };
 
+  const fetchAttendanceData = async () => {
+    if (!selectedGroup || !selectedDate) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/attendance?groupName=${encodeURIComponent(selectedGroup)}&date=${selectedDate}`, { headers: getAuthHeaders() });
+      const result = await res.json();
+      if (result?.success && result.data && Array.isArray(result.data.records)) {
+        const mapped = {};
+        result.data.records.forEach((r) => { 
+          mapped[r.studentId] = {
+            status: r.status || "", 
+            arrivalTime: r.arrivalTime,
+            leaveTime: r.leaveTime,
+            lastScan: r.lastScan || 0
+          }; 
+        });
+        setAttendanceRecords(mapped);
+        setUnsavedChanges(false);
+      } else {
+        setAttendanceRecords({});
+        setUnsavedChanges(false);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchStudents = async () => {
       setLoading(true);
@@ -61,36 +90,7 @@ export default function Attendance() {
   }, []);
 
   useEffect(() => {
-    if (!selectedGroup || !selectedDate) return;
-    const fetchAttendance = async () => {
-      setLoading(true);
-      try {
-        const teacherId = getGroupTeacherId();
-        const res = await fetch(`/api/attendance?groupName=${encodeURIComponent(selectedGroup)}&date=${selectedDate}&teacherId=${teacherId}`, { headers: getAuthHeaders() });
-        const result = await res.json();
-        if (result?.success && result.data && Array.isArray(result.data.records)) {
-          const mapped = {};
-          result.data.records.forEach((r) => { 
-            mapped[r.studentId] = {
-              status: r.status || "", 
-              arrivalTime: r.arrivalTime,
-              leaveTime: r.leaveTime,
-              lastScan: r.lastScan || 0
-            }; 
-          });
-          setAttendanceRecords(mapped);
-          setUnsavedChanges(false);
-        } else {
-          setAttendanceRecords({});
-          setUnsavedChanges(false);
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAttendance();
+    fetchAttendanceData();
   }, [selectedGroup, selectedDate, students]);
 
   const currentGroupStudents = students.filter((s) => {
@@ -126,7 +126,6 @@ export default function Attendance() {
     setUnsavedChanges(true);
   };
 
-  // 🔥 QR Skaner ishlaganda qotib qolmasligi uchun va yumshoqroq o'tishlar:
   const handleScan = async (scannedId) => {
     const studentObj = students.find(s => s._id === scannedId);
     if (!studentObj) {
@@ -136,73 +135,43 @@ export default function Attendance() {
     }
 
     const now = Date.now();
-    const timeStr = new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
-    
     const lastTimeRef = scanCooldowns.current[scannedId] || 0;
-    if (now - lastTimeRef < 1800000) {
-      setStatus({ type: "error", text: "❌ Kamida 30 daqiqa kuting!" });
-      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
-      return;
-    }
-
-    const record = attendanceRecords[scannedId] || { status: "", lastScan: 0 };
-    
-    if (record.status !== "" && record.status !== "kelmadi" && (now - (record.lastScan || 0) < 1800000)) {
-      scanCooldowns.current[scannedId] = record.lastScan || now;
-      setStatus({ type: "error", text: "❌ Kamida 30 daqiqa kuting!" });
-      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
-      return; 
-    }
-
+    if (now - lastTimeRef < 5000) return; 
     scanCooldowns.current[scannedId] = now;
 
-    let newStatus = "keldi";
-    let arrTime = record.arrivalTime;
-    let levTime = record.leaveTime;
-
-    if (record.status === "" || record.status === "kelmadi") {
-      newStatus = "keldi";
-      arrTime = timeStr; 
-    } else if (record.status === "keldi" || record.status === "kechikdi") {
-      newStatus = "ketdi";
-      levTime = timeStr; 
-    } else if (record.status === "ketdi") {
-        // MUHIM O'ZGARISH: Ketgan odam adashib yana bossa, avvalgidek qotirib, error bermay, yana Keldi ga aylantirib davom etaveradi. 
-      newStatus = "keldi";
-      arrTime = timeStr;
-      levTime = null; 
-    }
-
-    const updatedRecord = {
-      status: newStatus,
-      arrivalTime: arrTime,
-      leaveTime: levTime,
-      lastScan: now
-    };
-
-    setAttendanceRecords(prev => ({ ...prev, [scannedId]: updatedRecord }));
-    setStatus({ type: "success", text: `✅ Qabul qilindi: ${newStatus.toUpperCase()} (${timeStr})` });
-    setTimeout(() => setStatus({ type: "", text: "" }), 3000);
-
     try {
-      await fetch("/api/attendance", {
+      // 🔥 ASOSIY O'ZGARISH: Endi Guruh nomi va Ustoz IDsini ham skanerga jo'natyapmiz!
+      const res = await fetch("/api/scan", {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          groupName: selectedGroup,
+          studentId: scannedId,
           date: selectedDate,
+          groupName: selectedGroup,
           teacherId: getGroupTeacherId(),
-          adminName: localStorage.getItem("username") || "Admin",
-          isScan: true, 
-          scannedRecord: {
-            studentId: scannedId,
-            studentName: studentObj.name,
-            ...updatedRecord
-          }
+          adminName: localStorage.getItem("username") || "Admin"
         })
       });
+      
+      const result = await res.json();
+      
+      await fetchAttendanceData(); 
+
+      if (result.success) {
+        if (result.message.includes("qayd etilmadi") || result.message.includes("o'tmadi")) {
+            setStatus({ type: "error", text: "❌ Kamida 30 daqiqa kuting!" });
+        } else {
+            setStatus({ type: "success", text: `✅ Qabul qilindi: ${studentObj.name}` });
+        }
+      } else {
+        setStatus({ type: "error", text: `❌ Xatolik: ${result.message}` });
+      }
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
+
     } catch (err) {
       console.error("Instant scan xatosi:", err);
+      setStatus({ type: "error", text: "Server bilan bog'lanishda xato!" });
+      setTimeout(() => setStatus({ type: "", text: "" }), 3000);
     }
   };
 
