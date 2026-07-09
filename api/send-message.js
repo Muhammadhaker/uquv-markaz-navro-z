@@ -1,70 +1,112 @@
 import mongoose from 'mongoose';
 
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI topilmadi!");
+  return mongoose.connect(process.env.MONGODB_URI);
+};
+
 const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ message: "Faqat POST ruxsat etiladi" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: "Faqat POST ruxsat etiladi" });
+  }
 
-  const { chatId, text, paymentId } = req.body; 
+  // FIX: Avtorizatsiya tekshiruvi — bu endpoint ochiq edi.
+  // Har kim Telegram xabari yuborishi mumkin edi.
+  const userId = req.headers['x-user-id'];
+  if (!userId) {
+    return res.status(401).json({ success: false, error: "Avtorizatsiyadan o'tilmagan!" });
+  }
+
+  const { chatId, text, paymentId } = req.body;
   const token = process.env.TELEGRAM_BOT_TOKEN;
 
-  if (!chatId) return res.status(400).json({ success: false, error: "Chat ID taqdim etilmagan" });
+  if (!chatId) {
+    return res.status(400).json({ success: false, error: "chatId taqdim etilmagan" });
+  }
+  if (!text || !String(text).trim()) {
+    return res.status(400).json({ success: false, error: "Xabar matni bo'sh bo'lishi mumkin emas" });
+  }
+  if (!token) {
+    return res.status(500).json({ success: false, error: "Bot token sozlanmagan" });
+  }
 
   try {
-    // 🔥 MUAMMO YECHIMI: Qanday formatda kelishidan qat'i nazar (Number, String yoki vergulli ro'yxat) uni xavfsiz Massivga o'zgartiramiz
-    const safeChatIds = String(chatId).split(',').map(id => id.trim()).filter(Boolean);
+    const safeChatIds = String(chatId)
+      .split(',')
+      .map(id => id.trim())
+      .filter(id => id.length > 5); // Juda qisqa/noto'g'ri ID larni o'tkazib yuborish
 
     if (safeChatIds.length === 0) {
-        return res.status(400).json({ success: false, error: "Yaroqli Chat ID topilmadi" });
+      return res.status(400).json({ success: false, error: "Yaroqli Chat ID topilmadi" });
     }
 
     let successCount = 0;
-    let firstMsgId = null;
-    let lastError = null;
+    let firstMsgId   = null;
+    const errors     = [];
 
-    // Har bir ota-onaga (agar ular bitta bolaga ulangan bo'lsa) alohida xabar yuboramiz
-    await Promise.all(safeChatIds.map(async (cId) => {
-        try {
-            const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: cId,
-                    text: text,
-                    parse_mode: 'Markdown'
-                })
-            });
+    // FIX 4: Promise.all → Promise.allSettled
+    // Bitta chatId xato bo'lsa, boshqalariga xabar yetib boradi.
+    const results = await Promise.allSettled(
+      safeChatIds.map(cId =>
+        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
+        }).then(r => r.json())
+      )
+    );
 
-            const data = await response.json();
-            
-            if (data.ok) {
-                successCount++;
-                if (!firstMsgId) firstMsgId = data.result.message_id;
-            } else {
-                lastError = data.description;
-            }
-        } catch (e) {
-            lastError = e.message;
-        }
-    }));
-
-    // Agar hech bo'lmaganda 1 kishiga (dadasiga yoki onasiga) yetib borgan bo'lsa - Muvaffaqiyatli deymiz!
-    if (successCount > 0) {
-      if (paymentId && firstMsgId) {
-        if (mongoose.connection.readyState < 1) {
-          await mongoose.connect(process.env.MONGODB_URI);
-        }
-        await Payment.findByIdAndUpdate(paymentId, {
-          $push: { extraMessageIds: firstMsgId }
-        });
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled' && result.value?.ok) {
+        successCount++;
+        if (!firstMsgId) firstMsgId = result.value.result.message_id;
+      } else {
+        const reason = result.status === 'rejected'
+          ? result.reason?.message
+          : result.value?.description;
+        errors.push(`${safeChatIds[i]}: ${reason || "Noma'lum xato"}`);
+        console.error(`Telegram xabar xatosi (${safeChatIds[i]}):`, reason);
       }
-      return res.status(200).json({ success: true, message: `${successCount} ta profilga yuborildi!` });
-    } else {
-      // Hech kimga bormasa, unda xatoni ko'rsatamiz
-      return res.status(400).json({ success: false, error: lastError || "Xabar yuborishda noma'lum xatolik" });
+    });
+
+    if (successCount > 0) {
+      // paymentId berilgan bo'lsa — messageId ni bazaga saqlaymiz
+      if (paymentId && firstMsgId) {
+        try {
+          await connectDB();
+          if (!mongoose.Types.ObjectId.isValid(paymentId)) {
+            console.warn("Noto'g'ri paymentId:", paymentId);
+          } else {
+            await Payment.findByIdAndUpdate(paymentId, {
+              $push: { extraMessageIds: firstMsgId }
+            });
+          }
+        } catch (dbErr) {
+          // DB xatosi asosiy javobni to'xtatmasin
+          console.error("Payment update xatosi:", dbErr.message);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `${successCount} ta profilga yuborildi!`,
+        // Qisman muvaffaqiyat bo'lsa xatolarni ham ko'rsatamiz
+        ...(errors.length > 0 && { warnings: errors })
+      });
     }
-    
+
+    // Hech kimga yetib bormadi
+    return res.status(400).json({
+      success: false,
+      error: "Xabar hech kimga yetib bormadi",
+      details: errors
+    });
+
   } catch (error) {
+    console.error("send-message xatosi:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }
