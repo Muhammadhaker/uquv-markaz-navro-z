@@ -32,24 +32,25 @@ export default async function handler(req, res) {
     const userId = req.headers['x-user-id'];
     const parentId = req.headers['x-parent-id'];
 
-    // 🔥 1. TO'LOVLARNI O'QISH (Xatolarni ham avtomat to'g'rilab ko'rsatadi)
+    // 🔥 1. AVTORIZATSIYA TEKSHIRUVI (Har qanday so'rov uchun minimal talab)
+    if (!role || !userId) {
+       return res.status(401).json({ success: false, message: "Avtorizatsiyadan o'tilmagan!" });
+    }
+
     if (req.method === 'GET') {
       let query = {};
       const targetTeacherId = role === 'assistant' ? parentId : userId;
 
       if (role === 'teacher' || role === 'assistant') {
-        // Avval bu ustozning barcha o'quvchilari ID larini topib olamiz
         const myStudents = await Student.find({
             $or: [
                 { teacherIds: targetTeacherId },
-                { teacherId: targetTeacherId } // Eski tizimdagi o'quvchilar uchun
+                { teacherId: targetTeacherId }
             ]
         }, '_id');
         
         const myStudentIds = myStudents.map(s => s._id.toString());
 
-        // Ustozga faqatgina uning nomiga tushgan pullarni emas, 
-        // o'quvchilari nomiga tushgan barcha pullarni (hatto Super Admin urgan bo'lsa ham) ko'rsatamiz!
         query = {
             $or: [
                 { teacherId: targetTeacherId },
@@ -62,13 +63,15 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, data: payments });
     }
 
-    // 🔥 2. TO'LOV QABUL QILISH (Aniq egasining kassasiga yozish)
     if (req.method === 'POST') {
       const { studentId, studentName, groupName, amount, priceAtThatTime, paymentType, month, adminName, telegramChatId, targetTeacherId } = req.body;
       
+      // Minimal validatsiya
+      if (!studentId || !amount || !month) {
+          return res.status(400).json({ success: false, message: "Kerakli ma'lumotlar to'liq emas!" });
+      }
+
       const ownerId = role === 'assistant' ? parentId : userId;
-      
-      // Mantiqiy Qulf: Agar ustoz ID si kelmasa, bazadan o'quvchining o'zini topib ustozini sug'urib olamiz
       let finalOwnerId = targetTeacherId;
       const studentObj = await Student.findById(studentId);
       
@@ -93,33 +96,51 @@ export default async function handler(req, res) {
           return `${names[parseInt(mm) - 1]} ${y}`;
         };
 
-        const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${studentName}\n📚 *Fan/Guruh:* ${groupName}\n💰 *Summa:* ${Number(amount).toLocaleString()} so'm\n💳 *Turi:* ${paymentType}\n📅 *Oy:* ${formatMonthName(month)}\n\n✅ _To'lov muvaffaqiyatli qabul qilindi!_`;
+        const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${studentName}\n📚 *Fan/Guruh:* ${groupName}\n💰 *Summa:* ${Number(amount).toLocaleString()} so'm\n💳 *Turi:* ${paymentType}\n📅 *Oy:* ${formatMonthName(month)}\n\n✅ _To'lov muvaffaqiyatli qabul qilinedi!_`;
 
+        // 🔥 Tahrirlangan: Xatolar yutilib ketmaydi
         try {
           const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: telegramChatId, text: text, parse_mode: 'Markdown' })
           });
           const tgData = await tgRes.json();
-          if (tgData.ok) messageId = tgData.result.message_id;
-        } catch (err) { }
+          if (tgData.ok) {
+             messageId = tgData.result.message_id;
+          } else {
+             console.error("Telegram xatosi (Chek yuborilmadi):", tgData.description);
+          }
+        } catch (err) { 
+           console.error("Telegram tarmoq xatosi:", err.message);
+        }
       }
 
       const newPayment = await Payment.create({
         studentId, studentName, groupName, 
         amount, 
-        priceAtThatTime: priceAtThatTime || amount,
+        priceAtThatTime,
         paymentType, month, adminName, telegramChatId,
         telegramMessageId: messageId,
-        teacherId: finalOwnerId // 🔥 Pul hech qachon adashmaydi, aniq ustoziga yoziladi!
+        teacherId: finalOwnerId
       });
 
       return res.status(201).json({ success: true, data: newPayment });
     }
 
     if (req.method === 'DELETE') {
-       await Payment.findByIdAndDelete(req.body.id);
-       return res.status(200).json({ success: true });
+       const { id } = req.body;
+       if (!id) return res.status(400).json({ success: false, message: "O'chirish uchun ID berilmagan!" });
+
+       const payment = await Payment.findById(id);
+       if (!payment) return res.status(404).json({ success: false, message: "To'lov topilmadi!" });
+
+       // 🔥 Himoya: Faqat admin/super_admin yoki aynan shu to'lovning ustozigina o'chira oladi!
+       if (role !== 'admin' && role !== 'super_admin' && payment.teacherId !== userId) {
+          return res.status(403).json({ success: false, message: "Ruxsat etilmagan! Siz faqat o'z to'lovlarigizni o'chira olasiz." });
+       }
+
+       await Payment.findByIdAndDelete(id);
+       return res.status(200).json({ success: true, message: "Muvaffaqiyatli o'chirildi" });
     }
 
     res.status(405).json({ message: "Metod ruxsat etilmagan" });

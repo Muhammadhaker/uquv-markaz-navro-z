@@ -42,25 +42,68 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
-  // 🔥 YANGI: To'lovni o'chirish (Summa va Tiklash logikasi bilan)
+// 🔥 YANGI VA XAVFSIZ: To'lovni o'chirish
   const handleDeletePayment = async (p) => {
     if (!window.confirm(`${p.studentName} to'lovini o'chirmoqchimisiz?`)) return;
     try {
-      await fetch("/api/payments", { method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id: p._id }) });
+      const res = await fetch("/api/payments", { 
+         method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id: p._id }) 
+      });
+      const data = await res.json();
       
-      await fetch("/api/logs", { 
+      if (!res.ok) throw new Error(data.message || "O'chirishda xatolik yuz berdi");
+      
+      // 1. Darhol UI ni yangilaymiz (Log ni kutib o'tirmaymiz!)
+      fetchStats();
+
+      // 2. Log yozishni alohida "fire-and-forget" usulida fonda bajaramiz
+      fetch("/api/logs", { 
         method: "POST", 
         headers: getAuthHeaders(), 
         body: JSON.stringify({ 
           adminName: localStorage.getItem("username") || "Admin", 
           actionType: "delete", 
           details: `To'lov o'chirildi: ${p.studentName}`,
-          targetApi: "/api/payments", // Tiklash uchun yuboramiz
-          deletedData: p // Puli va hamma ma'lumoti shu ichida boradi!
+          targetApi: "/api/payments", 
+          deletedData: p 
         }) 
-      });
-      fetchStats();
+      }).catch(err => console.error("Log saqlashda xato:", err));
+      
     } catch (error) {
+      alert(`Xato: ${error.message}`); // Agar server bloklasa, ekranga chiqadi
+      console.error(error);
+    }
+  };
+
+  // 🔥 YANGI VA XAVFSIZ: Xarajatni o'chirish
+  const handleDeleteExpense = async (e) => {
+    if (!window.confirm(`"${e.reason}" xarajatini o'chirmoqchimisiz?`)) return;
+    try {
+      const res = await fetch("/api/expenses", { 
+         method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id: e._id }) 
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message || "O'chirishda xatolik yuz berdi");
+      
+      // 1. Darhol UI yangilanadi
+      fetchStats();
+
+      // 2. Log fonda yoziladi
+      fetch("/api/logs", { 
+        method: "POST", 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ 
+          adminName: localStorage.getItem("username") || "Admin", 
+          actionType: "delete", 
+          details: `Xarajat o'chirildi: ${e.reason}`,
+          targetApi: "/api/expenses",
+          deletedData: e 
+        }) 
+      }).catch(err => console.error("Log saqlashda xato:", err));
+      
+    } catch (error) {
+      alert(`Xato: ${error.message}`);
       console.error(error);
     }
   };

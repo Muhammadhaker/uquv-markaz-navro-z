@@ -57,12 +57,22 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     setBasePrice(formattedValue);
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
 
     const numericAmount = Number(amount.replace(/\s/g, ""));
-    const numericBasePrice = basePrice ? Number(basePrice.replace(/\s/g, "")) : numericAmount;
+    
+    // 🔥 FIX: "Asl narx" bo'sh bo'lsa, to'langan summa emas, guruhning asil narxi (yoki standart narx) olinadi!
+    let numericBasePrice;
+    if (basePrice) {
+       numericBasePrice = Number(basePrice.replace(/\s/g, ""));
+    } else {
+       const selectedGroupData = student.groupsData?.find(g => g.name === group);
+       numericBasePrice = (selectedGroupData && selectedGroupData.price !== undefined) 
+           ? Number(selectedGroupData.price) 
+           : 300000;
+    }
 
     if (!numericAmount || numericAmount <= 0) return setErrorMessage("Iltimos, to'lov summasini to'g'ri kiriting!");
     if (!group) return setErrorMessage("Iltimos, to'lov qilinayotgan guruhni tanlang!");
@@ -72,7 +82,6 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
     try {
       const adminName = localStorage.getItem("username") || "Admin";
 
-      // 🔥 Eski profil va yangi profilni aniqlab ustoz IDsini ajratib olamiz
       const selectedGroupData = student.groupsData?.find(g => g.name === group);
       let targetTeacherId = selectedGroupData?.teacherId;
       if (!targetTeacherId) {
@@ -87,7 +96,7 @@ export default function PaymentModal({ isOpen, onClose, student, groupName }) {
           studentName: student.name,
           groupName: group,
           amount: numericAmount, 
-          priceAtThatTime: numericBasePrice, 
+          priceAtThatTime: numericBasePrice, // 🔥 To'g'irlangan mantiq ishlaydi
           paymentType: paymentType,
           month: paymentMonth, 
           adminName: adminName,
