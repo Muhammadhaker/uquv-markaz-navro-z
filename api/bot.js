@@ -431,11 +431,13 @@ export default async function handler(req, res) {
     );
   }
 
-  else if (action === "admin_unconnected" || action === "admin_connected") {
+else if (action === "admin_unconnected" || action === "admin_connected") {
     const isUnconnected = action === "admin_unconnected";
+    
+    // 🔥 FIX: Endi ro'yxatga chiqarishda ham kamida 6 ta belgi (haqiqiy ID) borligini tekshiradi!
     const query = isUnconnected
-      ? { $or: [{ telegramChatId: { $exists: false } }, { telegramChatId: "" }, { telegramChatId: /^\s*$/ }] }
-      : { telegramChatId: { $exists: true, $ne: "" } };
+      ? { $or: [{ telegramChatId: { $exists: false } }, { telegramChatId: null }, { telegramChatId: { $not: /.{6,}/ } }] }
+      : { telegramChatId: { $regex: /.{6,}/ } };
 
     const list = await Student.find(query, 'name group').limit(80);
     const total = await Student.countDocuments(query);
