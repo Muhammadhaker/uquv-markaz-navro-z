@@ -25,16 +25,35 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Bunday o'quvchi topilmadi!" });
     }
 
-    if (!groupName || !teacherId) {
-         return res.status(400).json({ success: false, message: "Guruh yoki Ustoz aniqlanmadi. Iltimos, Veb-sahifadan guruhni tanlang." });
+    let actualGroupName = "Guruhsiz";
+    if (student.group && student.group.trim() !== "") {
+        actualGroupName = student.group.split(',')[0].trim(); 
+    } else if (groupName) {
+        actualGroupName = groupName;
+    }
+
+    let actualTeacherId = student.teacherId || teacherId;
+
+    if (!actualGroupName || !actualTeacherId) {
+         return res.status(400).json({ success: false, message: "Guruh yoki Ustoz aniqlanmadi." });
     }
 
     const validStudentIdStr = student._id.toString();
     
-    let oldDoc = await Attendance.findOne({ groupName, date, teacherId });
+    let oldDoc = await Attendance.findOne({ groupName: actualGroupName, date, teacherId: actualTeacherId });
     let existingRecords = [];
     
+    // ⏱ Taymer - Birinchi bejik urilgan vaqtni yozib olish
+    const now = Date.now();
+    let firstScanTime = now; 
+
     if (oldDoc) {
+        if (oldDoc.firstScanTime) {
+            firstScanTime = oldDoc.firstScanTime; 
+        } else if (oldDoc.records && oldDoc.records.length > 0) {
+            firstScanTime = now; 
+        }
+        
         oldDoc.records.forEach(r => {
             existingRecords.push({
                 studentId: r.studentId,
@@ -49,11 +68,13 @@ export default async function handler(req, res) {
     }
 
     const studentIndex = existingRecords.findIndex(r => String(r.studentId) === validStudentIdStr);
-
     const timeStr = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit' });
-    const now = Date.now();
 
-    let newStatus = "keldi";
+    // ⏳ 15 daqiqalik qoida (15 * 60 * 1000 millisoniya = 900 000 ms)
+    const isLate = (now - firstScanTime) > 15 * 60 * 1000;
+    const initialStatus = isLate ? "kechikdi" : "keldi";
+
+    let newStatus = initialStatus;
     let arrTime = timeStr;
     let levTime = null;
     let currentOldMsgId = null;
@@ -66,67 +87,27 @@ export default async function handler(req, res) {
         let safeLastScan = current.lastScan ? Number(current.lastScan) : 0; 
         const timePassed = now - safeLastScan;
         
-        // 🔥 30 daqiqa himoyasi (spamni oldini oladi)
+        // 30 daqiqa himoyasi
         if (safeLastScan > 0 && timePassed < 1800000) {
            return res.status(200).json({ success: true, message: `${student.name} qayd etilmadi (Hali 30 daqiqa o'tmadi).` });
         }
 
-        // 🔥 Asosiy mantiq: Keldi -> Ketdi -> Keldi bo'lib almashadi
         if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
             newStatus = 'ketdi';
             arrTime = current.arrivalTime || '--:--'; 
             levTime = timeStr; 
         } else if (currentStatus === 'ketdi') {
-            newStatus = 'keldi';
+            newStatus = initialStatus;
             arrTime = timeStr;
             levTime = null;
         } else {
-            newStatus = 'keldi';
+            newStatus = initialStatus;
             arrTime = timeStr;
             levTime = null;
         }
     }
 
-    // Telegramga xabar jo'natish
-    let firstMsgId = null;
-    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-
-    if (telegramToken && student.telegramChatId) {
-        const chatIds = String(student.telegramChatId).split(',').map(id => id.trim()).filter(Boolean);
-
-        const getStatusText = (st, arr, lev) => {
-           if (st === 'keldi') return `✅ Darsga keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
-           if (st === 'kechikdi') return `⏳ Kechikib keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
-           if (st === 'ketdi') return `🏠 Darsdan ketdi\n🟢 Kelgan vaqti: ${arr || '--:--'}\n🔴 Ketgan vaqti: ${lev || '--:--'}`;
-           return '❌ Darsga kelmadi';
-        };
-
-        const [yyyy, mm, dd] = date.split("-");
-        const formattedDate = `${dd}.${mm}.${yyyy}`;
-
-        let text = `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${groupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
-
-        await Promise.all(chatIds.map(async (cId) => {
-            if (currentOldMsgId) {
-                try {
-                    // Chat toza turishi uchun avvalgi "Keldi" xabarini o'chirib, o'rniga "Ketdi"ni tashlaydi
-                    await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: cId, message_id: currentOldMsgId })
-                    });
-                } catch(e) {}
-            }
-            try {
-                const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
-                });
-                const tgData = await tgRes.json();
-                if (tgData.ok && !firstMsgId) firstMsgId = tgData.result.message_id;
-            } catch(e) {}
-        }));
-    }
-
+    // 🔥 1. DARHOL BAZAGA SAQLAYMIZ (Telegramni kutmaymiz!)
     const newRecordData = {
         studentId: validStudentIdStr,
         studentName: student.name,
@@ -134,7 +115,7 @@ export default async function handler(req, res) {
         arrivalTime: arrTime,
         leaveTime: levTime,
         lastScan: now,
-        messageId: firstMsgId || currentOldMsgId
+        messageId: currentOldMsgId 
     };
 
     if (studentIndex >= 0) {
@@ -144,15 +125,76 @@ export default async function handler(req, res) {
     }
 
     await Attendance.findOneAndUpdate(
-        { groupName, date, teacherId },
-        { groupName, date, adminName, teacherId, records: existingRecords },
+        { groupName: actualGroupName, date, teacherId: actualTeacherId },
+        { 
+            groupName: actualGroupName, 
+            date, 
+            adminName, 
+            teacherId: actualTeacherId, 
+            records: existingRecords,
+            firstScanTime
+        },
         { new: true, upsert: true }
     );
 
-    return res.status(200).json({ success: true, message: `${student.name} - ${newStatus === 'ketdi' ? 'Ketdi' : 'Keldi'} belgilandi!` });
+    // 🔥 2. EKRANGA DARHOL JAVOB BERAMIZ (Bu saytni yashin tezligida ishlatadi)
+    res.status(200).json({ success: true, message: `${student.name} - ${newStatus.toUpperCase()} belgilandi!` });
+
+    // 🔥 3. TELEGRAMGA XABAR YUBORISH (Bu orqa fonda, saytga ta'sir qilmay, tinchgina yuz beradi)
+    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (telegramToken && student.telegramChatId) {
+        (async () => {
+            try {
+                const chatIds = String(student.telegramChatId).split(',').map(id => id.trim()).filter(Boolean);
+                let firstMsgId = null;
+
+                const getStatusText = (st, arr, lev) => {
+                   if (st === 'keldi') return `✅ Darsga keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
+                   if (st === 'kechikdi') return `⏳ Kechikib keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
+                   if (st === 'ketdi') return `🏠 Darsdan ketdi\n🟢 Kelgan vaqti: ${arr || '--:--'}\n🔴 Ketgan vaqti: ${lev || '--:--'}`;
+                   return '❌ Darsga kelmadi';
+                };
+
+                const [yyyy, mm, dd] = date.split("-");
+                const formattedDate = `${dd}.${mm}.${yyyy}`;
+                let text = `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${actualGroupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
+
+                await Promise.all(chatIds.map(async (cId) => {
+                    if (currentOldMsgId) {
+                        // Eski xabarni o'chirish ham orqa fonda ketaveradi
+                        fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: cId, message_id: currentOldMsgId })
+                        }).catch(() => {});
+                    }
+                    try {
+                        const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
+                        });
+                        const tgData = await tgRes.json();
+                        if (tgData.ok && !firstMsgId) firstMsgId = tgData.result.message_id;
+                    } catch(e) {}
+                }));
+
+                // Agar bot yangi ID qaytarsa, uni ham sekingina orqa fonda bazaga saqlab qo'yadi
+                if (firstMsgId) {
+                    existingRecords[studentIndex >= 0 ? studentIndex : existingRecords.length - 1].messageId = firstMsgId;
+                    await Attendance.findOneAndUpdate(
+                        { groupName: actualGroupName, date, teacherId: actualTeacherId },
+                        { records: existingRecords }
+                    );
+                }
+            } catch (err) {
+                console.log("Telegram fondagi xatosi", err);
+            }
+        })();
+    }
 
   } catch (error) {
     console.error("QR Scan Xatosi:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    if (!res.headersSent) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
   }
 }
