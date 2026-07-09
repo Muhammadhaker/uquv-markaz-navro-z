@@ -416,14 +416,16 @@ export default async function handler(req, res) {
     await send(token, chatId, msg, { reply_markup: markup });
   }
 
-  else if (action === "admin_stats") {
-    // FIX 4: countDocuments ishlatildi — barcha hujjatlarni yuklamasdan sanoq oladi
-    const allCount       = await Student.countDocuments();
+else if (action === "admin_stats") {
+    const allCount = await Student.countDocuments();
+    
+    // 🔥 FIX: Bu yerda ham qat'iy tekshiruv (kamida 6 ta belgi) kiritildi
     const connectedCount = await Student.countDocuments({
-      telegramChatId: { $exists: true, $ne: "", $not: /^\s*$/ }
+      telegramChatId: { $regex: /.{6,}/ }
     });
+    
     const notConnected = allCount - connectedCount;
-    const percentage   = allCount > 0 ? Math.round((connectedCount / allCount) * 100) : 0;
+    const percentage = allCount > 0 ? Math.round((connectedCount / allCount) * 100) : 0;
 
     await send(token, chatId,
       `📊 *Markaz Statistikasi*\n\n👥 Jami: *${allCount} ta*\n✅ Botga ulanganlar: *${connectedCount} ta* (${percentage}%)\n❌ Ulanmaganlar: *${notConnected} ta*`,
