@@ -5,18 +5,22 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-const Attendance = mongoose.models.Attendance || mongoose.model('Attendance', new mongoose.Schema({}, { strict: false }), 'attendances');
+// Attendance sxemasiga compound UNIQUE index qo'shildi.
+// Bu bir xil guruh/sana/ustoz uchun ikkita alohida hujjat yaratilishining
+// (upsert race condition) oldini oladi.
+const attendanceSchema = new mongoose.Schema({}, { strict: false });
+attendanceSchema.index({ groupName: 1, date: 1, teacherId: 1 }, { unique: true });
+
+const Attendance = mongoose.models.Attendance || mongoose.model('Attendance', attendanceSchema, 'attendances');
 const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: "Metod ruxsat etilmagan" });
 
-  // 3. Avtorizatsiyani tekshirish (Frontend 'x-user-id' jo'natayotganini hisobga olib)
+  // 3. Avtorizatsiya endi MAJBURIY
   const userId = req.headers['x-user-id'];
   if (!userId) {
-      // Hozircha logda qoldiramiz, qat'iy qilish uchun pastdagi qatorni yoqish mumkin
-      // return res.status(401).json({ success: false, message: "Avtorizatsiyadan o'tilmagan!" });
-      console.warn("Ogohlantirish: So'rov autentifikatsiya headersiz keldi.");
+    return res.status(401).json({ success: false, message: "Avtorizatsiyadan o'tilmagan!" });
   }
 
   try {
@@ -27,8 +31,7 @@ export default async function handler(req, res) {
     if (!cleanInputId || !mongoose.Types.ObjectId.isValid(cleanInputId)) {
         return res.status(400).json({ success: false, message: "Noto'g'ri QR-kod!" });
     }
-    
-    // .lean() ishlatildi xotirani tejash va o'qish tezligini oshirish uchun
+
     const student = await Student.findById(cleanInputId).lean();
     if (!student) {
         return res.status(404).json({ success: false, message: "Bunday o'quvchi topilmadi!" });
@@ -42,19 +45,17 @@ export default async function handler(req, res) {
     }
 
     const validStudentIdStr = student._id.toString();
-    
-    // 2. Xavfsiz o'qish va Race Condition tayyorgarligi
+
     let oldDoc = await Attendance.findOne({ groupName: actualGroupName, date, teacherId: actualTeacherId }).lean();
-    
+
     const now = Date.now();
-    let firstScanTime = oldDoc?.firstScanTime || now; 
-    
+    let firstScanTime = oldDoc?.firstScanTime || now;
+
     let existingRecords = oldDoc?.records || [];
     let currentRecord = existingRecords.find(r => String(r.studentId) === validStudentIdStr);
 
     const timeStr = new Date().toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit' });
 
-    // 6. Kechikish mantig'i (Birinchi skan qilingan vaqtga nisbatan)
     const isLate = (now - firstScanTime) > 15 * 60 * 1000;
     const initialStatus = isLate ? "kechikdi" : "keldi";
 
@@ -66,19 +67,18 @@ export default async function handler(req, res) {
     if (currentRecord) {
         const currentStatus = (currentRecord.status || '').toLowerCase().trim();
         currentOldMsgId = currentRecord.messageId;
-        
-        let safeLastScan = currentRecord.lastScan ? Number(currentRecord.lastScan) : 0; 
+
+        let safeLastScan = currentRecord.lastScan ? Number(currentRecord.lastScan) : 0;
         const timePassed = now - safeLastScan;
-        
-        // 30 daqiqa himoyasi
+
         if (safeLastScan > 0 && timePassed < 1800000) {
            return res.status(200).json({ success: true, message: `${student.name} qayd etilmadi (Hali 30 daqiqa o'tmadi).` });
         }
 
         if (currentStatus === 'keldi' || currentStatus === 'kechikdi') {
             newStatus = 'ketdi';
-            arrTime = currentRecord.arrivalTime || '--:--'; 
-            levTime = timeStr; 
+            arrTime = currentRecord.arrivalTime || '--:--';
+            levTime = timeStr;
         } else {
             newStatus = initialStatus;
             arrTime = timeStr;
@@ -86,7 +86,6 @@ export default async function handler(req, res) {
         }
     }
 
-    // 4 & 5. Telegramga yuborish (Error handling bilan optimizatsiya)
     let firstMsgId = null;
     const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -104,7 +103,6 @@ export default async function handler(req, res) {
         const formattedDate = `${dd}.${mm}.${yyyy}`;
         let text = `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${actualGroupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
 
-        // Promise.allSettled - bitta xato boshqasini to'xtatmaydi
         await Promise.allSettled(chatIds.map(async (cId) => {
             if (currentOldMsgId) {
                 try {
@@ -132,32 +130,52 @@ export default async function handler(req, res) {
         arrivalTime: arrTime,
         leaveTime: levTime,
         lastScan: now,
-        messageId: firstMsgId || currentOldMsgId 
+        messageId: firstMsgId || currentOldMsgId
     };
 
-    // 1. RACE CONDITION YECHIMI (Atomik MongoDB so'rovlari)
-    if (currentRecord) {
-        // Agar o'quvchi allaqachon mavjud bo'lsa, arrayFilters orqali faqat uning yozuvini yangilaymiz
-        await Attendance.updateOne(
-            { groupName: actualGroupName, date, teacherId: actualTeacherId },
-            { 
-                $set: { 
-                    "records.$[elem]": newRecordData,
-                    firstScanTime: firstScanTime
-                } 
-            },
-            { arrayFilters: [{ "elem.studentId": validStudentIdStr }] }
-        );
-    } else {
-        // Yangi o'quvchi kelsa, butun massivni qayta yozmasdan, shunchaki unga qo'shamiz ($push)
-        await Attendance.findOneAndUpdate(
-            { groupName: actualGroupName, date, teacherId: actualTeacherId },
-            { 
-                $set: { adminName, firstScanTime },
-                $push: { records: newRecordData }
-            },
-            { new: true, upsert: true }
-        );
+    try {
+        if (currentRecord) {
+            await Attendance.updateOne(
+                { groupName: actualGroupName, date, teacherId: actualTeacherId },
+                {
+                    $set: {
+                        "records.$[elem]": newRecordData,
+                        firstScanTime: firstScanTime
+                    }
+                },
+                { arrayFilters: [{ "elem.studentId": validStudentIdStr }] }
+            );
+        } else {
+            await Attendance.findOneAndUpdate(
+                { groupName: actualGroupName, date, teacherId: actualTeacherId },
+                {
+                    $set: { adminName, firstScanTime },
+                    $push: { records: newRecordData }
+                },
+                { new: true, upsert: true }
+            );
+        }
+    } catch (writeErr) {
+        // E11000 duplicate key: ikkita so'rov bir vaqtda kunning birinchi
+        // hujjatini upsert qilishga urinib, biri parallel ravishda yaratib
+        // ulgurgan bo'lishi mumkin. Bu holatda operatsiyani qayta urinamiz —
+        // endi hujjat mavjud, shuning uchun oddiy $push/$set yetarli.
+        if (writeErr.code === 11000) {
+            await Attendance.updateOne(
+                { groupName: actualGroupName, date, teacherId: actualTeacherId },
+                currentRecord
+                    ? {
+                        $set: {
+                            "records.$[elem]": newRecordData,
+                            firstScanTime: firstScanTime
+                        }
+                      }
+                    : { $push: { records: newRecordData } },
+                currentRecord ? { arrayFilters: [{ "elem.studentId": validStudentIdStr }] } : {}
+            );
+        } else {
+            throw writeErr;
+        }
     }
 
     return res.status(200).json({ success: true, message: `${student.name} - ${newStatus.toUpperCase()} belgilandi!` });
