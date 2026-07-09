@@ -107,7 +107,46 @@ export default async function handler(req, res) {
         }
     }
 
-    // 🔥 1. DARHOL BAZAGA SAQLAYMIZ (Telegramni kutmaymiz!)
+    // 🔥 1. TELEGRAMGA XABAR YUBORISH (Javob berishdan oldin bajarilishi shart!)
+    let firstMsgId = null;
+    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+
+    if (telegramToken && student.telegramChatId) {
+        const chatIds = String(student.telegramChatId).split(',').map(id => id.trim()).filter(Boolean);
+
+        const getStatusText = (st, arr, lev) => {
+           if (st === 'keldi') return `✅ Darsga keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
+           if (st === 'kechikdi') return `⏳ Kechikib keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
+           if (st === 'ketdi') return `🏠 Darsdan ketdi\n🟢 Kelgan vaqti: ${arr || '--:--'}\n🔴 Ketgan vaqti: ${lev || '--:--'}`;
+           return '❌ Darsga kelmadi';
+        };
+
+        const [yyyy, mm, dd] = date.split("-");
+        const formattedDate = `${dd}.${mm}.${yyyy}`;
+        let text = `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${actualGroupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
+
+        // Promise.all orqali xabarlarni parallel jo'natamiz (tezroq bo'lishi uchun)
+        await Promise.all(chatIds.map(async (cId) => {
+            if (currentOldMsgId) {
+                try {
+                    await fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: cId, message_id: currentOldMsgId })
+                    });
+                } catch(e) {}
+            }
+            try {
+                const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
+                });
+                const tgData = await tgRes.json();
+                if (tgData.ok && !firstMsgId) firstMsgId = tgData.result.message_id;
+            } catch(e) {}
+        }));
+    }
+
+    // 🔥 2. BAZAGA SAQLASH
     const newRecordData = {
         studentId: validStudentIdStr,
         studentName: student.name,
@@ -115,7 +154,7 @@ export default async function handler(req, res) {
         arrivalTime: arrTime,
         leaveTime: levTime,
         lastScan: now,
-        messageId: currentOldMsgId 
+        messageId: firstMsgId || currentOldMsgId 
     };
 
     if (studentIndex >= 0) {
@@ -137,64 +176,11 @@ export default async function handler(req, res) {
         { new: true, upsert: true }
     );
 
-    // 🔥 2. EKRANGA DARHOL JAVOB BERAMIZ (Bu saytni yashin tezligida ishlatadi)
-    res.status(200).json({ success: true, message: `${student.name} - ${newStatus.toUpperCase()} belgilandi!` });
-
-    // 🔥 3. TELEGRAMGA XABAR YUBORISH (Bu orqa fonda, saytga ta'sir qilmay, tinchgina yuz beradi)
-    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (telegramToken && student.telegramChatId) {
-        (async () => {
-            try {
-                const chatIds = String(student.telegramChatId).split(',').map(id => id.trim()).filter(Boolean);
-                let firstMsgId = null;
-
-                const getStatusText = (st, arr, lev) => {
-                   if (st === 'keldi') return `✅ Darsga keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
-                   if (st === 'kechikdi') return `⏳ Kechikib keldi\n⏰ Kelgan vaqti: ${arr || '--:--'}`;
-                   if (st === 'ketdi') return `🏠 Darsdan ketdi\n🟢 Kelgan vaqti: ${arr || '--:--'}\n🔴 Ketgan vaqti: ${lev || '--:--'}`;
-                   return '❌ Darsga kelmadi';
-                };
-
-                const [yyyy, mm, dd] = date.split("-");
-                const formattedDate = `${dd}.${mm}.${yyyy}`;
-                let text = `📋 *Davomat (QR-Kod)*\n\nHurmatli *${student.name}*,\n\n📅 Sana: ${formattedDate}\n📚 Fan: ${actualGroupName}\n\n📊 Holat: \n*${getStatusText(newStatus, arrTime, levTime)}*`;
-
-                await Promise.all(chatIds.map(async (cId) => {
-                    if (currentOldMsgId) {
-                        // Eski xabarni o'chirish ham orqa fonda ketaveradi
-                        fetch(`https://api.telegram.org/bot${telegramToken}/deleteMessage`, {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ chat_id: cId, message_id: currentOldMsgId })
-                        }).catch(() => {});
-                    }
-                    try {
-                        const tgRes = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
-                        });
-                        const tgData = await tgRes.json();
-                        if (tgData.ok && !firstMsgId) firstMsgId = tgData.result.message_id;
-                    } catch(e) {}
-                }));
-
-                // Agar bot yangi ID qaytarsa, uni ham sekingina orqa fonda bazaga saqlab qo'yadi
-                if (firstMsgId) {
-                    existingRecords[studentIndex >= 0 ? studentIndex : existingRecords.length - 1].messageId = firstMsgId;
-                    await Attendance.findOneAndUpdate(
-                        { groupName: actualGroupName, date, teacherId: actualTeacherId },
-                        { records: existingRecords }
-                    );
-                }
-            } catch (err) {
-                console.log("Telegram fondagi xatosi", err);
-            }
-        })();
-    }
+    // 🔥 3. ENG OXIRIDA JAVOB BERAMIZ (Aks holda Vercel funksiyani o'ldirib qo'yadi!)
+    return res.status(200).json({ success: true, message: `${student.name} - ${newStatus.toUpperCase()} belgilandi!` });
 
   } catch (error) {
     console.error("QR Scan Xatosi:", error);
-    if (!res.headersSent) {
-        return res.status(500).json({ success: false, message: error.message });
-    }
+    return res.status(500).json({ success: false, message: error.message });
   }
 }
