@@ -10,6 +10,10 @@ import ActivityLogs from "./pages/ActivityLogs";
 import BotRegister from "./pages/BotRegister";
 import Profile from "./pages/Profile";
 import CronLogs from './pages/CronLogs';
+// YANGI: qo'shilgan sahifalar
+import Schedule from "./pages/Schedule";
+import Homework from "./pages/Homework";
+import Grades from "./pages/Grades";
 
 // 🛡️ ESKI XOTIRANI XAVFSIZ TOZALASH (Cheksiz yuklanish (Infinite loop) dan mutlaqo himoyalangan)
 if (typeof window !== "undefined") {
@@ -61,6 +65,10 @@ export default function App() {
           <Route path="/badges" element={<PrintBadges />} />
           <Route path="/admins" element={<Admins />} />
           <Route path="/logs" element={<ActivityLogs />} />
+          {/* YANGI marshrutlar */}
+          <Route path="/schedule" element={<Schedule />} />
+          <Route path="/homework" element={<Homework />} />
+          <Route path="/grades" element={<Grades />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

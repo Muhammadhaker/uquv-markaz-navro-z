@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, CalendarCheck, UserCheck, X, History, Printer, Download, Bot } from "lucide-react";
+import { LayoutDashboard, Users, CalendarCheck, UserCheck, X, History, Printer, Download, Bot, CalendarClock, BookOpenCheck, GraduationCap } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
@@ -90,13 +90,33 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       icon: CalendarCheck, 
       show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("attendance"))
     },
+    // YANGI: Dars jadvali
+    {
+      to: "/schedule",
+      label: "Dars Jadvali",
+      icon: CalendarClock,
+      show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("schedule"))
+    },
+    // YANGI: Uy vazifalari
+    {
+      to: "/homework",
+      label: "Uy Vazifalari",
+      icon: BookOpenCheck,
+      show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("homework"))
+    },
+    // YANGI: Baholar
+    {
+      to: "/grades",
+      label: "Baholar",
+      icon: GraduationCap,
+      show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("grades"))
+    },
     { 
       to: "/badges", 
       label: "Bejiklar chiqarish", 
       icon: Printer, 
       show: role === "super_admin" || role === "teacher" || (role === "assistant" && permissions.includes("badges"))
     },
-    // 🔥 YANGI QO'SHILGAN QISM: Bot hisoboti
     { 
       to: "/cron-logs", 
       label: "Bot hisoboti", 

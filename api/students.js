@@ -21,6 +21,55 @@ const studentSchema = new mongoose.Schema({
 
 const Student = mongoose.models.Student || mongoose.model('Student', studentSchema, 'students');
 
+// YANGI: Dars jadvali, uy vazifasi, baholar, xabarlar — student-profile.js dagi
+// bilan BIR XIL model nomlari va to'plam nomlari ishlatiladi, shuning uchun
+// mongoose ikkalasida ham bitta model keshiga murojaat qiladi. Yangi api/ fayl
+// ochilmaydi — Vercel funksiyalar soni o'zgarmaydi.
+const Schedule = mongoose.models.Schedule || mongoose.model('Schedule', new mongoose.Schema({
+  groupName: { type: String, required: true },
+  teacherId: { type: String, required: true },
+  days: [{
+    day:       { type: String, required: true },
+    startTime: { type: String, required: true },
+    endTime:   { type: String, required: true },
+    room:      { type: String, default: "" }
+  }],
+  updatedAt: { type: Date, default: Date.now }
+}, { strict: false }), 'schedules');
+
+const Homework = mongoose.models.Homework || mongoose.model('Homework', new mongoose.Schema({
+  groupName:   { type: String, required: true },
+  teacherId:   { type: String, required: true },
+  title:       { type: String, required: true },
+  description: { type: String, default: "" },
+  dueDate:     { type: String, required: true },
+  createdAt:   { type: Date, default: Date.now }
+}, { strict: false }), 'homeworks');
+
+const Grade = mongoose.models.Grade || mongoose.model('Grade', new mongoose.Schema({
+  studentId: { type: String, required: true },
+  groupName: { type: String, required: true },
+  teacherId: { type: String, required: true },
+  score:     { type: Number, required: true },
+  maxScore:  { type: Number, default: 100 },
+  comment:   { type: String, default: "" },
+  date:      { type: Date, default: Date.now }
+}, { strict: false }), 'grades');
+
+const Message = mongoose.models.Message || mongoose.model('Message', new mongoose.Schema({
+  studentId:  { type: String, required: true },
+  teacherId:  { type: String, required: true },
+  fromParent: { type: Boolean, default: true },
+  text:       { type: String, required: true },
+  date:       { type: Date, default: Date.now },
+  isRead:     { type: Boolean, default: false }
+}, { strict: false }), 'messages');
+
+const tg = (token, method, body) =>
+  fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  }).then(r => r.json()).catch(err => { console.error(`TG ${method} xatosi:`, err); return null; });
+
 // ─── Yordamchi: Telegram xabarnoma (yangi o'quvchi qo'shilganda) ─────────────
 const sendWelcomeTelegram = async (student) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -85,6 +134,222 @@ export default async function handler(req, res) {
   const role     = req.headers['x-user-role'];
   const userId   = req.headers['x-user-id'];
   const parentId = req.headers['x-parent-id'];
+  const ownerId  = role === 'assistant' ? parentId : userId;
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // YANGI: resource-based routing — dars jadvali, uy vazifasi, baholar, xabarlar.
+  // /api/students?resource=schedule|homework|grade|messages
+  // Bu alohida api/ fayl OCHMAYDI, shuning uchun Vercel funksiyalar limitiga
+  // tegmaydi (mavjud students.js faylining bir qismi sifatida ishlaydi).
+  // ════════════════════════════════════════════════════════════════════════════
+  const resource = req.query.resource;
+
+  if (resource === 'schedule') {
+    if (req.method === 'GET') {
+      const { groupName } = req.query;
+      let query = {};
+      if (groupName) query.groupName = groupName;
+      else if (role === 'teacher' || role === 'assistant') query.teacherId = ownerId;
+      const schedules = await Schedule.find(query).sort({ groupName: 1 });
+      return res.status(200).json({ success: true, data: schedules });
+    }
+
+    if (req.method === 'POST') {
+      const { groupName, days, notifyStudents } = req.body;
+      if (!groupName || !Array.isArray(days) || days.length === 0) {
+        return res.status(400).json({ success: false, message: "groupName va days talab qilinadi" });
+      }
+
+      const schedule = await Schedule.findOneAndUpdate(
+        { groupName, teacherId: ownerId },
+        { groupName, teacherId: ownerId, days, updatedAt: new Date() },
+        { new: true, upsert: true }
+      );
+
+      if (notifyStudents) {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        const students = await Student.find({ group: { $regex: groupName } });
+        const daysList = days.map(d => `📅 *${d.day}:* ${d.startTime}–${d.endTime}${d.room ? ` (${d.room})` : ''}`).join('\n');
+        const text = `📋 *DARS JADVALI YANGILANDI*\n\n📚 *Guruh:* ${groupName}\n\n${daysList}`;
+
+        const chatIds = new Set();
+        students.forEach(s => {
+          if (s.telegramChatId) {
+            String(s.telegramChatId).split(',').map(id => id.trim()).filter(id => /^\d{6,}$/.test(id))
+              .forEach(id => chatIds.add(id));
+          }
+        });
+
+        await Promise.allSettled(
+          [...chatIds].map(cId => tg(token, 'sendMessage', { chat_id: cId, text, parse_mode: 'Markdown' }))
+        );
+      }
+
+      return res.status(200).json({ success: true, data: schedule });
+    }
+
+    if (req.method === 'DELETE') {
+      const id = req.query.id;
+      if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri ID" });
+      }
+      await Schedule.findByIdAndDelete(id);
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ message: "Metod ruxsat etilmagan" });
+  }
+
+  if (resource === 'homework') {
+    if (req.method === 'GET') {
+      const { groupName } = req.query;
+      let query = {};
+      if (groupName) query.groupName = groupName;
+      else if (role === 'teacher' || role === 'assistant') query.teacherId = ownerId;
+      const homeworks = await Homework.find(query).sort({ createdAt: -1 }).limit(50);
+      return res.status(200).json({ success: true, data: homeworks });
+    }
+
+    if (req.method === 'POST') {
+      const { groupName, title, description, dueDate, notifyStudents } = req.body;
+      if (!groupName || !title || !dueDate) {
+        return res.status(400).json({ success: false, message: "groupName, title va dueDate talab qilinadi" });
+      }
+
+      const homework = await Homework.create({
+        groupName, teacherId: ownerId, title, description: description || "", dueDate
+      });
+
+      if (notifyStudents) {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        const students = await Student.find({ group: { $regex: groupName } });
+        const text = `📝 *YANGI UY VAZIFASI*\n\n📚 *Guruh:* ${groupName}\n📌 *Mavzu:* ${title}\n${description ? `\n${description}\n` : ''}\n📅 *Topshirish muddati:* ${dueDate}`;
+
+        const chatIds = new Set();
+        students.forEach(s => {
+          if (s.telegramChatId) {
+            String(s.telegramChatId).split(',').map(id => id.trim()).filter(id => /^\d{6,}$/.test(id))
+              .forEach(id => chatIds.add(id));
+          }
+        });
+
+        await Promise.allSettled(
+          [...chatIds].map(cId => tg(token, 'sendMessage', { chat_id: cId, text, parse_mode: 'Markdown' }))
+        );
+      }
+
+      return res.status(201).json({ success: true, data: homework });
+    }
+
+    if (req.method === 'DELETE') {
+      const id = req.query.id;
+      if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri ID" });
+      }
+      await Homework.findByIdAndDelete(id);
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ message: "Metod ruxsat etilmagan" });
+  }
+
+  if (resource === 'grade') {
+    if (req.method === 'GET') {
+      const { studentId, groupName } = req.query;
+      let query = {};
+      if (studentId) query.studentId = studentId;
+      if (groupName) query.groupName = groupName;
+      if (!studentId && !groupName && (role === 'teacher' || role === 'assistant')) {
+        query.teacherId = ownerId;
+      }
+      const grades = await Grade.find(query).sort({ date: -1 }).limit(200);
+      return res.status(200).json({ success: true, data: grades });
+    }
+
+    if (req.method === 'POST') {
+      const { studentId, groupName, score, maxScore, comment, notifyParent } = req.body;
+      if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri studentId" });
+      }
+      if (!groupName || score === undefined || score === null) {
+        return res.status(400).json({ success: false, message: "groupName va score talab qilinadi" });
+      }
+      if (Number(score) < 0) {
+        return res.status(400).json({ success: false, message: "Baho manfiy bo'lishi mumkin emas" });
+      }
+
+      const grade = await Grade.create({
+        studentId, groupName, teacherId: ownerId,
+        score: Number(score), maxScore: Number(maxScore) || 100, comment: comment || ""
+      });
+
+      if (notifyParent) {
+        const student = await Student.findById(studentId);
+        if (student?.telegramChatId) {
+          const token = process.env.TELEGRAM_BOT_TOKEN;
+          const text = `📊 *YANGI BAHO*\n\n👤 *O'quvchi:* ${student.name}\n📚 *Fan:* ${groupName}\n⭐ *Baho:* ${score}/${maxScore || 100}${comment ? `\n💬 ${comment}` : ''}`;
+          const chatIds = String(student.telegramChatId).split(',').map(id => id.trim()).filter(id => /^\d{6,}$/.test(id));
+          await Promise.allSettled(
+            chatIds.map(cId => tg(token, 'sendMessage', { chat_id: cId, text, parse_mode: 'Markdown' }))
+          );
+        }
+      }
+
+      return res.status(201).json({ success: true, data: grade });
+    }
+
+    if (req.method === 'DELETE') {
+      const id = req.query.id;
+      if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri ID" });
+      }
+      await Grade.findByIdAndDelete(id);
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ message: "Metod ruxsat etilmagan" });
+  }
+
+  if (resource === 'messages') {
+    if (req.method === 'GET') {
+      // Ustoz o'ziga yozilgan xabarlarni ko'radi
+      const query = role === 'super_admin' && req.query.teacherId
+        ? { teacherId: req.query.teacherId }
+        : { teacherId: ownerId };
+      const messages = await Message.find(query).sort({ date: -1 }).limit(100);
+      return res.status(200).json({ success: true, data: messages });
+    }
+
+    if (req.method === 'POST') {
+      // Ustoz ota-onaga javob yozadi
+      const { studentId, text } = req.body;
+      if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri studentId" });
+      }
+      if (!text || !String(text).trim()) {
+        return res.status(400).json({ success: false, message: "Xabar matni bo'sh bo'lishi mumkin emas" });
+      }
+
+      const reply = await Message.create({
+        studentId, teacherId: ownerId, fromParent: false, text: String(text).trim()
+      });
+
+      // Ota-onaga Telegram orqali javobni yetkazamiz
+      const student = await Student.findById(studentId);
+      if (student?.telegramChatId) {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        const chatIds = String(student.telegramChatId).split(',').map(id => id.trim()).filter(id => /^\d{6,}$/.test(id));
+        const msgText = `👨‍🏫 *Ustozdan javob keldi:*\n\n${text}`;
+        await Promise.allSettled(
+          chatIds.map(cId => tg(token, 'sendMessage', { chat_id: cId, text: msgText, parse_mode: 'Markdown' }))
+        );
+      }
+
+      return res.status(201).json({ success: true, data: reply });
+    }
+
+    return res.status(405).json({ message: "Metod ruxsat etilmagan" });
+  }
 
   // ─── GET ──────────────────────────────────────────────────────────────────
   if (req.method === 'GET') {

@@ -10,6 +10,51 @@ const Student = mongoose.models.Student || mongoose.model('Student', new mongoos
 const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
 const User    = mongoose.models.User    || mongoose.model('User',    new mongoose.Schema({}, { strict: false }), 'users');
 
+// YANGI: Dars jadvali, uy vazifasi, baholar va xabarlar uchun modellar.
+// Bular alohida api/ fayl OCHMAYDI — mavjud student-profile.js va students.js
+// ichida bir xil nom bilan e'lon qilinadi (mongoose.models.X keshidan foydalanadi),
+// shuning uchun Vercel funksiyalar soniga qo'shimcha limit sarflanmaydi.
+const Schedule = mongoose.models.Schedule || mongoose.model('Schedule', new mongoose.Schema({
+  groupName: { type: String, required: true },
+  teacherId: { type: String, required: true },
+  days: [{
+    day:       { type: String, required: true },
+    startTime: { type: String, required: true },
+    endTime:   { type: String, required: true },
+    room:      { type: String, default: "" }
+  }],
+  updatedAt: { type: Date, default: Date.now }
+}, { strict: false }), 'schedules');
+
+const Homework = mongoose.models.Homework || mongoose.model('Homework', new mongoose.Schema({
+  groupName:   { type: String, required: true },
+  teacherId:   { type: String, required: true },
+  title:       { type: String, required: true },
+  description: { type: String, default: "" },
+  dueDate:     { type: String, required: true }, // "YYYY-MM-DD"
+  createdAt:   { type: Date, default: Date.now }
+}, { strict: false }), 'homeworks');
+
+const Grade = mongoose.models.Grade || mongoose.model('Grade', new mongoose.Schema({
+  studentId: { type: String, required: true },
+  groupName: { type: String, required: true },
+  teacherId: { type: String, required: true },
+  score:     { type: Number, required: true },
+  maxScore:  { type: Number, default: 100 },
+  comment:   { type: String, default: "" },
+  date:      { type: Date, default: Date.now }
+}, { strict: false }), 'grades');
+
+// Ota-ona ↔ Ustoz xabarlashish (oddiy xabarlar jurnali)
+const Message = mongoose.models.Message || mongoose.model('Message', new mongoose.Schema({
+  studentId:  { type: String, required: true },
+  teacherId:  { type: String, required: true },
+  fromParent: { type: Boolean, default: true }, // true=ota-ona yozgan, false=ustoz javob bergan
+  text:       { type: String, required: true },
+  date:       { type: Date, default: Date.now },
+  isRead:     { type: Boolean, default: false }
+}, { strict: false }), 'messages');
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -49,6 +94,45 @@ export default async function handler(req, res) {
         }
 
         return res.status(200).json({ success: true, message: "Profil hisobdan uzildi!" });
+      }
+
+      // YANGI: Ota-ona ustozga xabar yozadi
+      if (action === 'sendMessage') {
+        const { text } = req.body;
+
+        if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+          return res.status(400).json({ success: false, message: "Noto'g'ri studentId" });
+        }
+        if (!text || !String(text).trim()) {
+          return res.status(400).json({ success: false, message: "Xabar matni bo'sh bo'lishi mumkin emas" });
+        }
+        if (String(text).length > 1000) {
+          return res.status(400).json({ success: false, message: "Xabar juda uzun (maksimal 1000 belgi)" });
+        }
+
+        const student = await Student.findById(studentId);
+        if (!student) {
+          return res.status(404).json({ success: false, message: "O'quvchi topilmadi" });
+        }
+
+        // Ustozni aniqlaymiz — birinchi topilgan teacherId
+        let teacherId = null;
+        if (student.groupsData?.length) teacherId = student.groupsData[0]?.teacherId;
+        if (!teacherId && student.teacherIds?.length) teacherId = student.teacherIds[0];
+        if (!teacherId && student.teacherId) teacherId = String(student.teacherId);
+
+        if (!teacherId) {
+          return res.status(400).json({ success: false, message: "Ustoz aniqlanmadi, xabar yuborilmadi" });
+        }
+
+        const newMessage = await Message.create({
+          studentId,
+          teacherId,
+          fromParent: true,
+          text: String(text).trim()
+        });
+
+        return res.status(201).json({ success: true, data: newMessage });
       }
 
       return res.status(400).json({ success: false, message: "Noma'lum action" });
@@ -131,6 +215,39 @@ export default async function handler(req, res) {
       // teacherId → name map
       const teacherMap = {};
       teachers.forEach(t => { teacherMap[String(t._id)] = t.fullName || t.username; });
+
+      // YANGI: guruh nomlarini yig'amiz — jadval va uy vazifasini shu bo'yicha olamiz
+      const allGroupNames = [...new Set(
+        students.flatMap(s => s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [])
+      )];
+
+      const [schedules, homeworks, grades, messages] = await Promise.all([
+        allGroupNames.length > 0 ? Schedule.find({ groupName: { $in: allGroupNames } }) : Promise.resolve([]),
+        allGroupNames.length > 0
+          ? Homework.find({ groupName: { $in: allGroupNames } }).sort({ createdAt: -1 }).limit(20)
+          : Promise.resolve([]),
+        Grade.find({
+          $or: [{ studentId: { $in: studentIds } }, { studentId: { $in: studentIdStrs } }]
+        }).sort({ date: -1 }),
+        Message.find({
+          $or: [{ studentId: { $in: studentIds } }, { studentId: { $in: studentIdStrs } }]
+        }).sort({ date: 1 })
+      ]);
+
+      // studentId bo'yicha baholar va xabarlarni guruhlash
+      const gradesByStudent = {};
+      grades.forEach(g => {
+        const sid = String(g.studentId);
+        if (!gradesByStudent[sid]) gradesByStudent[sid] = [];
+        gradesByStudent[sid].push(g);
+      });
+
+      const messagesByStudent = {};
+      messages.forEach(m => {
+        const sid = String(m.studentId);
+        if (!messagesByStudent[sid]) messagesByStudent[sid] = [];
+        messagesByStudent[sid].push(m);
+      });
 
       // studentId bo'yicha to'lovlarni guruhlash
       const monthPaymentsByStudent  = {};
@@ -217,6 +334,10 @@ export default async function handler(req, res) {
           .map(id => teacherMap[String(id)])
           .filter(Boolean);
 
+        // YANGI: shu student guruhlariga tegishli jadval va uy vazifalarini filtrlaymiz
+        const studentSchedules = schedules.filter(sc => studentGroups.includes(sc.groupName));
+        const studentHomeworks = homeworks.filter(hw => studentGroups.includes(hw.groupName));
+
         return {
           data: student,
           paymentStatus,
@@ -226,7 +347,12 @@ export default async function handler(req, res) {
           qarz: overallQarz,
           debtDetails,
           paymentsHistory,
-          teacherName: teacherNames.length > 0 ? teacherNames.join(', ') : "O'quv markazi ustozi"
+          teacherName: teacherNames.length > 0 ? teacherNames.join(', ') : "O'quv markazi ustozi",
+          // YANGI maydonlar:
+          schedule: studentSchedules,
+          homeworks: studentHomeworks,
+          grades: gradesByStudent[safeId] || [],
+          messages: messagesByStudent[safeId] || []
         };
       });
 
