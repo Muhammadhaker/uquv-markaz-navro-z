@@ -6,13 +6,12 @@ const connectDB = async () => {
   return mongoose.connect(process.env.MONGODB_URI);
 };
 
-// 🔥 YANGI: Xarajat qaysi ustozning pulidan ketganini bilish uchun teacherId qo'shildi
 const expenseSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   amount: { type: Number, required: true },
   month: { type: String, required: true },
   adminName: { type: String, default: "Admin" },
-  teacherId: { type: String, required: true }, 
+  teacherId: { type: String, required: true },
   date: { type: Date, default: Date.now }
 });
 
@@ -22,11 +21,11 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
-    const role = req.headers['x-user-role'];
-    const userId = req.headers['x-user-id'];
+    const role     = req.headers['x-user-role'];
+    const userId   = req.headers['x-user-id'];
     const parentId = req.headers['x-parent-id'];
 
-    // GET: Xarajatlarni o'qish 
+    // ─── GET: Xarajatlarni o'qish ───────────────────────────────────────────────
     if (req.method === 'GET') {
       let query = {};
       if (role === 'teacher') query = { teacherId: userId };
@@ -36,33 +35,74 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, data: expenses });
     }
 
-    // POST: Yangi xarajat qo'shish
+    // ─── POST: Yangi xarajat qo'shish ───────────────────────────────────────────
     if (req.method === 'POST') {
-      const { reason, amount, month, adminName } = req.body;
-      const ownerId = role === 'assistant' ? parentId : userId;
+      const { reason, amount, month } = req.body;
 
-      const newExpense = await Expense.create({ reason, amount, month, adminName, teacherId: ownerId });
+      // FIX: Validatsiya qo'shildi — avval hech narsa tekshirilmasdi
+      if (!reason || !String(reason).trim()) {
+        return res.status(400).json({ success: false, message: "Xarajat sababi kiritilishi shart" });
+      }
+      if (!amount || Number(amount) <= 0) {
+        return res.status(400).json({ success: false, message: "Summa musbat son bo'lishi kerak" });
+      }
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ success: false, message: "Oy noto'g'ri formatda (YYYY-MM kerak)" });
+      }
+
+      const ownerId = role === 'assistant' ? parentId : userId;
+      if (!ownerId) {
+        return res.status(400).json({ success: false, message: "Foydalanuvchi aniqlanmadi" });
+      }
+
+      // adminName — headerdan emas, requestdan olinadi (frontend localStorage
+      // dan yuboradi), lekin bo'sh bo'lsa xavfsiz default beramiz
+      const adminName = req.body.adminName || "Admin";
+
+      const newExpense = await Expense.create({
+        reason: String(reason).trim(),
+        amount: Number(amount),
+        month,
+        adminName,
+        teacherId: ownerId
+      });
+
       return res.status(201).json({ success: true, data: newExpense });
     }
 
-    // DELETE: Xarajatni o'chirish
+    // ─── DELETE: Xarajatni o'chirish ────────────────────────────────────────────
     if (req.method === 'DELETE') {
-      const { id } = req.body;
+      // FIX: id endi query paramdan ham qabul qilinadi (DELETE + body HTTP
+      // standartiga zid bo'lgani uchun). Eski frontendlar bilan moslik uchun
+      // body ham hali qo'llab-quvvatlanadi.
+      const id = req.query.id || req.body?.id;
+
+      if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri yoki bo'sh ID" });
+      }
+
       const expense = await Expense.findById(id);
+
+      // FIX: eng jiddiy xato — avvalgi versiyada `expense` null bo'lsa,
+      // keyingi qatordagi `expense.teacherId` chaqiruvi serverni 500 xato
+      // bilan crash qilardi. Endi avval mavjudligini tekshiramiz.
+      if (!expense) {
+        return res.status(404).json({ success: false, message: "Xarajat topilmadi" });
+      }
 
       const ownerId = role === 'assistant' ? parentId : userId;
       if (role !== 'super_admin' && expense.teacherId !== ownerId) {
-         return res.status(403).json({ success: false, message: "Siz faqat o'zingizning kassangizdagi xarajatlarni o'chira olasiz!" });
+        return res.status(403).json({ success: false, message: "Siz faqat o'zingizning kassangizdagi xarajatlarni o'chira olasiz!" });
       }
 
       await Expense.findByIdAndDelete(id);
       return res.status(200).json({ success: true, message: "O'chirildi" });
     }
 
-    res.status(405).json({ message: "Metod ruxsat etilmagan" });
+    return res.status(405).json({ message: "Metod ruxsat etilmagan" });
 
   } catch (error) {
     console.error("Expense API XATOSI:", error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 }

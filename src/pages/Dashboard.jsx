@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CalendarDays, Loader2, Download, Trash2, Plus, TrendingUp, TrendingDown, Wallet, ArrowDownRight, ArrowUpRight } from "lucide-react";
-import AddExpenseModal from "../components/AddExpenseModal"; 
+import AddExpenseModal from "../components/AddExpenseModal";
 
 export default function Dashboard() {
   const [payments, setPayments] = useState([]);
@@ -13,14 +13,15 @@ export default function Dashboard() {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
-  const getAuthHeaders = () => ({
+  // FIX: useCallback bilan — har renderda qayta yaratilmaydi
+  const getAuthHeaders = useCallback(() => ({
     "Content-Type": "application/json",
     "x-user-role": localStorage.getItem("userRole") || "",
     "x-user-id": localStorage.getItem("userId") || "",
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
-  });
+  }), []);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
       const [payRes, expRes] = await Promise.all([
@@ -36,98 +37,76 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeaders]);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
-// 🔥 YANGI VA XAVFSIZ: To'lovni o'chirish
+  // FIX: DELETE so'rovida id endi query parametrda yuboriladi (body emas).
+  // DELETE so'rovida body ishlatish HTTP standartiga zid — ba'zi proksi va
+  // muhitlar buni yo'q qilib yuboradi. Query param har doim ishonchli yetadi.
   const handleDeletePayment = async (p) => {
     if (!window.confirm(`${p.studentName} to'lovini o'chirmoqchimisiz?`)) return;
     try {
-      const res = await fetch("/api/payments", { 
-         method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id: p._id }) 
+      const res = await fetch(`/api/payments?id=${encodeURIComponent(p._id)}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
       });
-      const data = await res.json();
-      
-      if (!res.ok) throw new Error(data.message || "O'chirishda xatolik yuz berdi");
-      
-      // 1. Darhol UI ni yangilaymiz (Log ni kutib o'tirmaymiz!)
-      fetchStats();
 
-      // 2. Log yozishni alohida "fire-and-forget" usulida fonda bajaramiz
-      fetch("/api/logs", { 
-        method: "POST", 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ 
-          adminName: localStorage.getItem("username") || "Admin", 
-          actionType: "delete", 
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("O'chirishda xato: " + (err.message || res.statusText));
+        return;
+      }
+
+      await fetch("/api/logs", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          adminName: localStorage.getItem("username") || "Admin",
+          actionType: "delete",
           details: `To'lov o'chirildi: ${p.studentName}`,
-          targetApi: "/api/payments", 
-          deletedData: p 
-        }) 
-      }).catch(err => console.error("Log saqlashda xato:", err));
-      
+          targetApi: "/api/payments",
+          deletedData: p
+        })
+      });
+      fetchStats();
     } catch (error) {
-      alert(`Xato: ${error.message}`); // Agar server bloklasa, ekranga chiqadi
       console.error(error);
+      alert("Server bilan bog'lanishda xato!");
     }
   };
 
-  // 🔥 YANGI VA XAVFSIZ: Xarajatni o'chirish
   const handleDeleteExpense = async (e) => {
     if (!window.confirm(`"${e.reason}" xarajatini o'chirmoqchimisiz?`)) return;
     try {
-      const res = await fetch("/api/expenses", { 
-         method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id: e._id }) 
+      const res = await fetch(`/api/expenses?id=${encodeURIComponent(e._id)}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
       });
-      const data = await res.json();
 
-      if (!res.ok) throw new Error(data.message || "O'chirishda xatolik yuz berdi");
-      
-      // 1. Darhol UI yangilanadi
-      fetchStats();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("O'chirishda xato: " + (err.message || res.statusText));
+        return;
+      }
 
-      // 2. Log fonda yoziladi
-      fetch("/api/logs", { 
-        method: "POST", 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ 
-          adminName: localStorage.getItem("username") || "Admin", 
-          actionType: "delete", 
+      await fetch("/api/logs", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          adminName: localStorage.getItem("username") || "Admin",
+          actionType: "delete",
           details: `Xarajat o'chirildi: ${e.reason}`,
           targetApi: "/api/expenses",
-          deletedData: e 
-        }) 
-      }).catch(err => console.error("Log saqlashda xato:", err));
-      
-    } catch (error) {
-      alert(`Xato: ${error.message}`);
-      console.error(error);
-    }
-  };
-
-  // 🔥 YANGI: Xarajatni o'chirish (Summa va Tiklash logikasi bilan)
-  const handleDeleteExpense = async (e) => {
-    if (!window.confirm(`"${e.reason}" xarajatini o'chirmoqchimisiz?`)) return;
-    try {
-      await fetch("/api/expenses", { method: "DELETE", headers: getAuthHeaders(), body: JSON.stringify({ id: e._id }) });
-      
-      await fetch("/api/logs", { 
-        method: "POST", 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ 
-          adminName: localStorage.getItem("username") || "Admin", 
-          actionType: "delete", 
-          details: `Xarajat o'chirildi: ${e.reason}`,
-          targetApi: "/api/expenses", // Tiklash uchun
-          deletedData: e // Puli bilan ketadi!
-        }) 
+          deletedData: e
+        })
       });
       fetchStats();
     } catch (error) {
       console.error(error);
+      alert("Server bilan bog'lanishda xato!");
     }
   };
 
@@ -403,7 +382,6 @@ export default function Dashboard() {
                       <td className="px-6 py-4 font-bold text-emerald-600">{Number(p.amount).toLocaleString("ru-RU")} so'm</td>
                       <td className="px-6 py-4 hidden md:table-cell text-slate-500">{new Date(p.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                       <td className="px-6 py-4 text-right">
-                        {/* 🔥 O'zgartirildi: p._id emas, p obyektining o'zi yuboriladi */}
                         <button onClick={() => handleDeletePayment(p)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
                           <Trash2 size={18} />
                         </button>
@@ -422,7 +400,6 @@ export default function Dashboard() {
                       <td className="px-6 py-4 font-bold text-rose-600">{Number(e.amount).toLocaleString("ru-RU")} so'm</td>
                       <td className="px-6 py-4 hidden md:table-cell text-slate-500">{new Date(e.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                       <td className="px-6 py-4 text-right">
-                        {/* 🔥 O'zgartirildi: e._id emas, e obyektining o'zi yuboriladi */}
                         <button onClick={() => handleDeleteExpense(e)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
                           <Trash2 size={18} />
                         </button>
@@ -464,11 +441,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <AddExpenseModal 
-        isOpen={isExpenseModalOpen} 
-        onClose={() => setIsExpenseModalOpen(false)} 
-        onSuccess={fetchStats} 
-        selectedMonth={selectedMonth} 
+      <AddExpenseModal
+        isOpen={isExpenseModalOpen}
+        onClose={() => setIsExpenseModalOpen(false)}
+        onSuccess={fetchStats}
+        selectedMonth={selectedMonth}
       />
 
     </div>

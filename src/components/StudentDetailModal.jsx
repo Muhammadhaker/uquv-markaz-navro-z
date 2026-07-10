@@ -37,6 +37,46 @@ const calculateCycles = (addedAtStr) => {
   return Math.max(1, m + 1);
 };
 
+// FIX: Avvalgi versiyada bir xil qarz hisoblash logikasi ikki joyda
+// (debtDetails yig'ish uchun va guruhlarni render qilish uchun) alohida-alohida
+// yozilgan edi — 50+ qator aynan bir xil kod takrorlangan. Endi bitta funksiya
+// orqali hisoblanadi, ikkala joyda ham shu natijadan foydalaniladi.
+const calculateGroupDebt = (groupName, studentPayments, currentPrice, activeCycles) => {
+  const groupPayments = studentPayments.filter(p => p.groupName === groupName || !p.groupName);
+  const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  let expectedTotalFromHistory = 0;
+  let paidMonthsCount = 0;
+
+  const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
+
+  uniqueMonths.forEach(m => {
+    const paymentsForThisMonth = groupPayments.filter(p => p.month === m);
+    const firstPaymentForMonth = paymentsForThisMonth[0];
+    const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+
+    const historicalPrice = firstPaymentForMonth.priceAtThatTime
+      ? Number(firstPaymentForMonth.priceAtThatTime)
+      : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
+
+    expectedTotalFromHistory += historicalPrice;
+    paidMonthsCount++;
+  });
+
+  const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
+  expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
+
+  const qarz = expectedTotalFromHistory - totalPaid;
+
+  return {
+    group: groupName,
+    paid: totalPaid,
+    qarz: qarz > 0 ? qarz : 0,
+    isPaid: qarz <= 0,
+    isPartial: totalPaid > 0 && qarz > 0
+  };
+};
+
 export default function StudentDetailModal({ student, payments, onClose, onRefresh }) {
   const [payGroup, setPayGroup] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -67,7 +107,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
 
   const role = localStorage.getItem("userRole");
   let teacherName = localStorage.getItem("userFullName") || localStorage.getItem("username");
-  
+
   if (role === "super_admin" || teacherName === "Navroz") {
     teacherName = "G'ulomov Navro'z";
   } else if (!teacherName) {
@@ -89,54 +129,23 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     return 300000;
   };
 
-  const debtDetails = [];
+  // FIX: Bitta joyda hisoblanadi — natija ham debtDetails ro'yxati uchun,
+  // ham har bir guruhni render qilish uchun ishlatiladi (duplikat kod yo'q).
+  const groupDebts = studentGroups.length > 0
+    ? studentGroups.map(g => calculateGroupDebt(g, studentPayments, getPrice(g), activeCycles))
+    : [];
+
+  const debtDetails = groupDebts.filter(d => d.qarz > 0).map(d => ({ group: d.group, qarz: d.qarz }));
+
   let OVERALL_DEBT = 0;
-
   if (studentGroups.length > 0) {
-    studentGroups.forEach(g => {
-      const currentPrice = getPrice(g); 
-      const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
-      
-      const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      
-      let expectedTotalFromHistory = 0;
-      let paidMonthsCount = 0;
-
-      const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
-
-      uniqueMonths.forEach(m => {
-        const paymentsForThisMonth = groupPayments.filter(p => p.month === m);
-        const firstPaymentForMonth = paymentsForThisMonth[0];
-        
-        // 🔥 Xuddi shu to'g'rilangan logika
-        const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-        
-        const historicalPrice = firstPaymentForMonth.priceAtThatTime 
-          ? Number(firstPaymentForMonth.priceAtThatTime) 
-          : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
-
-        expectedTotalFromHistory += historicalPrice;
-        paidMonthsCount++;
-      });
-
-      const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
-      expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
-
-      const qarz = expectedTotalFromHistory - totalPaid;
-
-      if (qarz > 0) {
-        debtDetails.push({ group: g, qarz });
-        OVERALL_DEBT += qarz;
-      }
-    });
+    OVERALL_DEBT = groupDebts.reduce((sum, d) => sum + d.qarz, 0);
   } else {
     const COURSE_PRICE = 300000;
     const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
     const totalPaid = studentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
     const qarz = EXPECTED_TOTAL - totalPaid;
-    if (qarz > 0) {
-      OVERALL_DEBT += qarz;
-    }
+    if (qarz > 0) OVERALL_DEBT += qarz;
   }
 
   const hasAnyDebt = OVERALL_DEBT > 0;
@@ -160,10 +169,11 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       if (data.success) {
         alert("✅ Qarz eslatmasi o'quvchiga yuborildi!");
       } else {
-        alert("Xatolik: " + data.message);
+        alert("Xatolik: " + (data.error || data.message));
       }
     } catch (err) {
       console.error(err);
+      alert("Server bilan bog'lanishda xato!");
     } finally {
       setIsSendingWarning(false);
     }
@@ -236,8 +246,11 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
         });
         const data = await res.json();
         if (data.success) alert("✅ Chek o'quvchiga bot orqali yuborildi!");
-        else alert("Chekni yuborishda xatolik yuz berdi.");
-      } catch (error) { console.error("Bot orqali yuborish xatosi:", error); }
+        else alert("Chekni yuborishda xatolik yuz berdi: " + (data.error || ""));
+      } catch (error) {
+        console.error("Bot orqali yuborish xatosi:", error);
+        alert("Server bilan bog'lanishda xato!");
+      }
     } else {
       window.open(`tg://msg_url?url=${encodeURIComponent(text)}`, "_blank");
     }
@@ -269,9 +282,12 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       if (res.ok) {
         setLocalException(updatedExceptions);
         onRefresh();
+      } else {
+        alert("Saqlashda xato yuz berdi.");
       }
     } catch (err) {
       console.error(err);
+      alert("Server bilan bog'lanishda xato!");
     } finally {
       setIsExcepting(false);
     }
@@ -280,7 +296,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   const handlePrintQR = () => {
     const qrElement = document.getElementById("qr-print-area");
     if (!qrElement) return;
-    
+
     const printWindow = window.open('', '_blank', 'width=800,height=800');
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -289,14 +305,14 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
           <title>${student.name} - Bejik</title>
           <style>
             @page { size: A4; margin: 5mm; }
-            body { 
-              font-family: 'Segoe UI', Arial, sans-serif; 
-              display: flex; 
-              justify-content: center; 
-              align-items: flex-start; 
+            body {
+              font-family: 'Segoe UI', Arial, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: flex-start;
               padding-top: 30mm;
-              height: 100vh; 
-              margin: 0; 
+              height: 100vh;
+              margin: 0;
               background-color: #fff;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
@@ -372,17 +388,17 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
               <div class="header-title">G'ulomov Math Group</div>
               <div class="header-sub">Student Access Badge</div>
             </div>
-            
+
             <div class="qr-container">
               <div class="qr-box">
                 ${qrElement.innerHTML}
               </div>
             </div>
-            
+
             <div class="student-details">
               <div class="st-name">${student.name}</div>
               <div class="st-group">📚 ${student.group || "Guruhsiz"}</div>
-              <div class="st-teacher">USTOZ: ${teacherName}</div> 
+              <div class="st-teacher">USTOZ: ${teacherName}</div>
             </div>
           </div>
           <script>
@@ -435,68 +451,36 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
             <div className="mb-6 space-y-2">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Guruhlar va Jami To'lov ({activeCycles} oylik davr)</h3>
 
-              {studentGroups.length > 0 ? studentGroups.map((g, idx) => {
-                const currentPrice = getPrice(g);
-                const groupPayments = studentPayments.filter(p => p.groupName === g || !p.groupName);
-                
-                const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-                
-                let expectedTotalFromHistory = 0;
-                let paidMonthsCount = 0;
-                const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
-
-                uniqueMonths.forEach(m => {
-                  const paymentsForThisMonth = groupPayments.filter(p => p.month === m);
-                  const firstPaymentForMonth = paymentsForThisMonth[0];
-                  
-                  // 🔥 Aynan shu to'g'rilangan kod
-                  const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-                  const historicalPrice = firstPaymentForMonth.priceAtThatTime 
-                    ? Number(firstPaymentForMonth.priceAtThatTime) 
-                    : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
-
-                  expectedTotalFromHistory += historicalPrice;
-                  paidMonthsCount++;
-                });
-
-                const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
-                expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
-
-                const qarz = expectedTotalFromHistory - totalPaid;
-
-                const isGroupPaid = qarz <= 0;
-                const isPartial = totalPaid > 0 && qarz > 0;
-
-                return (
-                  <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 border rounded-xl bg-white shadow-sm gap-3">
-                    <div className="font-bold text-slate-700 flex items-center gap-2 text-sm">
-                      <BookOpen size={16} className="text-indigo-500 min-w-[16px]" />
-                      <div>
-                        {g} <br />
-                        <span className="text-[10px] text-slate-400 font-medium">Asosiy qarz: {qarz > 0 ? qarz.toLocaleString() : 0} so'm</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {isGroupPaid ? (
-                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold w-full text-center sm:w-auto">To'langan</span>
-                      ) : isPartial ? (
-                        <span className="bg-orange-100 text-orange-700 px-2 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap">Qarz: {qarz.toLocaleString()}</span>
-                      ) : (
-                        <span className="bg-rose-100 text-rose-700 px-2 py-1.5 rounded-lg text-xs font-bold">To'lanmagan</span>
-                      )}
-
-                      <button
-                        onClick={() => setPayGroup(g)}
-                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1 justify-center whitespace-nowrap"
-                        title="Avans yoki qarzni to'lash"
-                      >
-                        <CreditCard size={14} /> To'lash
-                      </button>
+              {/* FIX: groupDebts endi oldindan hisoblangan — bu yerda faqat render qilinadi */}
+              {groupDebts.length > 0 ? groupDebts.map((d, idx) => (
+                <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 border rounded-xl bg-white shadow-sm gap-3">
+                  <div className="font-bold text-slate-700 flex items-center gap-2 text-sm">
+                    <BookOpen size={16} className="text-indigo-500 min-w-[16px]" />
+                    <div>
+                      {d.group} <br />
+                      <span className="text-[10px] text-slate-400 font-medium">Asosiy qarz: {d.qarz.toLocaleString()} so'm</span>
                     </div>
                   </div>
-                );
-              }) : (
+
+                  <div className="flex items-center gap-2">
+                    {d.isPaid ? (
+                      <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold w-full text-center sm:w-auto">To'langan</span>
+                    ) : d.isPartial ? (
+                      <span className="bg-orange-100 text-orange-700 px-2 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap">Qarz: {d.qarz.toLocaleString()}</span>
+                    ) : (
+                      <span className="bg-rose-100 text-rose-700 px-2 py-1.5 rounded-lg text-xs font-bold">To'lanmagan</span>
+                    )}
+
+                    <button
+                      onClick={() => setPayGroup(d.group)}
+                      className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1 justify-center whitespace-nowrap"
+                      title="Avans yoki qarzni to'lash"
+                    >
+                      <CreditCard size={14} /> To'lash
+                    </button>
+                  </div>
+                </div>
+              )) : (
                 <div className="p-3 bg-slate-50 text-slate-500 rounded-xl text-sm text-center font-medium">Guruhga qo'shilmagan</div>
               )}
             </div>
@@ -574,7 +558,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
                          <span className="flex items-center gap-1"><BookOpen size={12} /> <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{p.groupName || "Umumiy"}</span></span>
                          {p.priceAtThatTime && <span>(Asl narxi: {Number(p.priceAtThatTime).toLocaleString()} so'm)</span>}
                       </div>
-                      
+
                       <button
                         onClick={() => shareReceipt(p)}
                         className="w-full mt-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex justify-center items-center gap-2 hover:bg-blue-100 transition-colors"

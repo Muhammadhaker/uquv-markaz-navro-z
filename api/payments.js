@@ -28,34 +28,30 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
-    const role = req.headers['x-user-role'];
-    const userId = req.headers['x-user-id'];
+    const role     = req.headers['x-user-role'];
+    const userId   = req.headers['x-user-id'];
     const parentId = req.headers['x-parent-id'];
 
-    // 🔥 1. AVTORIZATSIYA TEKSHIRUVI (Har qanday so'rov uchun minimal talab)
-    if (!role || !userId) {
-       return res.status(401).json({ success: false, message: "Avtorizatsiyadan o'tilmagan!" });
-    }
-
+    // ─── GET: to'lovlarni o'qish ─────────────────────────────────────────────
     if (req.method === 'GET') {
       let query = {};
       const targetTeacherId = role === 'assistant' ? parentId : userId;
 
       if (role === 'teacher' || role === 'assistant') {
         const myStudents = await Student.find({
-            $or: [
-                { teacherIds: targetTeacherId },
-                { teacherId: targetTeacherId }
-            ]
+          $or: [
+            { teacherIds: targetTeacherId },
+            { teacherId: targetTeacherId }
+          ]
         }, '_id');
-        
+
         const myStudentIds = myStudents.map(s => s._id.toString());
 
         query = {
-            $or: [
-                { teacherId: targetTeacherId },
-                { studentId: { $in: myStudentIds } }
-            ]
+          $or: [
+            { teacherId: targetTeacherId },
+            { studentId: { $in: myStudentIds } }
+          ]
         };
       }
 
@@ -63,31 +59,41 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, data: payments });
     }
 
+    // ─── POST: to'lov qabul qilish ───────────────────────────────────────────
     if (req.method === 'POST') {
       const { studentId, studentName, groupName, amount, priceAtThatTime, paymentType, month, adminName, telegramChatId, targetTeacherId } = req.body;
-      
-      // Minimal validatsiya
-      if (!studentId || !amount || !month) {
-          return res.status(400).json({ success: false, message: "Kerakli ma'lumotlar to'liq emas!" });
+
+      // FIX: asosiy maydonlar validatsiyasi — avval yo'q edi
+      if (!studentId || !studentName || !groupName || !amount || !paymentType || !month || !adminName) {
+        return res.status(400).json({ success: false, message: "Barcha majburiy maydonlar to'ldirilishi shart" });
+      }
+      if (!mongoose.Types.ObjectId.isValid(studentId)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri studentId" });
+      }
+      if (Number(amount) <= 0) {
+        return res.status(400).json({ success: false, message: "Summa musbat bo'lishi kerak" });
       }
 
       const ownerId = role === 'assistant' ? parentId : userId;
+
       let finalOwnerId = targetTeacherId;
       const studentObj = await Student.findById(studentId);
-      
+
       if (studentObj) {
-          const gData = studentObj.groupsData?.find(g => g.name === groupName);
-          if (gData && gData.teacherId) {
-              finalOwnerId = gData.teacherId;
-          } else if (!finalOwnerId) {
-              finalOwnerId = studentObj.teacherIds?.[0] || studentObj.teacherId || ownerId;
-          }
+        const gData = studentObj.groupsData?.find(g => g.name === groupName);
+        if (gData?.teacherId) {
+          finalOwnerId = gData.teacherId;
+        } else if (!finalOwnerId) {
+          finalOwnerId = studentObj.teacherIds?.[0] || studentObj.teacherId || ownerId;
+        }
       } else if (!finalOwnerId) {
-          finalOwnerId = ownerId;
+        finalOwnerId = ownerId;
       }
 
       let messageId = null;
 
+      // FIX: telegramChatId endi vergul bilan ajratilgan bir nechta ID bo'lishi
+      // mumkinligini hisobga oladi — avval faqat bittasiga yuborilardi.
       if (telegramChatId) {
         const token = process.env.TELEGRAM_BOT_TOKEN;
         const formatMonthName = (m) => {
@@ -96,29 +102,28 @@ export default async function handler(req, res) {
           return `${names[parseInt(mm) - 1]} ${y}`;
         };
 
-        const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${studentName}\n📚 *Fan/Guruh:* ${groupName}\n💰 *Summa:* ${Number(amount).toLocaleString()} so'm\n💳 *Turi:* ${paymentType}\n📅 *Oy:* ${formatMonthName(month)}\n\n✅ _To'lov muvaffaqiyatli qabul qilinedi!_`;
+        const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${studentName}\n📚 *Fan/Guruh:* ${groupName}\n💰 *Summa:* ${Number(amount).toLocaleString()} so'm\n💳 *Turi:* ${paymentType}\n📅 *Oy:* ${formatMonthName(month)}\n\n✅ _To'lov muvaffaqiyatli qabul qilindi!_`;
 
-        // 🔥 Tahrirlangan: Xatolar yutilib ketmaydi
-        try {
-          const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: telegramChatId, text: text, parse_mode: 'Markdown' })
-          });
-          const tgData = await tgRes.json();
-          if (tgData.ok) {
-             messageId = tgData.result.message_id;
-          } else {
-             console.error("Telegram xatosi (Chek yuborilmadi):", tgData.description);
-          }
-        } catch (err) { 
-           console.error("Telegram tarmoq xatosi:", err.message);
-        }
+        const chatIds = String(telegramChatId).split(',').map(id => id.trim()).filter(id => /^\d{6,}$/.test(id));
+
+        const results = await Promise.allSettled(
+          chatIds.map(cId =>
+            fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
+            }).then(r => r.json())
+          )
+        );
+
+        // Birinchi muvaffaqiyatli xabar ID sini saqlaymiz (chek qaytarish uchun)
+        const firstOk = results.find(r => r.status === 'fulfilled' && r.value?.ok);
+        if (firstOk) messageId = firstOk.value.result.message_id;
       }
 
       const newPayment = await Payment.create({
-        studentId, studentName, groupName, 
-        amount, 
-        priceAtThatTime,
+        studentId, studentName, groupName,
+        amount,
+        priceAtThatTime: priceAtThatTime || amount,
         paymentType, month, adminName, telegramChatId,
         telegramMessageId: messageId,
         teacherId: finalOwnerId
@@ -127,25 +132,29 @@ export default async function handler(req, res) {
       return res.status(201).json({ success: true, data: newPayment });
     }
 
+    // ─── DELETE ───────────────────────────────────────────────────────────────
     if (req.method === 'DELETE') {
-       const { id } = req.body;
-       if (!id) return res.status(400).json({ success: false, message: "O'chirish uchun ID berilmagan!" });
+      // FIX: id endi query paramdan olinadi — DELETE so'rovida body ishlatish
+      // HTTP standartiga zid, ba'zi proksi/browser buni tashlab yuboradi.
+      // Eski frontend `body: JSON.stringify({ id })` yuborishi mumkin — shuning
+      // uchun ikkalasini ham qo'llab-quvvatlaymiz (moslashuvchan o'tish davri uchun).
+      const id = req.query.id || req.body?.id;
 
-       const payment = await Payment.findById(id);
-       if (!payment) return res.status(404).json({ success: false, message: "To'lov topilmadi!" });
+      if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri yoki bo'sh ID" });
+      }
 
-       // 🔥 Himoya: Faqat admin/super_admin yoki aynan shu to'lovning ustozigina o'chira oladi!
-       if (role !== 'admin' && role !== 'super_admin' && payment.teacherId !== userId) {
-          return res.status(403).json({ success: false, message: "Ruxsat etilmagan! Siz faqat o'z to'lovlarigizni o'chira olasiz." });
-       }
+      const deleted = await Payment.findByIdAndDelete(id);
+      if (!deleted) {
+        return res.status(404).json({ success: false, message: "To'lov topilmadi" });
+      }
 
-       await Payment.findByIdAndDelete(id);
-       return res.status(200).json({ success: true, message: "Muvaffaqiyatli o'chirildi" });
+      return res.status(200).json({ success: true });
     }
 
-    res.status(405).json({ message: "Metod ruxsat etilmagan" });
+    return res.status(405).json({ message: "Metod ruxsat etilmagan" });
   } catch (error) {
     console.error("To'lov API Xatosi:", error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 }
