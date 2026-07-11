@@ -1,59 +1,6 @@
 import mongoose from 'mongoose';
-
-const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) return;
-  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI topilmadi!");
-  return mongoose.connect(process.env.MONGODB_URI);
-};
-
-const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
-const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
-const User    = mongoose.models.User    || mongoose.model('User',    new mongoose.Schema({}, { strict: false }), 'users');
-
-// YANGI: Dars jadvali, uy vazifasi, baholar va xabarlar uchun modellar.
-// Bular alohida api/ fayl OCHMAYDI — mavjud student-profile.js va students.js
-// ichida bir xil nom bilan e'lon qilinadi (mongoose.models.X keshidan foydalanadi),
-// shuning uchun Vercel funksiyalar soniga qo'shimcha limit sarflanmaydi.
-const Schedule = mongoose.models.Schedule || mongoose.model('Schedule', new mongoose.Schema({
-  groupName: { type: String, required: true },
-  teacherId: { type: String, required: true },
-  days: [{
-    day:       { type: String, required: true },
-    startTime: { type: String, required: true },
-    endTime:   { type: String, required: true },
-    room:      { type: String, default: "" }
-  }],
-  updatedAt: { type: Date, default: Date.now }
-}, { strict: false }), 'schedules');
-
-const Homework = mongoose.models.Homework || mongoose.model('Homework', new mongoose.Schema({
-  groupName:   { type: String, required: true },
-  teacherId:   { type: String, required: true },
-  title:       { type: String, required: true },
-  description: { type: String, default: "" },
-  dueDate:     { type: String, required: true }, // "YYYY-MM-DD"
-  createdAt:   { type: Date, default: Date.now }
-}, { strict: false }), 'homeworks');
-
-const Grade = mongoose.models.Grade || mongoose.model('Grade', new mongoose.Schema({
-  studentId: { type: String, required: true },
-  groupName: { type: String, required: true },
-  teacherId: { type: String, required: true },
-  score:     { type: Number, required: true },
-  maxScore:  { type: Number, default: 100 },
-  comment:   { type: String, default: "" },
-  date:      { type: Date, default: Date.now }
-}, { strict: false }), 'grades');
-
-// Ota-ona ↔ Ustoz xabarlashish (oddiy xabarlar jurnali)
-const Message = mongoose.models.Message || mongoose.model('Message', new mongoose.Schema({
-  studentId:  { type: String, required: true },
-  teacherId:  { type: String, required: true },
-  fromParent: { type: Boolean, default: true }, // true=ota-ona yozgan, false=ustoz javob bergan
-  text:       { type: String, required: true },
-  date:       { type: Date, default: Date.now },
-  isRead:     { type: Boolean, default: false }
-}, { strict: false }), 'messages');
+import { connectDB } from './_lib/db.js';
+import { Student, Payment, User, Schedule, Homework, Grade, Message } from './_lib/models.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

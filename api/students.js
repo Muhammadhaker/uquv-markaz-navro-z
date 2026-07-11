@@ -1,74 +1,7 @@
 import mongoose from 'mongoose';
-
-const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) return;
-  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI topilmadi!");
-  return mongoose.connect(process.env.MONGODB_URI);
-};
-
-const studentSchema = new mongoose.Schema({
-  name:             { type: String,   required: true },
-  parentName:       { type: String,   required: true },
-  phone:            { type: String,   default: "Kiritilmagan" },
-  group:            { type: String,   required: true },
-  telegramChatId:   { type: String,   default: null },
-  groupsData:       { type: Array,    default: [] },
-  isNewStudent:     { type: Boolean,  default: true },
-  exceptionMonths:  { type: [String], default: [] },
-  teacherIds:       { type: [String], default: [] },
-  addedAt:          { type: Date,     default: Date.now }
-}, { strict: false });
-
-const Student = mongoose.models.Student || mongoose.model('Student', studentSchema, 'students');
-
-// YANGI: Dars jadvali, uy vazifasi, baholar, xabarlar — student-profile.js dagi
-// bilan BIR XIL model nomlari va to'plam nomlari ishlatiladi, shuning uchun
-// mongoose ikkalasida ham bitta model keshiga murojaat qiladi. Yangi api/ fayl
-// ochilmaydi — Vercel funksiyalar soni o'zgarmaydi.
-const Schedule = mongoose.models.Schedule || mongoose.model('Schedule', new mongoose.Schema({
-  groupName: { type: String, required: true },
-  teacherId: { type: String, required: true },
-  days: [{
-    day:       { type: String, required: true },
-    startTime: { type: String, required: true },
-    endTime:   { type: String, required: true },
-    room:      { type: String, default: "" }
-  }],
-  updatedAt: { type: Date, default: Date.now }
-}, { strict: false }), 'schedules');
-
-const Homework = mongoose.models.Homework || mongoose.model('Homework', new mongoose.Schema({
-  groupName:   { type: String, required: true },
-  teacherId:   { type: String, required: true },
-  title:       { type: String, required: true },
-  description: { type: String, default: "" },
-  dueDate:     { type: String, required: true },
-  createdAt:   { type: Date, default: Date.now }
-}, { strict: false }), 'homeworks');
-
-const Grade = mongoose.models.Grade || mongoose.model('Grade', new mongoose.Schema({
-  studentId: { type: String, required: true },
-  groupName: { type: String, required: true },
-  teacherId: { type: String, required: true },
-  score:     { type: Number, required: true },
-  maxScore:  { type: Number, default: 100 },
-  comment:   { type: String, default: "" },
-  date:      { type: Date, default: Date.now }
-}, { strict: false }), 'grades');
-
-const Message = mongoose.models.Message || mongoose.model('Message', new mongoose.Schema({
-  studentId:  { type: String, required: true },
-  teacherId:  { type: String, required: true },
-  fromParent: { type: Boolean, default: true },
-  text:       { type: String, required: true },
-  date:       { type: Date, default: Date.now },
-  isRead:     { type: Boolean, default: false }
-}, { strict: false }), 'messages');
-
-const tg = (token, method, body) =>
-  fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-  }).then(r => r.json()).catch(err => { console.error(`TG ${method} xatosi:`, err); return null; });
+import { connectDB } from './_lib/db.js';
+import { Student, Schedule, Homework, Grade, Message } from './_lib/models.js';
+import { tg } from './_lib/telegram.js';
 
 // ─── Yordamchi: Telegram xabarnoma (yangi o'quvchi qo'shilganda) ─────────────
 const sendWelcomeTelegram = async (student) => {
