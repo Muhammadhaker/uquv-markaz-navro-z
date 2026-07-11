@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import PaymentModal from "./PaymentModal";
+import { calculateCycles, calculateGroupDebt, DEFAULT_PRICE } from "../utils/debtCalculator";
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
@@ -21,60 +22,6 @@ const formatMonth = (m) => {
   const [y, mm] = m.split("-");
   const names = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
   return `${names[parseInt(mm) - 1]} ${y}`;
-};
-
-const calculateCycles = (addedAtStr) => {
-  if (!addedAtStr) return 1;
-  const added = new Date(addedAtStr);
-  if (isNaN(added.getTime())) return 1;
-
-  const today = new Date();
-  let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
-
-  if (today.getDate() < added.getDate()) {
-    m--;
-  }
-  return Math.max(1, m + 1);
-};
-
-// FIX: Avvalgi versiyada bir xil qarz hisoblash logikasi ikki joyda
-// (debtDetails yig'ish uchun va guruhlarni render qilish uchun) alohida-alohida
-// yozilgan edi — 50+ qator aynan bir xil kod takrorlangan. Endi bitta funksiya
-// orqali hisoblanadi, ikkala joyda ham shu natijadan foydalaniladi.
-const calculateGroupDebt = (groupName, studentPayments, currentPrice, activeCycles) => {
-  const groupPayments = studentPayments.filter(p => p.groupName === groupName || !p.groupName);
-  const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
-  let expectedTotalFromHistory = 0;
-  let paidMonthsCount = 0;
-
-  const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
-
-  uniqueMonths.forEach(m => {
-    const paymentsForThisMonth = groupPayments.filter(p => p.month === m);
-    const firstPaymentForMonth = paymentsForThisMonth[0];
-    const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-
-    const historicalPrice = firstPaymentForMonth.priceAtThatTime
-      ? Number(firstPaymentForMonth.priceAtThatTime)
-      : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
-
-    expectedTotalFromHistory += historicalPrice;
-    paidMonthsCount++;
-  });
-
-  const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
-  expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
-
-  const qarz = expectedTotalFromHistory - totalPaid;
-
-  return {
-    group: groupName,
-    paid: totalPaid,
-    qarz: qarz > 0 ? qarz : 0,
-    isPaid: qarz <= 0,
-    isPartial: totalPaid > 0 && qarz > 0
-  };
 };
 
 export default function StudentDetailModal({ student, payments, onClose, onRefresh }) {
@@ -126,7 +73,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
       const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
       if (match && match.price !== undefined) return Number(match.price);
     }
-    return 300000;
+    return DEFAULT_PRICE;
   };
 
   // FIX: Bitta joyda hisoblanadi — natija ham debtDetails ro'yxati uchun,
@@ -141,8 +88,7 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   if (studentGroups.length > 0) {
     OVERALL_DEBT = groupDebts.reduce((sum, d) => sum + d.qarz, 0);
   } else {
-    const COURSE_PRICE = 300000;
-    const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
+    const EXPECTED_TOTAL = DEFAULT_PRICE * activeCycles;
     const totalPaid = studentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
     const qarz = EXPECTED_TOTAL - totalPaid;
     if (qarz > 0) OVERALL_DEBT += qarz;

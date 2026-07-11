@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, Loader2, UserPlus, Pencil, Trash2, Filter, CalendarDays, Users, X, Wallet, ShieldAlert } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
 import StudentDetailModal from "../components/StudentDetailModal";
+import { calculateCycles, calculateGroupDebt, DEFAULT_PRICE } from "../utils/debtCalculator";
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
@@ -17,20 +18,6 @@ const formatDate = (dateString) => {
   if (!dateString) return "Sana yo'q";
   const d = new Date(dateString);
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
-};
-
-const calculateCycles = (addedAtStr) => {
-  if (!addedAtStr) return 1;
-  const added = new Date(addedAtStr);
-  if (isNaN(added.getTime())) return 1;
-  
-  const today = new Date();
-  let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
-  
-  if (today.getDate() < added.getDate()) {
-    m--;
-  }
-  return Math.max(1, m + 1);
 };
 
 export default function Groups() {
@@ -115,7 +102,7 @@ export default function Groups() {
       const found = student.groupsData.find(g => g.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
       if (found && found.price !== undefined) return Number(found.price);
     }
-    return 300000;
+    return DEFAULT_PRICE;
   };
 
   const allGroups = students.flatMap(s => 
@@ -123,46 +110,26 @@ export default function Groups() {
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
+  // TUZATISH: bu yerdagi hisoblash avval StudentDetailModal.jsx'dagi bilan
+  // so'zma-so'z bir xil edi (50+ qator takrorlangan). Endi ikkalasi ham
+  // src/utils/debtCalculator.js'dagi calculateGroupDebt()dan foydalanadi.
   const studentsWithStatus = students.map((s) => {
     const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
     const activeCycles = calculateCycles(s.addedAt);
     const studentPaymentsAllTime = payments.filter((p) => p.studentId === s._id);
-    
+
     let totalPaid = 0;
     let expectedTotalFromHistory = 0;
 
     if (studentGroups.length > 0) {
       studentGroups.forEach(g => {
         const currentPrice = getStudentGroupPrice(s, g);
-        const groupPayments = studentPaymentsAllTime.filter(p => p.groupName === g || !p.groupName);
-        
-        const paidForGroup = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-        totalPaid += paidForGroup;
-
-        let paidMonthsCount = 0;
-        const uniqueMonths = [...new Set(groupPayments.map(p => p.month))];
-
-        uniqueMonths.forEach(m => {
-          const paymentsForThisMonth = groupPayments.filter(p => p.month === m);
-          const firstPaymentForMonth = paymentsForThisMonth[0];
-          
-          // 🔥 ESKI TO'LOVLAR UCHUN XIMOYA:
-          // Agar arxivda Snapshot narx yozilmagan bo'lsa, o'sha oydagi jami to'lagan summani 100% narx deb oladi!
-          const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-          
-          const historicalPrice = firstPaymentForMonth.priceAtThatTime 
-            ? Number(firstPaymentForMonth.priceAtThatTime) 
-            : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
-
-          expectedTotalFromHistory += historicalPrice;
-          paidMonthsCount++;
-        });
-
-        const unpaidMonthsCount = Math.max(0, activeCycles - paidMonthsCount);
-        expectedTotalFromHistory += (unpaidMonthsCount * currentPrice);
+        const groupDebt = calculateGroupDebt(g, studentPaymentsAllTime, currentPrice, activeCycles);
+        totalPaid += groupDebt.paid;
+        expectedTotalFromHistory += groupDebt.expectedTotal;
       });
     } else {
-      expectedTotalFromHistory = 300000 * activeCycles;
+      expectedTotalFromHistory = DEFAULT_PRICE * activeCycles;
       studentPaymentsAllTime.forEach(p => { totalPaid += Number(p.amount) || 0; });
     }
 

@@ -128,48 +128,18 @@ export default function AttendanceScanner({ onScan }) {
       studentId = decodedText.split("?start=")[1].trim();
     }
 
-    if (onScan) {
-      onScan(studentId);
-      setLoading(false);
-      
-      setTimeout(() => {
-        if (scannerRef.current && scannerRef.current.getState() === 3) {
-           scannerRef.current.resume();
-        }
-      }, 1500); 
-      
-      return; 
-    }
+    // TUZATISH: bu komponent har doim `onScan` prop bilan ishlatiladi
+    // (yagona chaqiruvchi — Attendance.jsx), shuning uchun avvalgi
+    // to'g'ridan-to'g'ri /api/scan'ga so'rov yuboradigan zaxira yo'l
+    // hech qachon ishlamas edi — olib tashlandi.
+    onScan(studentId);
+    setLoading(false);
 
-    try {
-      const res = await fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId: studentId, 
-          date: new Date().toISOString().split("T")[0], 
-          adminName: localStorage.getItem("username") || "Admin"
-        }),
-      });
-
-      const result = await res.json();
-
-      if (result.success) {
-        setStatus({ type: "success", text: `✅ O'quvchi topildi va belgilandi!` });
-      } else {
-        setStatus({ type: "error", text: `❌ Xatolik: ${result.message}` });
+    setTimeout(() => {
+      if (scannerRef.current && scannerRef.current.getState() === 3) {
+        scannerRef.current.resume();
       }
-    } catch (error) {
-      setStatus({ type: "error", text: "❌ Server bilan bog'lanishda xato." });
-    } finally {
-      setLoading(false);
-      setTimeout(() => {
-        setStatus({ type: "", text: "" });
-        if (scannerRef.current && scannerRef.current.getState() === 3) {
-           scannerRef.current.resume();
-        }
-      }, 1500);
-    }
+    }, 1500);
   };
 
   return (

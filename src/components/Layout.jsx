@@ -5,44 +5,16 @@ import Header from "./Header";
 export default function Layout({ children }) {
   // Yon menyu ochiq yoki yopiqligini saqlovchi state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
-  // Barmoq bilan surishni hisoblash uchun state'lar
-  const [touchStart, setTouchStart] = useState(null);
-  const [touchEnd, setTouchEnd] = useState(null);
 
-  // Qancha masofaga surilganda ishlashi kerakligi (50px yetarli)
-  const minSwipeDistance = 50;
-
-  const onTouchStart = (e) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const onTouchMove = (e) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const onTouchEndEvent = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isRightSwipe) {
-      setIsSidebarOpen(true); // Chapdan o'ngga surilganda menyuni ochish
-    }
-    if (isLeftSwipe) {
-      setIsSidebarOpen(false); // O'ngdan chapga surilganda menyuni yopish
-    }
-  };
+  // TUZATISH: barmoq bilan surish (swipe) logikasi avval BU YERDA ham,
+  // Sidebar.jsx'da ham mustaqil yozilgan edi — ikkalasi bir vaqtda ishga
+  // tushib, kutilmagan holatga olib kelishi mumkin edi. Sidebar.jsx'dagi
+  // versiya yaxshiroq (vertikal skrolldan gorizontal svaypni farqlaydi va
+  // butun hujjat bo'ylab ishlaydi), shuning uchun shu yerdagi nusxa olib
+  // tashlandi — endi yagona manba Sidebar.jsx.
 
   return (
-    <div 
-      className="flex min-h-screen bg-slate-50 relative"
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEndEvent}
-    >
+    <div className="flex min-h-screen bg-slate-50 relative">
       {/* State'larni Sidebar va Header'ga ulashimiz kerak */}
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       
