@@ -45,6 +45,10 @@ export default async function handler(req, res) {
     
     if (req.method === 'POST') {
       const { groupName, date, adminName, records, teacherId } = req.body;
+      if (!groupName || !date || !Array.isArray(records)) {
+        return res.status(400).json({ success: false, error: "groupName, date va records massivi talab qilinadi" });
+      }
+
       const ownerId = teacherId || (role === 'assistant' ? parentId : userId);
       
       let oldDoc = await Attendance.findOne({ groupName, date });
@@ -59,16 +63,44 @@ export default async function handler(req, res) {
          });
       }
 
-      // 🔥 MUAMMO YECHILDI: Endi bo'shliq ("") kelsa "Keldi" ga aylanib qolmaydi, bo'shligicha saqlanadi!
+      // FIX: RACE CONDITION HAL QILINDI.
+      // Muammo: agar QR-skan (scan.js) shu "Saqlash" bosilishidan oldin, lekin admin
+      // ekrani yangilanmasdan turib sodir bo'lsa, frontend eski (stale) holatni
+      // yuboradi va bu yerda DB'dagi yangi holatni ustidan yozib yuborardi —
+      // chunki avvalgi "undefined" tekshiruvi hech qachon ishlamasdi (frontend
+      // har doim aniq qiymat yuboradi, undefined emas).
+      // Yechim: har bir student uchun DB'dagi lastScan bilan frontend yuborgan
+      // lastScan'ni solishtiramiz. Agar DB'dagi VAQT KEYINGI bo'lsa (ya'ni orada
+      // yangi QR-skan bo'lgan), DB'dagi qiymatni saqlab qolamiz — frontend
+      // ustidan yozib yubormaydi.
       const finalRecords = records.map(r => {
           const oldRec = oldDataMap[String(r.studentId)];
+          const dbLastScan = oldRec?.lastScan || 0;
+          const incomingLastScan = r.lastScan || 0;
+
+          // DB'dagi ma'lumot frontend bilganidan keyinroq yangilangan bo'lsa —
+          // demak orada QR-skan bo'lgan, DB'dagi holatni ustun qo'yamiz.
+          const dbIsNewer = oldRec && dbLastScan > incomingLastScan;
+
+          if (dbIsNewer) {
+              return {
+                  studentId: r.studentId,
+                  studentName: r.studentName,
+                  status: oldRec.status || "",
+                  arrivalTime: oldRec.arrivalTime || null,
+                  leaveTime: oldRec.leaveTime || null,
+                  lastScan: oldRec.lastScan,
+                  messageId: oldRec.messageId || null
+              };
+          }
+
           return {
-              studentId: r.studentId, 
-              studentName: r.studentName, 
+              studentId: r.studentId,
+              studentName: r.studentName,
               status: r.status !== undefined ? r.status : (oldRec?.status || ""),
-              arrivalTime: r.arrivalTime !== undefined ? r.arrivalTime : (oldRec?.arrivalTime || null), 
-              leaveTime: r.leaveTime !== undefined ? r.leaveTime : (oldRec?.leaveTime || null), 
-              lastScan: r.lastScan !== undefined ? r.lastScan : (oldRec?.lastScan || Date.now()), 
+              arrivalTime: r.arrivalTime !== undefined ? r.arrivalTime : (oldRec?.arrivalTime || null),
+              leaveTime: r.leaveTime !== undefined ? r.leaveTime : (oldRec?.leaveTime || null),
+              lastScan: r.lastScan !== undefined ? r.lastScan : (oldRec?.lastScan || Date.now()),
               messageId: oldRec?.messageId || null
           };
       });
