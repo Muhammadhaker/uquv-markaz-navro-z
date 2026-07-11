@@ -28,6 +28,11 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
 
   const role = localStorage.getItem("userRole");
   const currentUserId = localStorage.getItem("userId");
+  // FIX: yordamchi (assistant) o'zining emas, ustozining ID'sini ishlatishi kerak.
+  // Avval yordamchi guruh qo'shsa, u guruh currentUserId (yordamchining o'zi) ga
+  // yozilib qolardi — ustoz o'z ro'yxatida bu o'quvchini ko'ra olmasdi.
+  const parentTeacherId = localStorage.getItem("parentTeacherId");
+  const effectiveOwnerId = role === "assistant" ? parentTeacherId : currentUserId;
 
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
@@ -56,7 +61,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
         parsedGroups = studentToEdit.groupsData;
       } else if (studentToEdit.group) {
         parsedGroups = studentToEdit.group.split(",").map(g => ({
-          name: g.trim(), price: 300000, teacherId: studentToEdit.teacherId || currentUserId
+          name: g.trim(), price: 300000, teacherId: studentToEdit.teacherId || effectiveOwnerId
         })).filter(g => g.name);
       }
       setFormData({
@@ -93,7 +98,7 @@ export default function AddStudentModal({ isOpen, onClose, studentToEdit }) {
       return;
     }
 
-    const targetTeacherId = role === "super_admin" ? selectedGroupTeacher : currentUserId;
+    const targetTeacherId = role === "super_admin" ? selectedGroupTeacher : effectiveOwnerId;
     
     const alreadyExists = formData.groupsData.some(g => g.name.toLowerCase() === trimmed.toLowerCase());
     if (!alreadyExists) {

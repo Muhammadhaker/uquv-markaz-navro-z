@@ -25,6 +25,10 @@ export default function Profile() {
   const [debugMsg, setDebugMsg] = useState("");
   const [showQR, setShowQR] = useState(false); 
   const [selectedHistoryMonth, setSelectedHistoryMonth] = useState(defaultMonthStr);
+  // FIX: chatId endi state'da saqlanadi — handleDisconnect uni backend'ga
+  // yuborishi uchun kerak. Avval bu qiymat faqat fetchProfile() ichida lokal
+  // o'zgaruvchi edi, hech qayerga saqlanmasdi.
+  const [myChatId, setMyChatId] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -50,6 +54,8 @@ export default function Profile() {
         setDebugMsg("Telegram ID topilmadi.");
         return;
       }
+
+      setMyChatId(String(currentChatId));
 
       try {
         const timestamp = new Date().getTime();
@@ -92,9 +98,12 @@ export default function Profile() {
     setShowMenu(false);
 
     try {
+      // FIX: chatId endi yuboriladi — aks holda backend BARCHA ota-onalarning
+      // ulanishini o'chirib yuborardi (masalan dada uzsa, onaning ham ulanishi
+      // yo'qolib ketardi). Endi faqat SHU foydalanuvchining o'zi uziladi.
       const res = await fetch('/api/student-profile', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'disconnect', studentId: currentStudent.data._id })
+        body: JSON.stringify({ action: 'disconnect', studentId: currentStudent.data._id, chatId: myChatId })
       });
       const result = await res.json();
       
