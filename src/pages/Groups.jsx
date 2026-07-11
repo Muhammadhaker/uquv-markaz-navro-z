@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, Loader2, UserPlus, Pencil, Trash2, Filter, CalendarDays, Users, X, Wallet, ShieldAlert } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
 import StudentDetailModal from "../components/StudentDetailModal";
-import { calculateCycles, calculateGroupDebt, DEFAULT_PRICE } from "../utils/debtCalculator";
+import { calculateCycles, calculateStudentDebt, getGroupPrice } from "../utils/debtCalculator";
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
@@ -97,57 +97,36 @@ export default function Groups() {
     setIsStudentModalOpen(true);
   };
 
-  const getStudentGroupPrice = (student, groupName) => {
-    if (student.groupsData && Array.isArray(student.groupsData)) {
-      const found = student.groupsData.find(g => g.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
-      if (found && found.price !== undefined) return Number(found.price);
-    }
-    return DEFAULT_PRICE;
-  };
-
   const allGroups = students.flatMap(s => 
     s.group ? s.group.split(',').map(g => g.trim()) : []
   );
   const uniqueGroups = ["Barchasi", ...new Set(allGroups)].filter(Boolean);
 
-  // TUZATISH: bu yerdagi hisoblash avval StudentDetailModal.jsx'dagi bilan
-  // so'zma-so'z bir xil edi (50+ qator takrorlangan). Endi ikkalasi ham
-  // src/utils/debtCalculator.js'dagi calculateGroupDebt()dan foydalanadi.
+  // FIX: Qarz hisoblash logikasi endi debtCalculator.js'dan olinadi —
+  // avval bu yerda va StudentDetailModal.jsx'da ikki marta yozilgan edi.
   const studentsWithStatus = students.map((s) => {
-    const studentGroups = s.group ? s.group.split(',').map(g => g.trim()).filter(Boolean) : [];
-    const activeCycles = calculateCycles(s.addedAt);
-    const studentPaymentsAllTime = payments.filter((p) => p.studentId === s._id);
+    const debt = calculateStudentDebt(s, payments, getGroupPrice);
 
-    let totalPaid = 0;
-    let expectedTotalFromHistory = 0;
-
-    if (studentGroups.length > 0) {
-      studentGroups.forEach(g => {
-        const currentPrice = getStudentGroupPrice(s, g);
-        const groupDebt = calculateGroupDebt(g, studentPaymentsAllTime, currentPrice, activeCycles);
-        totalPaid += groupDebt.paid;
-        expectedTotalFromHistory += groupDebt.expectedTotal;
-      });
-    } else {
-      expectedTotalFromHistory = DEFAULT_PRICE * activeCycles;
-      studentPaymentsAllTime.forEach(p => { totalPaid += Number(p.amount) || 0; });
-    }
-
-    const qarz = expectedTotalFromHistory - totalPaid;
-    
     const today = new Date();
     let year = today.getFullYear();
     let month = today.getMonth() + 1;
     if (today.getDate() <= 5) { month -= 1; if (month === 0) { month = 12; year -= 1; } }
     const targetMonth = `${year}-${String(month).padStart(2, "0")}`;
-    
-    const isExcepted = s.exceptionMonths && s.exceptionMonths.includes(targetMonth);
-    
-    let payStatus = "unpaid"; 
-    if (isExcepted) payStatus = "excepted";
-    else if (qarz <= 0) payStatus = "paid";
 
-    return { ...s, qarz, EXPECTED_TOTAL: expectedTotalFromHistory, totalPaid, payStatus, isPartial: totalPaid > 0 && qarz > 0 };
+    const isExcepted = s.exceptionMonths && s.exceptionMonths.includes(targetMonth);
+
+    let payStatus = "unpaid";
+    if (isExcepted) payStatus = "excepted";
+    else if (debt.overallDebt <= 0) payStatus = "paid";
+
+    return {
+      ...s,
+      qarz: debt.overallDebt,
+      EXPECTED_TOTAL: debt.expectedTotal,
+      totalPaid: debt.totalPaid,
+      payStatus,
+      isPartial: debt.isPartial
+    };
   });
 
   const baseFilteredStudents = studentsWithStatus.filter((s) => {

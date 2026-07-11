@@ -6,17 +6,31 @@ export default function ActivityLogs() {
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [listError, setListError] = useState("");
+
+  // FIX: avval hech qanday auth header yuborilmasdi — endi backend Super
+  // Adminni talab qiladi, shuning uchun headerlar shart.
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-role": localStorage.getItem("userRole") || "",
+    "x-user-id": localStorage.getItem("userId") || "",
+    "x-parent-id": localStorage.getItem("parentTeacherId") || ""
+  });
 
   const fetchLogs = async () => {
     setLoading(true);
+    setListError("");
     try {
-      const res = await fetch("/api/logs");
+      const res = await fetch("/api/logs", { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success) {
         setLogs(data.data || []);
+      } else {
+        setListError(data.message || "Tarixni yuklab bo'lmadi");
       }
     } catch (err) {
       console.error("Loglarni yuklashda xato:", err);
+      setListError("Server bilan bog'lanishda xato");
     } finally {
       setLoading(false);
     }
@@ -29,16 +43,22 @@ export default function ActivityLogs() {
   const handleRestore = async (log) => {
     if (!window.confirm("Bu ma'lumotni haqiqatan ham tiklaysizmi?")) return;
     try {
+      // FIX 1: auth headerlari qo'shildi — backend endi buni talab qiladi.
+      // FIX 2: isRestore:true bayrog'i qo'shildi — bu backend'ga "bu YANGI
+      // yaratish emas, ESKI ma'lumotni tiklash" ekanini bildiradi, shunda
+      // Telegram xush-kelibsiz/chek xabarlari QAYTA yuborilmaydi.
       const res = await fetch(log.targetApi, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(log.deletedData)
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ ...log.deletedData, isRestore: true })
       });
 
-      if (res.ok) {
+      const resultData = await res.json().catch(() => ({}));
+
+      if (res.ok && resultData.success !== false) {
         await fetch("/api/logs", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             adminName: localStorage.getItem("username") || "Super Admin",
             actionType: "update",
@@ -49,10 +69,11 @@ export default function ActivityLogs() {
         alert("Muvaffaqiyatli tiklandi! Endi ro'yxatga qaytib ko'rishingiz mumkin.");
         fetchLogs();
       } else {
-        alert("Tiklashda xatolik yuz berdi.");
+        alert("Tiklashda xatolik yuz berdi: " + (resultData.message || resultData.error || ""));
       }
     } catch (error) {
       console.error(error);
+      alert("Server bilan bog'lanishda xato!");
     }
   };
 
@@ -61,7 +82,7 @@ export default function ActivityLogs() {
 
     setClearing(true);
     try {
-      const res = await fetch("/api/logs", { method: "DELETE" });
+      const res = await fetch("/api/logs", { method: "DELETE", headers: getAuthHeaders() });
       if (res.ok) {
         setLogs([]);
       } else {
@@ -166,6 +187,12 @@ export default function ActivityLogs() {
           className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 font-medium transition-all shadow-sm text-slate-700"
         />
       </div>
+
+      {listError && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl mb-6 font-medium text-sm">
+          ⚠️ {listError}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-20">

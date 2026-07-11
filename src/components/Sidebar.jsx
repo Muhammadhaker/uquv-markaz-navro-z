@@ -17,32 +17,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchEndX = 0;
-    let touchEndY = 0;
-
-    const handleTouchStart = (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
-    };
-
-    const handleTouchEnd = (e) => {
-      touchEndX = e.changedTouches[0].screenX;
-      touchEndY = e.changedTouches[0].screenY;
-
-      const xDiff = touchEndX - touchStartX;
-      const yDiff = touchEndY - touchStartY;
-
-      if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 50) {
-        if (xDiff > 0) setIsOpen(true);
-        else setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchend', handleTouchEnd);
-
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -51,11 +25,9 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, [setIsOpen]);
+  }, []);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {

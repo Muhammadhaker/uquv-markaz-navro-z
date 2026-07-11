@@ -128,11 +128,9 @@ export default function AttendanceScanner({ onScan }) {
       studentId = decodedText.split("?start=")[1].trim();
     }
 
-    // TUZATISH: bu komponent har doim `onScan` prop bilan ishlatiladi
-    // (yagona chaqiruvchi — Attendance.jsx), shuning uchun avvalgi
-    // to'g'ridan-to'g'ri /api/scan'ga so'rov yuboradigan zaxira yo'l
-    // hech qachon ishlamas edi — olib tashlandi.
-    onScan(studentId);
+    // onScan har doim beriladi (faqat Attendance.jsx orqali ishlatiladi) —
+    // shuning uchun boshqa zaxira yo'lga hojat yo'q.
+    onScan?.(studentId);
     setLoading(false);
 
     setTimeout(() => {

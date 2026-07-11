@@ -1,24 +1,16 @@
 // ════════════════════════════════════════════════════════════════════════════
-// QARZ HISOBLASH — UMUMIY MANTIQ
+// QARZ HISOBLASH — UMUMIY FUNKSIYALAR
 //
-// Avval bu formulaning aynan bir xil nusxasi Groups.jsx va
-// StudentDetailModal.jsx fayllarida alohida-alohida yozilgan edi (50+ qator
-// takrorlangan kod). Agar formula o'zgarishi kerak bo'lsa, ikkala joyda ham
-// qo'lda tuzatish talab qilinardi va ular osongina bir-biridan farqlanib
-// qolishi mumkin edi. Endi ikkalasi ham shu yerdan import qiladi.
-//
-// ESLATMA: backenddagi api/student-profile.js'da BOSHQA (qasddan boshqacha)
-// hisoblash bor — u faqat JORIY OYning holatini ko'rsatadi (ota-ona uchun),
-// bu yerdagi formula esa o'quvchi qo'shilgan kundan buyon JAMI qarzni
-// hisoblaydi (admin/ustoz uchun). Ular shu sabab ataylab alohida qoldirilgan.
+// Avval bu logika Groups.jsx va StudentDetailModal.jsx ichida ikki marta,
+// deyarli bir xil (lekin mustaqil) yozilgan edi. Agar formula o'zgarsa,
+// ikkalasini ham qo'lda sinxronlash kerak bo'lardi — bu xato qilish xavfini
+// oshiradi. Endi ikkalasi ham shu yerdan import qiladi.
 // ════════════════════════════════════════════════════════════════════════════
 
-export const DEFAULT_PRICE = 300000;
+const DEFAULT_PRICE = 300000;
 
-/**
- * O'quvchi qo'shilgan kundan (addedAt) buyon nechta oylik davr (sikl)
- * o'tganini hisoblaydi. Kamida 1 qaytaradi.
- */
+// O'quvchi qo'shilgan sanadan hozirgi kungacha nechta "oylik davr" o'tganini
+// hisoblaydi (masalan 15-yanvarda qo'shilgan bo'lsa, 15-fevralda 2-davr boshlanadi).
 export const calculateCycles = (addedAtStr) => {
   if (!addedAtStr) return 1;
   const added = new Date(addedAtStr);
@@ -26,23 +18,14 @@ export const calculateCycles = (addedAtStr) => {
 
   const today = new Date();
   let m = (today.getFullYear() - added.getFullYear()) * 12 + today.getMonth() - added.getMonth();
+  if (today.getDate() < added.getDate()) m--;
 
-  if (today.getDate() < added.getDate()) {
-    m--;
-  }
   return Math.max(1, m + 1);
 };
 
-/**
- * Berilgan guruh bo'yicha o'quvchining bitta guruhdagi jami qarzini hisoblaydi.
- * Har bir to'langan oy uchun o'sha vaqtdagi narxni (priceAtThatTime) ishlatadi,
- * hali to'lanmagan oylar uchun esa joriy narxni qo'llaydi.
- *
- * @param {string} groupName
- * @param {Array}  studentPayments - shu o'quvchining BARCHA to'lovlari (filtrlanmagan)
- * @param {number} currentPrice - guruhning joriy (bugungi) narxi
- * @param {number} activeCycles - calculateCycles() natijasi
- */
+// Bitta guruh uchun qarzni hisoblaydi — to'lovlar tarixidagi har bir oy uchun
+// o'sha vaqtdagi narxni ("priceAtThatTime") hisobga oladi, agar u yozilmagan
+// bo'lsa to'langan summani yoki joriy narxni zaxira sifatida ishlatadi.
 export const calculateGroupDebt = (groupName, studentPayments, currentPrice, activeCycles) => {
   const groupPayments = studentPayments.filter(p => p.groupName === groupName || !p.groupName);
   const totalPaid = groupPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -57,8 +40,8 @@ export const calculateGroupDebt = (groupName, studentPayments, currentPrice, act
     const firstPaymentForMonth = paymentsForThisMonth[0];
     const sumForThisMonth = paymentsForThisMonth.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
 
-    // Eski to'lovlar uchun himoya: agar arxivda narx-snapshot yozilmagan
-    // bo'lsa, o'sha oyda to'langan jami summani 100% narx deb hisoblaymiz.
+    // Eski to'lovlar himoyasi: agar arxivda narx snapshoti yozilmagan bo'lsa,
+    // o'sha oyda to'langan summani 100% narx deb qabul qilamiz.
     const historicalPrice = firstPaymentForMonth.priceAtThatTime
       ? Number(firstPaymentForMonth.priceAtThatTime)
       : (sumForThisMonth > 0 ? sumForThisMonth : currentPrice);
@@ -82,40 +65,54 @@ export const calculateGroupDebt = (groupName, studentPayments, currentPrice, act
   };
 };
 
-/**
- * Berilgan o'quvchining barcha guruhlari bo'yicha to'liq qarz hisobotini
- * qaytaradi (guruhi bo'lmasa ham ishlaydi — "Umumiy" holat).
- *
- * @param {object} student - groupsData/group/addedAt maydonlariga ega hujjat
- * @param {Array}  allPayments - TIZIMDAGI barcha to'lovlar (studentId bo'yicha filtrlanadi)
- * @param {(groupName:string)=>number} [getPriceFn] - narxni topish funksiyasi (ixtiyoriy override)
- */
-export const calculateStudentDebt = (student, allPayments, getPriceFn) => {
-  const activeCycles = calculateCycles(student.addedAt);
-  const studentPayments = allPayments.filter(p => p.studentId === student._id);
-  const studentGroups = student.group ? student.group.split(',').map(g => g.trim()).filter(Boolean) : [];
+// Bitta o'quvchi uchun BARCHA guruhlari bo'yicha qarzni yig'ib, umumiy
+// natijani qaytaradi. `getPrice(groupName)` — guruh narxini qaytaruvchi funksiya.
+export const calculateStudentDebt = (student, allPayments, getPrice) => {
+  const studentGroups = student.group
+    ? student.group.split(',').map(g => g.trim()).filter(Boolean)
+    : [];
 
-  const getPrice = getPriceFn || ((groupName) => {
-    if (student.groupsData && Array.isArray(student.groupsData)) {
-      const found = student.groupsData.find(g => g.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
-      if (found && found.price !== undefined) return Number(found.price);
-    }
-    return DEFAULT_PRICE;
-  });
+  const studentPayments = allPayments.filter(p => p.studentId === student._id);
+  const activeCycles = calculateCycles(student.addedAt);
+
+  let overallDebt = 0;
+  let totalPaid = 0;
+  let expectedTotal = 0;
+  const debtDetails = [];
 
   if (studentGroups.length > 0) {
-    const groupDebts = studentGroups.map(g => calculateGroupDebt(g, studentPayments, getPrice(g), activeCycles));
-    const totalPaid = groupDebts.reduce((sum, d) => sum + d.paid, 0);
-    const expectedTotal = groupDebts.reduce((sum, d) => sum + d.expectedTotal, 0);
-    const overallDebt = groupDebts.reduce((sum, d) => sum + d.qarz, 0);
-    const debtDetails = groupDebts.filter(d => d.qarz > 0).map(d => ({ group: d.group, qarz: d.qarz }));
+    studentGroups.forEach(g => {
+      const currentPrice = getPrice ? getPrice(student, g) : DEFAULT_PRICE;
+      const result = calculateGroupDebt(g, studentPayments, currentPrice, activeCycles);
 
-    return { activeCycles, groupDebts, debtDetails, totalPaid, expectedTotal, overallDebt, isPartial: totalPaid > 0 && overallDebt > 0 };
+      overallDebt += result.qarz;
+      totalPaid += result.paid;
+      expectedTotal += result.expectedTotal;
+      debtDetails.push(result);
+    });
+  } else {
+    expectedTotal = DEFAULT_PRICE * activeCycles;
+    totalPaid = studentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    overallDebt = Math.max(0, expectedTotal - totalPaid);
   }
 
-  const expectedTotal = DEFAULT_PRICE * activeCycles;
-  const totalPaid = studentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const overallDebt = Math.max(0, expectedTotal - totalPaid);
+  return {
+    activeCycles,
+    debtDetails,
+    overallDebt,
+    totalPaid,
+    expectedTotal,
+    isPartial: totalPaid > 0 && overallDebt > 0
+  };
+};
 
-  return { activeCycles, groupDebts: [], debtDetails: [], totalPaid, expectedTotal, overallDebt, isPartial: totalPaid > 0 && overallDebt > 0 };
+// Standart guruh narxini student.groupsData'dan oladi, topilmasa 300 000 qaytaradi.
+export const getGroupPrice = (student, groupName) => {
+  if (student.groupsData && Array.isArray(student.groupsData)) {
+    const match = student.groupsData.find(
+      x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase()
+    );
+    if (match?.price !== undefined) return Number(match.price);
+  }
+  return DEFAULT_PRICE;
 };

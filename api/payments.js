@@ -61,7 +61,10 @@ export default async function handler(req, res) {
 
     // ─── POST: to'lov qabul qilish ───────────────────────────────────────────
     if (req.method === 'POST') {
-      const { studentId, studentName, groupName, amount, priceAtThatTime, paymentType, month, adminName, telegramChatId, targetTeacherId } = req.body;
+      // FIX: isRestore bayrog'i — ActivityLogs.jsx "Tiklash" tugmasi orqali
+      // o'chirilgan to'lovni qayta yaratganda, ota-onaga QAYTA chek yuborilmasin
+      // uchun qo'shildi.
+      const { studentId, studentName, groupName, amount, priceAtThatTime, paymentType, month, adminName, telegramChatId, targetTeacherId, isRestore } = req.body;
 
       // FIX: asosiy maydonlar validatsiyasi — avval yo'q edi
       if (!studentId || !studentName || !groupName || !amount || !paymentType || !month || !adminName) {
@@ -94,7 +97,8 @@ export default async function handler(req, res) {
 
       // FIX: telegramChatId endi vergul bilan ajratilgan bir nechta ID bo'lishi
       // mumkinligini hisobga oladi — avval faqat bittasiga yuborilardi.
-      if (telegramChatId) {
+      // isRestore=true bo'lsa, chek QAYTA yuborilmaydi (bu tiklash, yangi to'lov emas).
+      if (telegramChatId && !isRestore) {
         const token = process.env.TELEGRAM_BOT_TOKEN;
         const formatMonthName = (m) => {
           const [y, mm] = m.split("-");

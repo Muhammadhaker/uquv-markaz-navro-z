@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import PaymentModal from "./PaymentModal";
-import { calculateCycles, calculateGroupDebt, DEFAULT_PRICE } from "../utils/debtCalculator";
+import { calculateCycles, calculateGroupDebt, getGroupPrice } from "../utils/debtCalculator";
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
@@ -68,18 +68,10 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
     "x-parent-id": localStorage.getItem("parentTeacherId") || ""
   });
 
-  const getPrice = (groupName) => {
-    if (student.groupsData && Array.isArray(student.groupsData) && student.groupsData.length > 0) {
-      const match = student.groupsData.find(x => x.name?.trim().toLowerCase() === groupName?.trim().toLowerCase());
-      if (match && match.price !== undefined) return Number(match.price);
-    }
-    return DEFAULT_PRICE;
-  };
-
-  // FIX: Bitta joyda hisoblanadi — natija ham debtDetails ro'yxati uchun,
-  // ham har bir guruhni render qilish uchun ishlatiladi (duplikat kod yo'q).
+  // FIX: Bitta joyda hisoblanadi (debtCalculator.js) — natija ham debtDetails
+  // ro'yxati uchun, ham har bir guruhni render qilish uchun ishlatiladi.
   const groupDebts = studentGroups.length > 0
-    ? studentGroups.map(g => calculateGroupDebt(g, studentPayments, getPrice(g), activeCycles))
+    ? studentGroups.map(g => calculateGroupDebt(g, studentPayments, getGroupPrice(student, g), activeCycles))
     : [];
 
   const debtDetails = groupDebts.filter(d => d.qarz > 0).map(d => ({ group: d.group, qarz: d.qarz }));
@@ -88,7 +80,8 @@ export default function StudentDetailModal({ student, payments, onClose, onRefre
   if (studentGroups.length > 0) {
     OVERALL_DEBT = groupDebts.reduce((sum, d) => sum + d.qarz, 0);
   } else {
-    const EXPECTED_TOTAL = DEFAULT_PRICE * activeCycles;
+    const COURSE_PRICE = 300000;
+    const EXPECTED_TOTAL = COURSE_PRICE * activeCycles;
     const totalPaid = studentPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
     const qarz = EXPECTED_TOTAL - totalPaid;
     if (qarz > 0) OVERALL_DEBT += qarz;

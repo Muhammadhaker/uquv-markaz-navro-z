@@ -326,7 +326,11 @@ export default async function handler(req, res) {
 
   // ─── POST (yangi o'quvchi) ────────────────────────────────────────────────
   if (req.method === 'POST') {
-    const { groupsData } = req.body;
+    // FIX: "Tiklash" (ActivityLogs.jsx dan) ham shu endpointga POST qiladi —
+    // avval bu holatda ham "xush kelibsiz" xabari QAYTA yuborilardi, garchi
+    // o'quvchi aslida yangi bo'lmasa ham. isRestore bayrog'i shuni oldini oladi.
+    const { groupsData, isRestore } = req.body;
+    delete req.body.isRestore; // DB'ga yozilmasin
 
     let tIds = [];
     if (Array.isArray(groupsData)) {
@@ -342,11 +346,10 @@ export default async function handler(req, res) {
 
     const savedStudent = await Student.create(req.body);
 
-    // Telegram xabarnomasi — "fire and forget"
-    // res allaqachon yuborilgandan keyin ishlashi mumkin emas (Vercel),
-    // shuning uchun avval await qilib, keyin javob beramiz.
-    // Lekin timeout bo'lmasligi uchun alohida try/catch bilan.
-    await sendWelcomeTelegram(savedStudent);
+    if (!isRestore) {
+      // Telegram xabarnomasi — faqat CHINDAN YANGI o'quvchi uchun.
+      await sendWelcomeTelegram(savedStudent);
+    }
 
     return res.status(201).json({ success: true, data: savedStudent });
   }
