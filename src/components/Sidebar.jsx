@@ -19,49 +19,68 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   // TUZATISH: mobil qurilmada barmoq bilan surib (svayp) menyuni ochish/yopish
   // funksiyasi shu yerda yo'q ekan — avvalgi tahrirda men bu funksiya
   // Sidebar.jsx'da mavjud deb noto'g'ri taxmin qilib, Layout.jsx'dagi
-  // nusxasini o'chirib tashlagan edim. Natijada ikkalasida ham qolmay,
-  // svayp bilan menyuni ochish ishlamay qoldi. Endi to'g'ri joyga qaytarildi:
-  // - Chap chetdan (ekran chetiga yaqin joydan) o'ngga surilsa -> ochiladi
-  // - Istalgan joydan chapga surilsa -> yopiladi
-  // - Vertikal skroll (masalan jadvalni yuqori-past qilish) bilan
-  //   adashtirmaslik uchun X va Y farqi solishtiriladi.
+  // nusxasini o'chirib tashlagan edim.
+  //
+  // IKKINCHI TUZATISH: faqat `touchend`ni kutish ishonchsiz ekan — ko'p mobil
+  // brauzerlar ekran chetidan svayp qilinganda buni o'zining "orqaga qaytish"
+  // ishorasi deb qabul qilib, teginish hodisasini oxirigacha yetkazmasligi
+  // mumkin (touchend o'rniga touchcancel bo'lib qoladi). Shu sabab endi
+  // `touchmove` orqali harakatni REAL VAQTDA kuzatamiz va yetarli masofaga
+  // surilgan zahoti (touchend'ni kutmasdan) menyuni ochamiz/yopamiz. Bundan
+  // tashqari index.css'da `touch-action: pan-y` qo'shildi — bu brauzerning
+  // gorizontal ishorani "yutib yubormasligi" uchun kerak.
   useEffect(() => {
-    let touchStartX = 0;
-    let touchStartY = 0;
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    let handled = false;
 
-    const EDGE_ZONE_PX = 40;   // faqat shu masofadagi chapdan boshlangan svayp menyuni ochadi
-    const MIN_SWIPE_PX = 50;   // svayp deb hisoblanishi uchun minimal masofa
+    const EDGE_ZONE_PX = 50;   // faqat shu masofadagi chapdan boshlangan svayp menyuni ochadi
+    const TRIGGER_PX = 60;     // shuncha piksel surilgach amal bajariladi
 
     const handleTouchStart = (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      tracking = true;
+      handled = false;
     };
 
-    const handleTouchEnd = (e) => {
-      const touchEndX = e.changedTouches[0].screenX;
-      const touchEndY = e.changedTouches[0].screenY;
-      const xDiff = touchEndX - touchStartX;
-      const yDiff = touchEndY - touchStartY;
+    const handleTouchMove = (e) => {
+      if (!tracking || handled) return;
+
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      const xDiff = currentX - startX;
+      const yDiff = currentY - startY;
 
       // Vertikal harakat gorizontaldan katta bo'lsa — bu skroll, e'tiborsiz qoldiramiz
-      if (Math.abs(xDiff) <= Math.abs(yDiff)) return;
-      if (Math.abs(xDiff) < MIN_SWIPE_PX) return;
+      if (Math.abs(yDiff) > Math.abs(xDiff)) return;
 
-      if (xDiff > 0 && touchStartX < EDGE_ZONE_PX) {
+      if (!isOpen && startX < EDGE_ZONE_PX && xDiff > TRIGGER_PX) {
         setIsOpen(true);
-      } else if (xDiff < 0) {
+        handled = true;
+      } else if (isOpen && xDiff < -TRIGGER_PX) {
         setIsOpen(false);
+        handled = true;
       }
     };
 
+    const handleTouchEnd = () => {
+      tracking = false;
+    };
+
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [setIsOpen]);
+  }, [isOpen, setIsOpen]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
