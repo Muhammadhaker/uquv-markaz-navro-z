@@ -29,13 +29,50 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   // surilgan zahoti (touchend'ni kutmasdan) menyuni ochamiz/yopamiz. Bundan
   // tashqari index.css'da `touch-action: pan-y` qo'shildi — bu brauzerning
   // gorizontal ishorani "yutib yubormasligi" uchun kerak.
+  // TUZATISH: "sahifani pastga tushirib, keyin menyuni ochsa, menyu tepada
+  // (eski skroll joyida) qolib ketyabdi" muammosi — bu mobil brauzerlarning
+  // (ayniqsa iOS Safari) `position: fixed` elementlarni sahifa skroll
+  // qilinganda noto'g'ri joylashtirish bug'i. Eng ishonchli yechim: menyu
+  // ochiq turganda FON SAHIFANI butunlay "qulflab" qo'yish — shunda sahifa
+  // qayerga skroll qilingan bo'lishidan qat'iy nazar, menyu doim to'g'ri,
+  // butun ekranni qoplagan holda chiqadi. Yopilganda sahifa aynan qayerda
+  // turgan bo'lsa, o'sha joyga qaytariladi (sakrab ketmaydi).
+  useEffect(() => {
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.dataset.scrollY = String(scrollY);
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
+    } else {
+      const savedY = parseInt(document.body.dataset.scrollY || '0', 10);
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      window.scrollTo(0, savedY);
+    }
+
+    return () => {
+      // Komponent yo'q qilinganda ham fon qulfini albatta yechib qo'yamiz
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     let startX = 0;
     let startY = 0;
     let tracking = false;
     let handled = false;
 
-    const EDGE_ZONE_PX = 50;   // faqat shu masofadagi chapdan boshlangan svayp menyuni ochadi
+    const EDGE_ZONE_PX = 100;  // faqat shu masofadagi chapdan boshlangan svayp menyuni ochadi
     const TRIGGER_PX = 60;     // shuncha piksel surilgach amal bajariladi
 
     const handleTouchStart = (e) => {
