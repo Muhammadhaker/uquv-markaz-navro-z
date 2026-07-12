@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { connectDB } from './_lib/db.js';
 import { Student, Payment, User, Schedule, Homework, Grade, Message } from './_lib/models.js';
+import { parseChatIds, isValidChatId } from './_lib/telegram.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -41,6 +42,45 @@ export default async function handler(req, res) {
         }
 
         return res.status(200).json({ success: true, message: "Profil hisobdan uzildi!" });
+      }
+
+      // YANGI: Ota-ona/farzand mini-app orqali YANA bitta profilni o'zining
+      // Telegram hisobiga ulaydi — QR kodni fizik skanerlashsiz, faqat
+      // "maxfiy kalit" (havola yoki xom ID) orqali.
+      if (action === 'connect') {
+        const { code } = req.body;
+
+        if (!reqChatId || !isValidChatId(reqChatId)) {
+          return res.status(400).json({ success: false, message: "Telegram ID aniqlanmadi" });
+        }
+        if (!code || !String(code).trim()) {
+          return res.status(400).json({ success: false, message: "Kod kiritilmadi" });
+        }
+
+        // Kod to'liq havola ("...?start=<id>") yoki xom ID bo'lishi mumkin —
+        // ikkalasini ham qo'llab-quvvatlaymiz.
+        let targetId = String(code).trim();
+        const linkMatch = targetId.match(/start=([a-fA-F0-9]{24})/);
+        if (linkMatch) targetId = linkMatch[1];
+
+        if (!mongoose.Types.ObjectId.isValid(targetId)) {
+          return res.status(400).json({ success: false, message: "Kod noto'g'ri formatda" });
+        }
+
+        const student = await Student.findById(targetId);
+        if (!student) {
+          return res.status(404).json({ success: false, message: "Bunday o'quvchi topilmadi" });
+        }
+
+        const idsArr = parseChatIds(student.telegramChatId);
+        if (idsArr.includes(String(reqChatId))) {
+          return res.status(200).json({ success: true, message: `${student.name} allaqachon ulangan`, alreadyLinked: true });
+        }
+
+        idsArr.push(String(reqChatId));
+        await Student.updateOne({ _id: student._id }, { $set: { telegramChatId: idsArr.join(',') } });
+
+        return res.status(200).json({ success: true, message: `${student.name} muvaffaqiyatli ulandi!` });
       }
 
       // YANGI: Ota-ona ustozga xabar yozadi

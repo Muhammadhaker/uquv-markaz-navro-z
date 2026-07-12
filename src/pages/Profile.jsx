@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Phone, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays, QrCode, MoreVertical, LogOut, Users, ChevronRight, UserCheck } from "lucide-react";
+import { User, Phone, CreditCard, Loader2, Clock, History, AlertCircle, CalendarDays, QrCode, MoreVertical, LogOut, Users, ChevronRight, UserCheck, Copy, Check, UserPlus, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 export default function Profile() {
@@ -29,9 +29,14 @@ export default function Profile() {
   // yuborishi uchun kerak. Avval bu qiymat faqat fetchProfile() ichida lokal
   // o'zgaruvchi edi, hech qayerga saqlanmasdi.
   const [myChatId, setMyChatId] = useState(null);
+  // YANGI: havolani nusxalash va "yana profil qo'shish" uchun holatlar
+  const [copyFeedback, setCopyFeedback] = useState(false);
+  const [showAddProfile, setShowAddProfile] = useState(false);
+  const [addProfileCode, setAddProfileCode] = useState("");
+  const [addProfileLoading, setAddProfileLoading] = useState(false);
+  const [addProfileMsg, setAddProfileMsg] = useState({ type: "", text: "" });
 
-  useEffect(() => {
-    const fetchProfile = async () => {
+  const fetchProfile = async () => {
       let currentChatId = null;
       const params = new URLSearchParams(window.location.search);
       currentChatId = params.get('chatId');
@@ -85,10 +90,70 @@ export default function Profile() {
       } finally {
         setLoading(false);
       }
-    };
+  };
 
+  useEffect(() => {
     fetchProfile();
   }, []);
+
+  const BOT_USERNAME = "navroz_math_group_bot";
+
+  // YANGI: joriy profilning "ulash havolasi"ni nusxalaydi. Bu havolani
+  // boshqa oila a'zosi (masalan buvi) Telegramda ochsa, avtomatik shu
+  // o'quvchiga ulanadi — QR kodni fizik ko'rish shart emas.
+  const handleCopyLink = async () => {
+    const currentStudent = studentsList[selectedIdx];
+    if (!currentStudent) return;
+
+    const link = `https://t.me/${BOT_USERNAME}?start=${currentStudent.data._id}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
+    } catch (err) {
+      // Clipboard API ishlamasa (eski WebView) — foydalanuvchiga ko'rsatamiz
+      window.prompt("Havolani qo'lda nusxalang:", link);
+    }
+    setShowMenu(false);
+  };
+
+  // YANGI: boshqa o'quvchining kodini kiritib, o'sha profilni ham
+  // shu Telegram hisobiga ulaydi.
+  const handleAddProfile = async (e) => {
+    e.preventDefault();
+    setAddProfileMsg({ type: "", text: "" });
+
+    if (!addProfileCode.trim()) {
+      setAddProfileMsg({ type: "error", text: "Kod yoki havolani kiriting!" });
+      return;
+    }
+
+    setAddProfileLoading(true);
+    try {
+      const res = await fetch('/api/student-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'connect', code: addProfileCode.trim(), chatId: myChatId })
+      });
+      const result = await res.json();
+
+      if (result.success) {
+        setAddProfileMsg({ type: "success", text: result.message });
+        setAddProfileCode("");
+        await fetchProfile(); // Ro'yxatni yangilaymiz — yangi profil paydo bo'ladi
+        setTimeout(() => {
+          setShowAddProfile(false);
+          setAddProfileMsg({ type: "", text: "" });
+        }, 1500);
+      } else {
+        setAddProfileMsg({ type: "error", text: result.message || "Xatolik yuz berdi" });
+      }
+    } catch (err) {
+      setAddProfileMsg({ type: "error", text: "Server bilan bog'lanishda xato!" });
+    } finally {
+      setAddProfileLoading(false);
+    }
+  };
 
   const handleDisconnect = async () => {
     if (!window.confirm("Haqiqatan ham bu profilni hisobingizdan uzib tashlamoqchimisiz?")) return;
@@ -132,6 +197,61 @@ export default function Profile() {
     return `${names[parseInt(mm) - 1]} ${y}`;
   };
 
+  // YANGI: "Yana profil qo'shish" modali — barcha ekran holatlarida
+  // (yuklanmoqda, xato, tanlash, batafsil) ko'rinishi uchun early return'lardan
+  // OLDIN aniqlanadi.
+  const addProfileModal = showAddProfile && (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+      <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl relative">
+        <button
+          onClick={() => { setShowAddProfile(false); setAddProfileCode(""); setAddProfileMsg({ type: "", text: "" }); }}
+          className="absolute top-4 right-4 p-2 bg-slate-50 text-slate-400 rounded-full hover:bg-slate-100"
+        >
+          <X size={18} />
+        </button>
+
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-11 h-11 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+            <UserPlus size={22} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-slate-800">Yana profil qo'shish</h3>
+            <p className="text-xs text-slate-400">Boshqa farzand kodini kiriting</p>
+          </div>
+        </div>
+
+        {addProfileMsg.text && (
+          <div className={`p-3 rounded-xl text-sm font-bold text-center mb-3 ${
+            addProfileMsg.type === "success" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+          }`}>
+            {addProfileMsg.text}
+          </div>
+        )}
+
+        <form onSubmit={handleAddProfile} className="space-y-3">
+          <input
+            type="text"
+            autoFocus
+            placeholder="Havola yoki kodni shu yerga joylang"
+            value={addProfileCode}
+            onChange={(e) => setAddProfileCode(e.target.value)}
+            className="w-full border p-3.5 rounded-xl outline-none focus:border-indigo-500 bg-slate-50 text-sm"
+          />
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Kodni boshqa ota-onaning "Ulash havolasini nusxalash" tugmasidan olishingiz mumkin.
+          </p>
+          <button
+            type="submit"
+            disabled={addProfileLoading}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold flex justify-center items-center gap-2 disabled:opacity-60"
+          >
+            {addProfileLoading ? <Loader2 className="animate-spin" size={20} /> : "Ulash"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" size={40} /></div>;
 
   if (error || studentsList.length === 0) {
@@ -141,7 +261,16 @@ export default function Profile() {
           <User className="mx-auto text-slate-300 mb-4" size={48} />
           <h2 className="text-xl font-bold text-slate-700">Profil topilmadi</h2>
           {debugMsg && <p className="text-red-500 text-xs mt-2">{debugMsg}</p>}
+          {/* YANGI: shu yerdan ham profil qo'shish mumkin — masalan oxirgi
+              ulangan profil uzilgan bo'lsa, foydalanuvchi shu ekranda qoladi. */}
+          <button
+            onClick={() => setShowAddProfile(true)}
+            className="mt-5 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
+          >
+            <UserPlus size={18} /> Profil qo'shish
+          </button>
         </div>
+        {addProfileModal}
       </div>
     );
   }
@@ -171,7 +300,16 @@ export default function Profile() {
               <div className="text-slate-300"><ChevronRight size={24} /></div>
             </button>
           ))}
+
+          {/* YANGI: shu ekrandan ham yana profil qo'shish mumkin */}
+          <button
+            onClick={() => setShowAddProfile(true)}
+            className="w-full bg-white p-5 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-600 font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 transition-colors"
+          >
+            <UserPlus size={20} /> Yana profil qo'shish
+          </button>
         </div>
+        {addProfileModal}
       </div>
     );
   }
@@ -226,7 +364,7 @@ export default function Profile() {
             {showMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)}></div>
-                <div className="absolute top-12 right-0 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+                <div className="absolute top-12 right-0 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
                   {studentsList.length > 1 && (
                     <button 
                       onClick={() => { setSelectedIdx(null); setShowMenu(false); }}
@@ -235,6 +373,22 @@ export default function Profile() {
                       <Users size={16} className="text-indigo-500" /> Boshqa profilga o'tish
                     </button>
                   )}
+                  {/* YANGI: ulash havolasini nusxalash — boshqa oila a'zosi shu
+                      havola orqali o'zi Telegramdan ulanib olishi mumkin */}
+                  <button
+                    onClick={handleCopyLink}
+                    className="w-full text-left px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 border-b flex items-center gap-3"
+                  >
+                    {copyFeedback ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="text-indigo-500" />}
+                    {copyFeedback ? "Nusxalandi!" : "Ulash havolasini nusxalash"}
+                  </button>
+                  {/* YANGI: boshqa farzandni ham shu hisobga ulash */}
+                  <button
+                    onClick={() => { setShowAddProfile(true); setShowMenu(false); }}
+                    className="w-full text-left px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 border-b flex items-center gap-3"
+                  >
+                    <UserPlus size={16} className="text-indigo-500" /> Yana profil qo'shish
+                  </button>
                   <button 
                     onClick={handleDisconnect}
                     className="w-full text-left px-4 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-3"
@@ -398,6 +552,7 @@ export default function Profile() {
 
         </div>
       </div>
+      {addProfileModal}
     </div>
   );
 }
