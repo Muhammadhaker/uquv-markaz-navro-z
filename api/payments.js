@@ -1,28 +1,16 @@
 import mongoose from 'mongoose';
+import { connectDB } from './_lib/db.js';
+import { Payment, Student } from './_lib/models.js';
+import { sendMessage, deleteMessage, editMessageText, parseChatIds } from './_lib/telegram.js';
 
-const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) return;
-  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI topilmadi!");
-  return mongoose.connect(process.env.MONGODB_URI);
+const MONTH_NAMES = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+const formatMonthName = (m) => {
+  const [y, mm] = m.split("-");
+  return `${MONTH_NAMES[parseInt(mm) - 1]} ${y}`;
 };
 
-const paymentSchema = new mongoose.Schema({
-  studentId: { type: String, required: true },
-  studentName: { type: String, required: true },
-  groupName: { type: String, required: true },
-  amount: { type: Number, required: true },
-  priceAtThatTime: { type: Number },
-  paymentType: { type: String, required: true },
-  month: { type: String, required: true },
-  date: { type: Date, default: Date.now },
-  adminName: { type: String, required: true },
-  telegramChatId: { type: String },
-  telegramMessageId: { type: Number },
-  teacherId: { type: String, required: true }
-});
-
-const Payment = mongoose.models.Payment || mongoose.model('Payment', paymentSchema, 'payments');
-const Student = mongoose.models.Student || mongoose.model('Student', new mongoose.Schema({}, { strict: false }), 'students');
+const buildReceiptText = ({ studentName, groupName, amount, paymentType, month }, isEdited = false) =>
+  `🧾 *TO'LOV CHEKI*${isEdited ? " (Tahrirlangan)" : ""}\n\n👤 *O'quvchi:* ${studentName}\n📚 *Fan/Guruh:* ${groupName}\n💰 *Summa:* ${Number(amount).toLocaleString()} so'm\n💳 *Turi:* ${paymentType}\n📅 *Oy:* ${formatMonthName(month)}\n\n✅ _To'lov muvaffaqiyatli qabul qilindi!_${isEdited ? "\n\n_✏️ Bu chek admin tomonidan tahrirlangan._" : ""}`;
 
 export default async function handler(req, res) {
   try {
@@ -61,12 +49,8 @@ export default async function handler(req, res) {
 
     // ─── POST: to'lov qabul qilish ───────────────────────────────────────────
     if (req.method === 'POST') {
-      // FIX: isRestore bayrog'i — ActivityLogs.jsx "Tiklash" tugmasi orqali
-      // o'chirilgan to'lovni qayta yaratganda, ota-onaga QAYTA chek yuborilmasin
-      // uchun qo'shildi.
       const { studentId, studentName, groupName, amount, priceAtThatTime, paymentType, month, adminName, telegramChatId, targetTeacherId, isRestore } = req.body;
 
-      // FIX: asosiy maydonlar validatsiyasi — avval yo'q edi
       if (!studentId || !studentName || !groupName || !amount || !paymentType || !month || !adminName) {
         return res.status(400).json({ success: false, message: "Barcha majburiy maydonlar to'ldirilishi shart" });
       }
@@ -93,35 +77,26 @@ export default async function handler(req, res) {
         finalOwnerId = ownerId;
       }
 
-      let messageId = null;
+      // YANGI: har bir muvaffaqiyatli yuborilgan xabarni {chatId, messageId}
+      // juftligi sifatida saqlaymiz — shunda keyinchalik AYNAN shu xabarlarni
+      // o'chirish yoki tahrirlash mumkin bo'ladi (avval faqat bitta messageId
+      // saqlanardi, qaysi chatga tegishli ekani noaniq edi).
+      let telegramMessages = [];
 
-      // FIX: telegramChatId endi vergul bilan ajratilgan bir nechta ID bo'lishi
-      // mumkinligini hisobga oladi — avval faqat bittasiga yuborilardi.
-      // isRestore=true bo'lsa, chek QAYTA yuborilmaydi (bu tiklash, yangi to'lov emas).
       if (telegramChatId && !isRestore) {
         const token = process.env.TELEGRAM_BOT_TOKEN;
-        const formatMonthName = (m) => {
-          const [y, mm] = m.split("-");
-          const names = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
-          return `${names[parseInt(mm) - 1]} ${y}`;
-        };
-
-        const text = `🧾 *TO'LOV CHEKI*\n\n👤 *O'quvchi:* ${studentName}\n📚 *Fan/Guruh:* ${groupName}\n💰 *Summa:* ${Number(amount).toLocaleString()} so'm\n💳 *Turi:* ${paymentType}\n📅 *Oy:* ${formatMonthName(month)}\n\n✅ _To'lov muvaffaqiyatli qabul qilindi!_`;
-
-        const chatIds = String(telegramChatId).split(',').map(id => id.trim()).filter(id => /^\d{6,}$/.test(id));
+        const text = buildReceiptText({ studentName, groupName, amount, paymentType, month });
+        const chatIds = parseChatIds(telegramChatId);
 
         const results = await Promise.allSettled(
-          chatIds.map(cId =>
-            fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: cId, text, parse_mode: 'Markdown' })
-            }).then(r => r.json())
-          )
+          chatIds.map(cId => sendMessage(token, cId, text))
         );
 
-        // Birinchi muvaffaqiyatli xabar ID sini saqlaymiz (chek qaytarish uchun)
-        const firstOk = results.find(r => r.status === 'fulfilled' && r.value?.ok);
-        if (firstOk) messageId = firstOk.value.result.message_id;
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled' && r.value?.ok) {
+            telegramMessages.push({ chatId: chatIds[i], messageId: r.value.result.message_id });
+          }
+        });
       }
 
       const newPayment = await Payment.create({
@@ -129,30 +104,105 @@ export default async function handler(req, res) {
         amount,
         priceAtThatTime: priceAtThatTime || amount,
         paymentType, month, adminName, telegramChatId,
-        telegramMessageId: messageId,
+        telegramMessageId: telegramMessages[0]?.messageId || null, // orqaga moslik
+        telegramMessages,
         teacherId: finalOwnerId
       });
 
       return res.status(201).json({ success: true, data: newPayment });
     }
 
+    // ─── PUT: to'lovni tahrirlash (masalan, chegirma narxini keyin kiritish) ──
+    if (req.method === 'PUT') {
+      const id = req.query.id || req.body?.id;
+      if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: "Noto'g'ri yoki bo'sh ID" });
+      }
+
+      const { amount, priceAtThatTime, paymentType, month } = req.body;
+
+      if (amount !== undefined && Number(amount) <= 0) {
+        return res.status(400).json({ success: false, message: "Summa musbat bo'lishi kerak" });
+      }
+
+      const existing = await Payment.findById(id);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: "To'lov topilmadi" });
+      }
+
+      // Ruxsat: super_admin har narsani tahrirlaydi, teacher/assistant faqat
+      // o'z kassasidagi (o'zining teacherId'siga tegishli) to'lovlarni.
+      const ownerId = role === 'assistant' ? parentId : userId;
+      if (role !== 'super_admin' && existing.teacherId !== ownerId) {
+        return res.status(403).json({ success: false, message: "Siz faqat o'zingizning kassangizdagi to'lovlarni tahrirlay olasiz!" });
+      }
+
+      if (amount !== undefined) existing.amount = Number(amount);
+      if (priceAtThatTime !== undefined) existing.priceAtThatTime = Number(priceAtThatTime);
+      if (paymentType !== undefined) existing.paymentType = paymentType;
+      if (month !== undefined) existing.month = month;
+
+      await existing.save();
+
+      // YANGI: Telegramdagi eski chekni O'CHIRIB-QAYTA YUBORISH o'rniga,
+      // xuddi shu xabar ustida TAHRIRLASH (editMessageText) qilinadi — ota-ona
+      // suhbatida ikkita chek qolib ketmasligi uchun.
+      if (existing.telegramMessages?.length > 0) {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        const newText = buildReceiptText(existing, true);
+
+        await Promise.allSettled(
+          existing.telegramMessages.map(m =>
+            editMessageText(token, m.chatId, m.messageId, newText)
+          )
+        );
+      }
+
+      return res.status(200).json({ success: true, data: existing });
+    }
+
     // ─── DELETE ───────────────────────────────────────────────────────────────
     if (req.method === 'DELETE') {
-      // FIX: id endi query paramdan olinadi — DELETE so'rovida body ishlatish
-      // HTTP standartiga zid, ba'zi proksi/browser buni tashlab yuboradi.
-      // Eski frontend `body: JSON.stringify({ id })` yuborishi mumkin — shuning
-      // uchun ikkalasini ham qo'llab-quvvatlaymiz (moslashuvchan o'tish davri uchun).
       const id = req.query.id || req.body?.id;
 
       if (!id || !mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ success: false, message: "Noto'g'ri yoki bo'sh ID" });
       }
 
-      const deleted = await Payment.findByIdAndDelete(id);
-      if (!deleted) {
+      // FIX: o'chirishdan OLDIN Telegram xabarlarini yig'ib olamiz — chunki
+      // o'chirilgandan keyin ma'lumot yo'qoladi.
+      const existing = await Payment.findById(id);
+      if (!existing) {
         return res.status(404).json({ success: false, message: "To'lov topilmadi" });
       }
 
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      const pairsToDelete = [];
+
+      // Yangi (aniq) format
+      if (Array.isArray(existing.telegramMessages)) {
+        existing.telegramMessages.forEach(m => {
+          if (m.chatId && m.messageId) pairsToDelete.push({ chatId: m.chatId, messageId: m.messageId });
+        });
+      }
+
+      // Eski (aniqmas) format — orqaga moslik uchun. Bu yozuvda faqat bitta
+      // messageId bor, lekin qaysi chatga tegishli ekani noma'lum edi, shuning
+      // uchun barcha mumkin bo'lgan chatId'lar uchun sinab ko'ramiz (mos
+      // kelmagani jimgina muvaffaqiyatsiz tugaydi, zarar yo'q).
+      if (existing.telegramMessageId && existing.telegramChatId && pairsToDelete.length === 0) {
+        parseChatIds(existing.telegramChatId).forEach(cId => {
+          pairsToDelete.push({ chatId: cId, messageId: existing.telegramMessageId });
+        });
+      }
+
+      if (token && pairsToDelete.length > 0) {
+        await Promise.allSettled(
+          pairsToDelete.map(p => deleteMessage(token, p.chatId, p.messageId))
+        );
+      }
+
+      await Payment.findByIdAndDelete(id);
       return res.status(200).json({ success: true });
     }
 

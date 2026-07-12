@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { CalendarDays, Loader2, Download, Trash2, Plus, TrendingUp, TrendingDown, Wallet, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { CalendarDays, Loader2, Download, Trash2, Plus, TrendingUp, TrendingDown, Wallet, ArrowDownRight, ArrowUpRight, Pencil } from "lucide-react";
 import AddExpenseModal from "../components/AddExpenseModal";
+import EditPaymentModal from "../components/EditPaymentModal";
 
 export default function Dashboard() {
   const [payments, setPayments] = useState([]);
@@ -9,6 +10,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("income");
 
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null); // YANGI: tahrirlash uchun
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -382,9 +384,14 @@ export default function Dashboard() {
                       <td className="px-6 py-4 font-bold text-emerald-600">{Number(p.amount).toLocaleString("ru-RU")} so'm</td>
                       <td className="px-6 py-4 hidden md:table-cell text-slate-500">{new Date(p.date).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                       <td className="px-6 py-4 text-right">
-                        <button onClick={() => handleDeletePayment(p)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg">
-                          <Trash2 size={18} />
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => setEditingPayment(p)} className="text-indigo-500 p-2 hover:bg-indigo-50 rounded-lg" title="Tahrirlash">
+                            <Pencil size={18} />
+                          </button>
+                          <button onClick={() => handleDeletePayment(p)} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg" title="O'chirish">
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -446,6 +453,13 @@ export default function Dashboard() {
         onClose={() => setIsExpenseModalOpen(false)}
         onSuccess={fetchStats}
         selectedMonth={selectedMonth}
+      />
+
+      <EditPaymentModal
+        isOpen={!!editingPayment}
+        payment={editingPayment}
+        onClose={() => setEditingPayment(null)}
+        onSuccess={fetchStats}
       />
 
     </div>

@@ -1,12 +1,6 @@
 import mongoose from 'mongoose';
-
-const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) return;
-  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI topilmadi!");
-  return mongoose.connect(process.env.MONGODB_URI);
-};
-
-const Payment = mongoose.models.Payment || mongoose.model('Payment', new mongoose.Schema({}, { strict: false }), 'payments');
+import { connectDB } from './_lib/db.js';
+import { Payment } from './_lib/models.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -44,7 +38,7 @@ export default async function handler(req, res) {
     }
 
     let successCount = 0;
-    let firstMsgId   = null;
+    const sentPairs  = []; // {chatId, messageId} — har bir chat uchun ANIQ saqlanadi
     const errors     = [];
 
     // FIX 4: Promise.all → Promise.allSettled
@@ -62,7 +56,7 @@ export default async function handler(req, res) {
     results.forEach((result, i) => {
       if (result.status === 'fulfilled' && result.value?.ok) {
         successCount++;
-        if (!firstMsgId) firstMsgId = result.value.result.message_id;
+        sentPairs.push({ chatId: safeChatIds[i], messageId: result.value.result.message_id });
       } else {
         const reason = result.status === 'rejected'
           ? result.reason?.message
@@ -73,15 +67,18 @@ export default async function handler(req, res) {
     });
 
     if (successCount > 0) {
-      // paymentId berilgan bo'lsa — messageId ni bazaga saqlaymiz
-      if (paymentId && firstMsgId) {
+      // FIX: paymentId berilgan bo'lsa — YANGI telegramMessages massiviga
+      // {chatId, messageId} juftliklarini qo'shamiz. Avval faqat messageId
+      // (qaysi chatga tegishli ekani noaniq holda) saqlanardi — bu to'lovni
+      // o'chirish/tahrirlashda aniq xabarni topib bo'lmasligiga olib kelardi.
+      if (paymentId && sentPairs.length > 0) {
         try {
           await connectDB();
           if (!mongoose.Types.ObjectId.isValid(paymentId)) {
             console.warn("Noto'g'ri paymentId:", paymentId);
           } else {
             await Payment.findByIdAndUpdate(paymentId, {
-              $push: { extraMessageIds: firstMsgId }
+              $push: { telegramMessages: { $each: sentPairs } }
             });
           }
         } catch (dbErr) {

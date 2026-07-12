@@ -37,6 +37,9 @@ export const sendPhoto = (token, chatId, photo, caption, extra = {}) =>
 export const deleteMessage = (token, chatId, message_id) =>
   tg(token, 'deleteMessage', { chat_id: chatId, message_id });
 
+export const editMessageText = (token, chatId, message_id, text, extra = {}) =>
+  tg(token, 'editMessageText', { chat_id: chatId, message_id, text, parse_mode: 'Markdown', ...extra });
+
 export const editMessageReplyMarkup = (token, chatId, message_id, markup = []) =>
   tg(token, 'editMessageReplyMarkup', { chat_id: chatId, message_id, reply_markup: { inline_keyboard: markup } });
 

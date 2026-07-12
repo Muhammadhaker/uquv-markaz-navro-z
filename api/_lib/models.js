@@ -38,8 +38,12 @@ export const Payment = mongoose.models.Payment || mongoose.model('Payment', new 
   date:              { type: Date, default: Date.now },
   adminName:         { type: String, required: true },
   telegramChatId:    { type: String },
+  // ESKI maydonlar (orqaga moslik uchun saqlanadi, endi yozilmaydi):
   telegramMessageId: { type: Number },
   extraMessageIds:   { type: [Number], default: [] },
+  // YANGI: har bir xabar qaysi chatId'ga borganini ANIQ saqlaydi — shuning
+  // uchun o'chirish/tahrirlashda to'g'ri xabarni topib ishlov berish mumkin.
+  telegramMessages:  { type: [{ chatId: String, messageId: Number }], default: [] },
   teacherId:         { type: String, required: true }
 }), 'payments');
 
