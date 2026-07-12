@@ -16,6 +16,53 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
+  // TUZATISH: mobil qurilmada barmoq bilan surib (svayp) menyuni ochish/yopish
+  // funksiyasi shu yerda yo'q ekan — avvalgi tahrirda men bu funksiya
+  // Sidebar.jsx'da mavjud deb noto'g'ri taxmin qilib, Layout.jsx'dagi
+  // nusxasini o'chirib tashlagan edim. Natijada ikkalasida ham qolmay,
+  // svayp bilan menyuni ochish ishlamay qoldi. Endi to'g'ri joyga qaytarildi:
+  // - Chap chetdan (ekran chetiga yaqin joydan) o'ngga surilsa -> ochiladi
+  // - Istalgan joydan chapga surilsa -> yopiladi
+  // - Vertikal skroll (masalan jadvalni yuqori-past qilish) bilan
+  //   adashtirmaslik uchun X va Y farqi solishtiriladi.
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    const EDGE_ZONE_PX = 40;   // faqat shu masofadagi chapdan boshlangan svayp menyuni ochadi
+    const MIN_SWIPE_PX = 50;   // svayp deb hisoblanishi uchun minimal masofa
+
+    const handleTouchStart = (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    };
+
+    const handleTouchEnd = (e) => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const touchEndY = e.changedTouches[0].screenY;
+      const xDiff = touchEndX - touchStartX;
+      const yDiff = touchEndY - touchStartY;
+
+      // Vertikal harakat gorizontaldan katta bo'lsa — bu skroll, e'tiborsiz qoldiramiz
+      if (Math.abs(xDiff) <= Math.abs(yDiff)) return;
+      if (Math.abs(xDiff) < MIN_SWIPE_PX) return;
+
+      if (xDiff > 0 && touchStartX < EDGE_ZONE_PX) {
+        setIsOpen(true);
+      } else if (xDiff < 0) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [setIsOpen]);
+
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
